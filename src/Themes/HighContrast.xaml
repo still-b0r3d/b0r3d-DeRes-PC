@@ -1,0 +1,32 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- High contrast: Windows' own colours, whatever theme is picked. Good, Bad and Warn are plain
+         text here; the check's ✓ and ✗ still say which is which. -->
+    <SolidColorBrush x:Key="Back" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Panel" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Stage" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="Text" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Dim" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Line" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Field" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="FieldLine" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="FieldLineHover" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="Accent" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="AccentText" Color="{x:Static SystemColors.HighlightTextColor}" />
+    <SolidColorBrush x:Key="Button" Color="{x:Static SystemColors.ControlColor}" />
+    <SolidColorBrush x:Key="ButtonHover" Color="{x:Static SystemColors.ControlColor}" />
+    <SolidColorBrush x:Key="ButtonPressed" Color="{x:Static SystemColors.ControlColor}" />
+    <SolidColorBrush x:Key="ButtonLine" Color="{x:Static SystemColors.ControlTextColor}" />
+    <SolidColorBrush x:Key="MenuBar" Color="{x:Static SystemColors.MenuBarColor}" />
+    <SolidColorBrush x:Key="Menu" Color="{x:Static SystemColors.MenuColor}" />
+    <SolidColorBrush x:Key="MenuHover" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="MenuHoverText" Color="{x:Static SystemColors.HighlightTextColor}" />
+    <SolidColorBrush x:Key="MenuLine" Color="{x:Static SystemColors.MenuTextColor}" />
+    <SolidColorBrush x:Key="Good" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Bad" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Warn" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="Link" Color="{x:Static SystemColors.HotTrackColor}" />
+    <SolidColorBrush x:Key="Thumb" Color="{x:Static SystemColors.ControlDarkColor}" />
+    <SolidColorBrush x:Key="ThumbHover" Color="{x:Static SystemColors.HighlightColor}" />
+    <DropShadowEffect x:Key="TitleGlow" ShadowDepth="0" BlurRadius="0" Opacity="0" />
+</ResourceDictionary>

@@ -1,0 +1,10 @@
+bin/
+obj/
+*.ini
+*.log
+*.tmp
+*.user
+.vs/
+b0r3dDeRes data/
+Thumbs.db
+desktop.ini

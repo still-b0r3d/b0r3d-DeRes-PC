@@ -1,0 +1,47 @@
+<Project>
+  <!-- Shared by the program (src) and the tests. The program runs on .NET Framework 4.8, which
+       comes with Windows 10 and 11; only building it needs the .NET SDK. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NeutralLanguage>en</NeutralLanguage>
+
+    <!-- 64-bit only: .NET's 64-bit code does every sum in plain doubles, the way the website's
+         JavaScript does, so the pictures come out the same to the last bit (32-bit code can keep
+         extra bits in between). It also gives room for big photos. -->
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+
+    <!-- Packages are pinned by packages.lock.json; GitHub's build refuses to change them. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+
+    <!-- The version: raise it here (and in CHANGELOG.md) for each batch of changes. The build is
+         the commit GitHub builds from, or "dev" (build.cmd passes it in): the exe's Product
+         version says "0.1 build abc1234", and the program shows "v0.1 · Build: abc1234". -->
+    <Version>0.1</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <BuildStamp Condition="'$(BuildStamp)' == ''">dev</BuildStamp>
+    <InformationalVersion>$(Version) build $(BuildStamp)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <Product>b0r3d DeRes</Product>
+    <Company>b0r3d.org</Company>
+    <Authors>b0r3d.org</Authors>
+    <Copyright>Copyright (c) 2026 b0r3d.org</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- .NET Framework 4.8's reference files from NuGet on every PC. GitHub's machines have them
+         installed and many PCs don't; without this the SDK adds the package only where they're
+         missing, and the pinned package list wouldn't match between the two. -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

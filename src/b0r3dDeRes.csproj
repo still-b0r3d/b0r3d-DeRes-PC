@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>b0r3dDeRes</AssemblyName>
+    <RootNamespace>B0r3dDeRes</RootNamespace>
+    <AssemblyTitle>b0r3d DeRes</AssemblyTitle>
+    <Description>Turns photos into the pictures of old computers and consoles: their resolution, their palettes and their dithers. Nothing is sent anywhere.</Description>
+    <ApplicationIcon>..\assets\b0r3dDeRes.ico</ApplicationIcon>
+    <ApplicationManifest>..\assets\app.manifest</ApplicationManifest>
+    <StartupObject>B0r3dDeRes.Program</StartupObject>
+    <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- App.xaml holds the resources; Program.Main starts the app (it reads the command line first) -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+    <Resource Include="..\assets\b0r3dDeRes.ico" Link="assets\b0r3dDeRes.ico" />
+    <!-- the samples: the website's own files, byte for byte -->
+    <EmbeddedResource Include="..\assets\samples\rukus.png" Link="samples\rukus.png" LogicalName="B0r3dDeRes.samples.rukus.png" />
+    <EmbeddedResource Include="..\assets\samples\crystal-forest.jpg" Link="samples\crystal-forest.jpg" LogicalName="B0r3dDeRes.samples.crystal-forest.jpg" />
+    <EmbeddedResource Include="..\assets\samples\cat-nap.jpg" Link="samples\cat-nap.jpg" LogicalName="B0r3dDeRes.samples.cat-nap.jpg" />
+    <EmbeddedResource Include="..\LICENSE" Link="LICENSE" LogicalName="B0r3dDeRes.LICENSE" />
+    <EmbeddedResource Include="..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" LogicalName="B0r3dDeRes.THIRD-PARTY-NOTICES.txt" />
+  </ItemGroup>
+
+  <!-- One file, with nothing beside it: the exe goes to bin\ at the top of the repo. Nothing from
+       NuGet goes into it. Only a Release build is copied, every time, so bin\ never keeps an old one. -->
+  <Target Name="CopyToBin" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)..\bin" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildThisFileDirectory)..\bin" />
+  </Target>
+
+</Project>

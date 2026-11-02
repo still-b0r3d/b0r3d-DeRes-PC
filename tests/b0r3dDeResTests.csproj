@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>b0r3dDeResTests</AssemblyName>
+    <RootNamespace>B0r3dDeRes.Tests</RootNamespace>
+    <AssemblyTitle>b0r3d DeRes tests</AssemblyTitle>
+    <StartupObject>B0r3dDeRes.Tests.TestMain</StartupObject>
+    <!-- bin\tests\, next to the exe in bin\ that some tests check -->
+    <OutputPath>$(MSBuildThisFileDirectory)..\bin\tests\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\b0r3dDeRes.csproj" />
+    <!-- reads the exe's own metadata for the "never goes online" test -->
+    <PackageReference Include="System.Reflection.Metadata" Version="10.0.0" />
+    <!-- the pictures the website's engine started from (website\*.png) -->
+    <None Include="website\*.png" CopyToOutputDirectory="PreserveNewest" LinkBase="website" />
+  </ItemGroup>
+
+</Project>

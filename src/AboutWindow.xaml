@@ -1,0 +1,40 @@
+<Window x:Class="B0r3dDeRes.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About b0r3d DeRes" Width="640" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Icon="/b0r3dDeRes;component/assets/b0r3dDeRes.ico"
+        Background="{DynamicResource Back}" Foreground="{DynamicResource Text}"
+        FontFamily="Segoe UI" FontSize="13"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+    <Border x:Name="Root" Background="{DynamicResource Back}">
+        <StackPanel Margin="24,22,24,20">
+            <DockPanel>
+                <Image x:Name="CupPicture" DockPanel.Dock="Left" Width="64" Height="64" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="b0r3d DeRes" FontFamily="Courier New" FontWeight="Bold" FontSize="26" Effect="{DynamicResource TitleGlow}" />
+                    <TextBlock x:Name="VersionText" Foreground="{DynamicResource Dim}" Margin="0,2,0,0" />
+                    <TextBlock Margin="0,2,0,0">
+                        <Run Text="Made by" /> <Hyperlink Click="OnMaker">b0r3d.org</Hyperlink>
+                    </TextBlock>
+                </StackPanel>
+            </DockPanel>
+
+            <TextBlock TextWrapping="Wrap" Margin="0,18,0,0"
+                       Text="Turns photos into the pictures of old computers and consoles, with their resolution, their colours and their dithers, the same as img.b0r3d.org makes them. b0r3d DeRes never goes online: your pictures stay on this PC, and it never keeps them." />
+
+            <TextBlock Style="{StaticResource Heading}" Text="Settings folder" />
+            <DockPanel>
+                <Button x:Name="OpenFolder" DockPanel.Dock="Right" Content="_Open" Click="OnOpenFolder" Margin="12,0,0,0" VerticalAlignment="Center" />
+                <TextBlock x:Name="FolderText" TextWrapping="Wrap" Foreground="{DynamicResource Dim}" VerticalAlignment="Center" />
+            </DockPanel>
+
+            <TextBlock Style="{StaticResource Heading}" Text="Licences" />
+            <!-- the licence files keep their own line breaks -->
+            <TextBox x:Name="Licences" IsReadOnly="True" Height="200" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     FontFamily="Consolas" FontSize="11" AutomationProperties.Name="Licences" />
+
+            <Button Content="Close" IsCancel="True" IsDefault="True" HorizontalAlignment="Right" Margin="0,18,0,0" MinWidth="90" />
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,0 +1,79 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+# read-only unless a job says otherwise; only the release job below can write
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build and test
+        shell: cmd
+        env:
+          B0R3DDERES_BUILD: ${{ github.sha }}
+        run: build.cmd test
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash bin\b0r3dDeRes.exe -Algorithm SHA256).Hash.ToLower()
+          Set-Content bin\b0r3dDeRes.exe.sha256 "$hash  b0r3dDeRes.exe`n" -NoNewline -Encoding ascii
+          Get-Content bin\b0r3dDeRes.exe.sha256
+          (Get-Item bin\b0r3dDeRes.exe).VersionInfo.ProductVersion
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: b0r3dDeRes
+          path: |
+            bin/b0r3dDeRes.exe
+            bin/b0r3dDeRes.exe.sha256
+
+  # a version tag (v0.9, v1.0, ...) drafts a release from the build above; publishing the
+  # draft stays a person's job
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: b0r3dDeRes
+          path: bin
+
+      # the exe says "0.1 build abc1234": the version, then the commit it was built from
+      - name: The tag must match the exe's version
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME.TrimStart('v')
+          $exe = (Get-Item bin\b0r3dDeRes.exe).VersionInfo.ProductVersion
+          $version, $build = $exe -split ' build '
+          if ($tag -ne $version) { Write-Error "Tag $env:GITHUB_REF_NAME doesn't match b0r3dDeRes.exe's version $exe"; exit 1 }
+          if (-not $build -or -not $env:GITHUB_SHA.StartsWith($build)) { Write-Error "b0r3dDeRes.exe says $exe, not commit $env:GITHUB_SHA"; exit 1 }
+          "tag and exe agree: $exe"
+
+      - name: Draft the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = "See CHANGELOG.md for what changed. Windows may say it protected your PC: click More info, then Run anyway (b0r3d DeRes isn't code-signed). b0r3dDeRes.exe.sha256 holds its SHA-256."
+          gh release create $env:GITHUB_REF_NAME bin/b0r3dDeRes.exe bin/b0r3dDeRes.exe.sha256 --repo $env:GITHUB_REPOSITORY --draft --title "b0r3d DeRes $env:GITHUB_REF_NAME" --notes $notes
