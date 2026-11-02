@@ -147,7 +147,10 @@ namespace B0r3dDeRes.Tests
             Rendered r = window.Shown;
             Check(r.Profile.Id == "gameboy" && r.Width == 160 && r.Height == 144, "it started with " + r.Profile.Id + " at " + r.Width + "×" + r.Height);
             Check(window.PictureInfo.Text == "rukus.png · 256×256", "the picture line: " + window.PictureInfo.Text);
-            Check(window.Readout.Text == r.Used + " of 4 colours used · 160×144 · square pixels", "the readout: " + window.Readout.Text);
+            // (the tile meter's numbers are the website's: the pictures test checks them all)
+            Check(window.Readout.Text == r.Used + " of 4 colours used · 160×144 · square pixels · " + r.TileFit.Summary &&
+                System.Text.RegularExpressions.Regex.IsMatch(r.TileFit.Summary, @"^\d+ / 256 tiles \(fits in VRAM\)$"), "the readout: " + window.Readout.Text);
+            Check(window.TileFit.Visibility == Visibility.Visible && window.TileFitText.Text == r.TileFit.Summary, "the tile meter should show under the machines");
             Check(window.ResolutionInfo.Text == "Game Boy: 160×144 pixels. Each pixel averages 1.6 × 1.6 of your photo’s pixels.", "the resolution line: " + window.ResolutionInfo.Text);
             Check(window.SizeLine.Text == "640×576 px · 4-colour palette", "the size line: " + window.SizeLine.Text);
             Check(window.StageNote.Visibility != Visibility.Visible, "the stage still shows a note: " + window.StageNote.Text);

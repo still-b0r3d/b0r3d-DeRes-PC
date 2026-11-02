@@ -72,6 +72,26 @@ namespace B0r3dDeRes.Engine
                 rgb[i] = rgb[i + 1] = rgb[i + 2] = y;
             }
         }
+
+        // Sharpens a grey picture's edges in sRGB (the Game Boy Camera did this before its dither),
+        // in place.
+        public static void EdgeBoost(float[] rgb, int width, int height, double amount)
+        {
+            if (amount <= 0) return;
+            var v = new float[width * height];
+            for (int i = 0; i < v.Length; i++) v[i] = (float)Colour.ToSrgb(rgb[i * 3]);
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int i = y * width + x;
+                    // (doubles: the website adds the four as doubles)
+                    double c = v[i], n = v[y > 0 ? i - width : i], s = v[y < height - 1 ? i + width : i], w = v[x > 0 ? i - 1 : i], e = v[x < width - 1 ? i + 1 : i];
+                    double sharp = Clamp01(c + amount * 2 * (c - (n + s + w + e) / 4));
+                    rgb[i * 3] = rgb[i * 3 + 1] = rgb[i * 3 + 2] = (float)Colour.ToLinear(sharp);
+                }
+            }
+        }
     }
 
     // "Detail": shrinking makes each machine pixel the average of the photo pixels it covers.

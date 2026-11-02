@@ -11,9 +11,10 @@ namespace B0r3dDeRes
 {
     // b0r3dDeRes.exe --selftest <file>: no window shown. Opens a sample from inside the exe, makes
     // the picture, saves it as a PNG the way File → Save PNG does and reads that back through
-    // Windows, builds the windows in both looks with the picture in them, and writes what it found
-    // to <file> as key=value lines; the exit code is 0 when it all worked. The tests run it on the
-    // finished exe, on its own in a folder, to prove it works with nothing beside it.
+    // Windows, makes it on every machine, reads back a share link, builds the windows in both
+    // looks with the picture in them, and writes what it found to <file> as key=value lines; the
+    // exit code is 0 when it all worked. The tests run it on the finished exe, on its own in a
+    // folder, to prove it works with nothing beside it.
     static class SelfTest
     {
         public static int Run(string reportPath)
@@ -52,6 +53,23 @@ namespace B0r3dDeRes
                     }
                 lines.Add("png=" + (same && indexed ? "ok" : "failed"));
                 ok &= same && indexed;
+
+                // every machine makes a picture of it, kept see-through too, and writes its PNG and its own file
+                bool machines = Profiles.All.All(p => new[] { Backgrounds.White, Backgrounds.Transparent }.All(bg =>
+                {
+                    Rendered m = engine.Render(new DeresSettings { ProfileId = p.Id, Dither = p.Dither, Background = bg });
+                    return m.Used >= 1 && Export.PngBytes(m, 1, false).Length > 0 && (p.EmulatorFormats.Length == 0 || m.EmulatorFile?.Data.Length > 0);
+                }));
+                lines.Add("machines=" + (machines ? "ok" : "failed"));
+                ok &= machines;
+
+                // a share link, made and read back
+                Settings shared = Settings.Defaults();
+                shared.Deres.ProfileId = "snes";
+                shared.Deres.CustomCount = 7;
+                bool link = Looks.Link(Looks.Apply(Looks.FromLink(Looks.Link(shared)), Settings.Defaults(), out _)) == Looks.Link(shared);
+                lines.Add("link=" + (link ? "ok" : "failed"));
+                ok &= link;
 
                 // the samples are all inside: each opens
                 bool samples = Pictures.Samples.All(sample => Pictures.Sample(sample.Id).Source.Width > 0);

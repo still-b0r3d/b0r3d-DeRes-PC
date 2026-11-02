@@ -26,6 +26,15 @@ namespace B0r3dDeRes.Tests
             Width = width; Height = height; Used = used; Palette = palette; Indices = indices; Rgb = rgb; Src = src; Dst = dst; Words = words;
         }
 
+        // the Colours slider (-1: not moved), Custom's palette ("" for none, else "#rrggbb,…")
+        public int Count = -1;
+        public string CustomPalette = "";
+        // what else came out: pixels its palette's entries or not, which show (a hash, "" for all),
+        // the paper colour, the tile meter (its line, "" for none) and the machine's own file
+        public bool Indexed, TilesFit, ColoursFit;
+        public string Alpha, Paper, Tiles, EmuFormat, EmuName, EmuSha;
+        public int UniqueTiles, UniqueColours, EmuLength;
+
         public DeresSettings Settings() => new DeresSettings
         {
             ProfileId = Profile,
@@ -36,10 +45,13 @@ namespace B0r3dDeRes.Tests
             Background = Background,
             Adjust = new Adjust { Brightness = Brightness, Contrast = Contrast, Saturation = Saturation, Gamma = Gamma },
             Dither = Dither,
+            CustomCount = Count >= 0 ? Count : (int?)null,
+            CustomPalette = CustomPalette.Length > 0 ? CustomPalette.Split(',') : null,
         };
 
         public override string ToString() => Input + " " + Profile + " " + Dither + (CustomWidth >= 0 ? " width " + CustomWidth : " " + Fit) + " detail " + Detail + " " + Background +
-            (Brightness != 0 || Contrast != 1 || Saturation != 1 || Gamma != 1 ? " adjust " + Brightness + "/" + Contrast + "/" + Saturation + "/" + Gamma : "");
+            (Brightness != 0 || Contrast != 1 || Saturation != 1 || Gamma != 1 ? " adjust " + Brightness + "/" + Contrast + "/" + Saturation + "/" + Gamma : "") +
+            (Count >= 0 ? " colours " + Count : "") + (CustomPalette.Length > 0 ? " palette of " + CustomPalette.Split(',').Length : "");
     }
 
     // One PNG the website exported from a picture above, by its parts.
@@ -48,6 +60,7 @@ namespace B0r3dDeRes.Tests
         public readonly int Render, Multiplier, Width, Height, Depth, ColourType, RowBytes;
         public readonly bool Tv;
         public readonly string Name, Chunks, Palette, Rows;
+        public string Trns = "";    // the see-through entries, hex ("" for none)
 
         public ExportCase(int render, int multiplier, bool tv, string name, string chunks, int width, int height, int depth, int colourType, string palette, string rows, int rowBytes)
         {
@@ -61,6 +74,11 @@ namespace B0r3dDeRes.Tests
         public readonly string Id, Name, Origin, About, Colours, Dither, Screen;
         public readonly int Width, Height, ParX, ParY;
         public readonly bool Mono;
+        // how it gets its colours, its limits, and what the controls ask of it (-1 / "" for none)
+        public string Kind, Pool, Mode, Formats, ExportNote, NativeDither, Representative, PaletteBytes, DitherApplies, DitherNote, Counts;
+        public int Bits, Count, MaxTiles, MaxColours, MaxCount, Total;
+        public bool Limits, PixelsArePalette;
+        public double EdgeBoost;
 
         public ProfileCase(string id, string name, string origin, string about, int width, int height, int parX, int parY, string colours, bool mono, string dither, string screen)
         {
@@ -161,6 +179,12 @@ namespace B0r3dDeRes.Tests
             Check(wrong.Count == 0, "the gamma tables differ at " + string.Join(", ", wrong.Take(10)));
         }
 
+        static readonly Dictionary<PaletteKind, string> kinds = new Dictionary<PaletteKind, string>
+        {
+            { PaletteKind.Fixed, "fixed" }, { PaletteKind.Range, "range" }, { PaletteKind.Direct, "direct" }, { PaletteKind.Custom, "custom" },
+            { PaletteKind.Pool, "pool" }, { PaletteKind.Cell, "cell" }, { PaletteKind.Ham, "ham" }, { PaletteKind.N64, "n64" },
+        };
+
         static void MachinesLikeTheWebsite()
         {
             Check(Profiles.All.Select(p => p.Id).SequenceEqual(Website.Profiles.Select(p => p.Id)), "the machines aren't the website's, in its order: " + string.Join(", ", Profiles.All.Select(p => p.Id)));
@@ -169,18 +193,30 @@ namespace B0r3dDeRes.Tests
                 Profile p = Profiles.ById(w.Id);
                 Check(p.Name == w.Name && p.Origin == w.Origin && p.About == w.About, p.Id + "'s words differ: " + p.Name + " / " + p.Origin + " / " + p.About);
                 Check(p.Width == w.Width && (w.Height < 0 ? p.AutoHeight : !p.AutoHeight && p.Height == w.Height) && p.ParX == w.ParX && p.ParY == w.ParY, p.Id + "'s size or pixel shape differs");
-                Check(string.Join(",", p.Colours) == w.Colours, p.Id + "'s colours differ");
-                Check(p.Mono == w.Mono && p.Dither == w.Dither && p.Screen == w.Screen, p.Id + "'s grey levels, dither or screen differ");
+                Check(kinds[p.Kind] == w.Kind, p.Id + " gets its colours as " + kinds[p.Kind] + ", not " + w.Kind);
+                Check(string.Join(",", p.Colours ?? new string[0]) == w.Colours && string.Join(",", p.Pool ?? new string[0]) == w.Pool, p.Id + "'s colours differ");
+                Check(p.BitsPerChannel == w.Bits && p.Count == w.Count && (p.Mode ?? "") == w.Mode, p.Id + "'s range, count or cells differ");
+                Check((p.MaxTiles ?? -1) == w.MaxTiles && (p.MaxColours ?? -1) == w.MaxColours && string.Join(",", p.EmulatorFormats) == w.Formats && p.HasLimits == w.Limits,
+                    p.Id + "'s limits differ");
+                Check((p.ExportNote ?? "") == w.ExportNote, p.Id + "'s note under the export buttons differs");
+                Check(p.Mono == w.Mono && p.Dither == w.Dither && (p.NativeDither ?? "") == w.NativeDither && p.EdgeBoost == w.EdgeBoost && p.Screen == w.Screen,
+                    p.Id + "'s grey levels, dithers, sharpening or screen differ");
+                Check(string.Join(",", Profiles.RepresentativePalette(p)) == w.Representative, p.Id + "'s card colours differ: " + string.Join(",", Profiles.RepresentativePalette(p)));
+                Check(Hex(Profiles.PaletteBytes(p)) == w.PaletteBytes, p.Id + "'s palette bytes differ");
+                Check((Profiles.MaxColourCount(p) ?? -1) == w.MaxCount && (Profiles.ColourTotal(p, Profiles.PaletteBytes(p)) ?? -1) == w.Total && Profiles.PixelsArePalette(p) == w.PixelsArePalette,
+                    p.Id + "'s colour counts differ");
+                Check(string.Join("", Dither.All.Select(d => Profiles.DitherApplies(p, d.Id) ? "1" : "0")) == w.DitherApplies && (Profiles.DitherNote(p) ?? "") == w.DitherNote,
+                    p.Id + "'s dithers that apply, or its note, differ");
+                Check(string.Join(",", new int?[] { null, 1, 2, 7, 300 }.Select(c => Profiles.ColourCount(p, c) ?? -1)) == w.Counts, p.Id + "'s Colours slider counts differ");
             }
         }
 
         static void DithersLikeTheWebsite()
         {
-            var general = Website.Dithers.Where(d => !d.Native).ToList();
-            Check(Dither.All.Length == general.Count, "the dithers offered are " + string.Join(", ", Dither.All.Select(d => d.Id)));
-            for (int i = 0; i < general.Count; i++)
-                Check(Dither.All[i].Id == general[i].Id && Dither.All[i].Name == general[i].Name && Dither.All[i].Hint == general[i].Hint,
-                    "dither " + (i + 1) + " is " + Dither.All[i].Id + " (" + Dither.All[i].Name + ", " + Dither.All[i].Hint + "), not the website's " + general[i].Id);
+            Check(Dither.All.Length == Website.Dithers.Length, "the dithers are " + string.Join(", ", Dither.All.Select(d => d.Id)));
+            for (int i = 0; i < Website.Dithers.Length; i++)
+                Check(Dither.All[i].Id == Website.Dithers[i].Id && Dither.All[i].Name == Website.Dithers[i].Name && Dither.All[i].Hint == Website.Dithers[i].Hint && Dither.All[i].Native == Website.Dithers[i].Native,
+                    "dither " + (i + 1) + " is " + Dither.All[i].Id + " (" + Dither.All[i].Name + ", " + Dither.All[i].Hint + "), not the website's " + Website.Dithers[i].Id);
         }
 
         static void PicturesLikeTheWebsite()
@@ -195,8 +231,17 @@ namespace B0r3dDeRes.Tests
                 {
                     if (Hex(r.Palette) != c.Palette) why.Add("palette");
                     if (Sha(r.Indices) != c.Indices) why.Add("pixels (" + Differences(c, r) + ")");
-                    else if (Sha(r.Rgb) != c.Rgb) why.Add("colours");
+                    if (Sha(r.Rgb) != c.Rgb) why.Add("colours");
                     if (r.Used != c.Used) why.Add(r.Used + " colours used, not " + c.Used);
+                    if (r.Indexed != c.Indexed) why.Add(r.Indexed ? "indexed" : "not indexed");
+                    if ((r.Alpha == null ? "" : Sha(r.Alpha)) != c.Alpha) why.Add(r.Alpha == null ? "nothing see-through" : "see-through pixels");
+                    if (Hex(r.Paper) != c.Paper) why.Add("paper " + Hex(r.Paper));
+                    HardwareFitReport t = r.TileFit;
+                    if ((t?.Summary ?? "") != c.Tiles || (t?.UniqueTiles ?? -1) != c.UniqueTiles || (t?.UniqueColours ?? -1) != c.UniqueColours ||
+                        (t?.TilesFit ?? true) != c.TilesFit || (t?.ColoursFit ?? true) != c.ColoursFit) why.Add("tile meter \"" + t?.Summary + "\"");
+                    EmulatorFile e = r.EmulatorFile;
+                    if ((e?.Format ?? "") != c.EmuFormat || (e?.DefaultName ?? "") != c.EmuName || (e == null ? -1 : e.Data.Length) != c.EmuLength || (e == null ? "" : Sha(e.Data)) != c.EmuSha)
+                        why.Add("machine file " + e?.DefaultName + " (" + (e?.Data.Length ?? 0) + " bytes)");
                 }
                 if (why.Count > 0) wrong.Add(c + ": " + string.Join(", ", why));
             }
@@ -254,12 +299,16 @@ namespace B0r3dDeRes.Tests
         }
 
         // a PNG's parts: its chunks (each kind once, in order), header, palette and unpacked rows
-        static void PngParts(byte[] png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows)
+        static void PngParts(byte[] png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows) =>
+            PngParts(png, out chunks, out width, out height, out depth, out colourType, out palette, out rows, out _);
+
+        static void PngParts(byte[] png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows, out byte[] trns)
         {
             var kinds = new List<string>();
             var idat = new MemoryStream();
             width = height = depth = colourType = 0;
             palette = null;
+            trns = null;
             for (int o = 8; o < png.Length;)
             {
                 int len = (png[o] << 24) | (png[o + 1] << 16) | (png[o + 2] << 8) | png[o + 3];
@@ -273,6 +322,7 @@ namespace B0r3dDeRes.Tests
                     colourType = png[o + 17];
                 }
                 if (type == "PLTE") palette = png.Skip(o + 8).Take(len).ToArray();
+                if (type == "tRNS") trns = png.Skip(o + 8).Take(len).ToArray();
                 if (type == "IDAT") idat.Write(png, o + 8, len);
                 o += 12 + len;
             }
@@ -298,12 +348,13 @@ namespace B0r3dDeRes.Tests
                 Rendered r = pictures[e.Render];
                 bool tv = e.Tv && !r.Geometry.SquarePixels;
                 byte[] png = Export.PngBytes(r, e.Multiplier, tv);
-                PngParts(png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows);
+                PngParts(png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows, out byte[] trns);
                 var why = new List<string>();
                 if (chunks != e.Chunks) why.Add("chunks " + chunks);
                 if (width != e.Width || height != e.Height) why.Add(width + "×" + height);
                 if (depth != e.Depth || colourType != e.ColourType) why.Add("depth " + depth + " type " + colourType);
-                if (palette == null || Hex(palette) != e.Palette) why.Add("palette");
+                if ((palette == null ? "" : Hex(palette)) != e.Palette) why.Add("palette");
+                if ((trns == null ? "" : Hex(trns)) != e.Trns) why.Add("see-through entries");
                 if (rows.Length != e.RowBytes || Sha(rows) != e.Rows) why.Add("rows");
                 string name = Export.FileName(Export.BaseName(c.Input + ".jpg"), c.Profile, r.Width, r.Height, e.Multiplier, tv);
                 if (name != e.Name) why.Add("named " + name);

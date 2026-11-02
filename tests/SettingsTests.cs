@@ -72,16 +72,31 @@ namespace B0r3dDeRes.Tests
                 string file = Path.Combine(folder, Settings.FileName);
                 Check(!Directory.GetFiles(folder).Any(f => f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)), "a .tmp was left behind");
 
+                // Custom's palette and count, and see-through parts kept
+                s.Deres = new DeresSettings { ProfileId = "custom", Background = Backgrounds.Transparent, CustomCount = 7, CustomPalette = new[] { "#000000", "#FF00aa", "#123456" } };
+                Check(s.Save(), "couldn't save: " + DataFolder.WhyNotKept);
+                d = Settings.Load().Deres;
+                Check(d.ProfileId == "custom" && d.Background == Backgrounds.Transparent && d.CustomCount == 7 && string.Join(",", d.CustomPalette) == "#000000,#FF00aa,#123456",
+                    "Custom's palette read back as " + Settings.Load().ToText());
+                // the Colours slider is only kept for Custom, as on the website (it starts at a machine's own count)
+                s.Deres.ProfileId = "snes";
+                s.Save();
+                Check(Settings.Load().Deres.CustomCount == null && Settings.Load().Deres.CustomPalette != null, "a count kept for another machine should be let go");
+
                 // garbled lines keep the defaults, field by field, as the website checks its own
                 File.WriteAllText(file, "look=purple\nmachine=commodore-65\nframing=zoom\nresolution=huge\nwidth=99999\ndetail=-3\ntransparent=grey\n" +
-                    "brightness=7\ncontrast=x\nsaturation=NaN\ngamma=0.1\ndither=gbcam\npixel_shape=tilted\nsize=5\nwindow=abc\nnonsense\n=x\n");
+                    "brightness=7\ncontrast=x\nsaturation=NaN\ngamma=0.1\ndither=wobbly\npixel_shape=tilted\nsize=5\nwindow=abc\ncolours=many\npalette=red, #12, #00ff00x\nnonsense\n=x\n");
                 Settings odd = Settings.Load();
                 Check(odd.Look == Look.Windows && odd.Deres.ProfileId == "gameboy" && odd.Deres.Fit == Fits.Fill && !odd.Deres.Custom, "garbled names should be the defaults: " + odd.ToText());
                 Check(odd.Deres.CustomWidth == Geometry.CustomMax && odd.Deres.Detail == 0 && odd.Deres.Adjust.Brightness == 0.5 && odd.Deres.Adjust.Gamma == 0.4,
                     "numbers out of range should be brought in: " + odd.ToText());
                 Check(odd.Deres.Adjust.Contrast == 1 && odd.Deres.Adjust.Saturation == 1 && odd.Deres.Background == Backgrounds.White, "unreadable numbers should be the defaults: " + odd.ToText());
-                Check(odd.Deres.Dither == DitherIds.Bayer4, "a dither this version doesn't have should be the machine's own: " + odd.Deres.Dither);
+                Check(odd.Deres.Dither == DitherIds.Bayer4, "a dither there isn't should be the machine's own: " + odd.Deres.Dither);
+                Check(odd.Deres.CustomCount == null && odd.Deres.CustomPalette == null, "a garbled count or palette should be none: " + odd.ToText());
                 Check(!odd.TvPixels && odd.Multiplier == 4 && odd.WindowWidth == 1280 && odd.WindowHeight == 800 && !odd.Maximized, "the rest should be the defaults: " + odd.ToText());
+                // a machine's own dither is kept as the website keeps it (it's used only on that machine)
+                File.WriteAllText(file, "machine=nes\ndither=gbcam\n");
+                Check(Settings.Load().Deres.Dither == DitherIds.GameBoyCamera, "the Game Boy Camera's dither should be kept, as the website keeps it");
 
                 File.WriteAllText(file, "look=2\n");
                 Check(Settings.Load().Look == Look.Windows, "a number isn't a look");

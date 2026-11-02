@@ -15,8 +15,10 @@ namespace B0r3dDeRes
     {
         // the picture: r, g, b a pixel, its size, and how wide its pixels are on a TV
         byte[] rgb;
+        byte[] alpha;       // which pixels show (null: all), when see-through parts are kept
         int pw, ph;
         double ratio = 1;   // pixel width : height as shown (1 for raw pixels)
+        bool checker;       // a checkerboard behind (kept see-through parts), not the background colour
         // the original photo framed the same way, for comparing (shown smooth)
         BitmapSource original;
 
@@ -67,12 +69,26 @@ namespace B0r3dDeRes
             InvalidateVisual();
         }
 
-        // A new picture (null: none). The zoom and place stay when the size does, so moving a
-        // slider never moves the picture.
-        public void Show(byte[] pixels, int width, int height, double pixelRatio)
+        // The checkerboard the website shows behind see-through parts, 8 by 8 (device-independent)
+        // pixels, light at the top left.
+        public void SetChecker(bool on)
+        {
+            if (checker == on) return;
+            checker = on;
+            InvalidateVisual();
+        }
+
+        internal bool Checker => checker;
+
+        const int CheckerLight = 0x3a3a3a, CheckerDark = 0x262626;
+
+        // A new picture (null: none), with which of its pixels show (null: all). The zoom and place
+        // stay when the size does, so moving a slider never moves the picture.
+        public void Show(byte[] pixels, int width, int height, double pixelRatio, byte[] shows = null)
         {
             bool sameSize = rgb != null && width == pw && height == ph && pixelRatio == ratio;
             rgb = pixels;
+            alpha = shows;
             pw = width;
             ph = height;
             ratio = pixelRatio;
@@ -263,15 +279,27 @@ namespace B0r3dDeRes
             }
         }
 
-        // The view's screen pixels: the background, and the picture at its zoom, nearest
-        // neighbour from 1× up (whole blocks), averaged below 1×.
+        // The view's screen pixels: the background (or the checkerboard), and the picture at its
+        // zoom, nearest neighbour from 1× up (whole blocks), averaged below 1×. Hidden pixels let
+        // the checkerboard show, and so does where a see-through original is about to be drawn.
         internal void Paint(int[] into, int vw, int vh)
         {
-            int bg = (back.R << 16) | (back.G << 8) | back.B;
-            for (int i = 0; i < into.Length; i++) into[i] = bg;
+            if (checker)
+            {
+                int size = Math.Max(1, (int)Math.Round(8 * Scale));
+                for (int y = 0; y < vh; y++)
+                    for (int x = 0; x < vw; x++) into[y * vw + x] = (x / size + y / size) % 2 == 0 ? CheckerLight : CheckerDark;
+            }
+            else
+            {
+                int bg = (back.R << 16) | (back.G << 8) | back.B;
+                for (int i = 0; i < into.Length; i++) into[i] = bg;
+            }
             if (rgb == null) return;
             int x0 = (int)left, y0 = (int)top, dw = (int)DrawnW, dh = (int)DrawnH;
             int fromX = Math.Max(0, x0), toX = Math.Min(vw, x0 + dw), fromY = Math.Max(0, y0), toY = Math.Min(vh, y0 + dh);
+            // under a see-through original the checkerboard, not the picture
+            if (checker && ShowingOriginal) fromX = Math.Max(fromX, holding ? toX : (int)Math.Round(left + DrawnW * split));
             if (toX <= fromX || toY <= fromY) return;
             if (zoom < 1)
             {
@@ -283,23 +311,32 @@ namespace B0r3dDeRes
             for (int x = fromX; x < toX; x++) column[x - fromX] = Math.Min(pw - 1, (int)Math.Floor((x - x0) * (double)pw / dw));
             var row = new int[toX - fromX];
             int last = -1;
+            bool hidden = false;
             for (int y = fromY; y < toY; y++)
             {
                 int sy = Math.Min(ph - 1, (int)Math.Floor((y - y0) * (double)ph / dh));
                 if (sy != last)
                 {
+                    hidden = false;
                     for (int i = 0; i < row.Length; i++)
                     {
-                        int s = (sy * pw + column[i]) * 3;
-                        row[i] = (rgb[s] << 16) | (rgb[s + 1] << 8) | rgb[s + 2];
+                        int p = sy * pw + column[i], s = p * 3;
+                        if (alpha != null && alpha[p] == 0)
+                        {
+                            row[i] = -1;
+                            hidden = true;
+                        }
+                        else row[i] = (rgb[s] << 16) | (rgb[s + 1] << 8) | rgb[s + 2];
                     }
                     last = sy;
                 }
-                Array.Copy(row, 0, into, y * vw + fromX, row.Length);
+                if (!hidden) Array.Copy(row, 0, into, y * vw + fromX, row.Length);
+                else for (int i = 0; i < row.Length; i++) if (row[i] >= 0) into[y * vw + fromX + i] = row[i];
             }
         }
 
         // a picture bigger than the view at 1×: each screen pixel the average of what it covers
+        // (of what shows of it; nothing showing leaves the checkerboard)
         void PaintSmall(int[] into, int vw, int x0, int y0, int dw, int dh, int fromX, int toX, int fromY, int toY)
         {
             double sx = (double)pw / dw, sy = (double)ph / dh;
@@ -313,13 +350,14 @@ namespace B0r3dDeRes
                     for (int yy = ya; yy < yb; yy++)
                         for (int xx = xa; xx < xb; xx++)
                         {
-                            int s = (yy * pw + xx) * 3;
+                            int p = yy * pw + xx, s = p * 3;
+                            if (alpha != null && alpha[p] == 0) continue;
                             r += rgb[s];
                             g += rgb[s + 1];
                             b += rgb[s + 2];
                             n++;
                         }
-                    into[y * vw + x] = ((r / n) << 16) | ((g / n) << 8) | (b / n);
+                    if (n > 0) into[y * vw + x] = ((r / n) << 16) | ((g / n) << 8) | (b / n);
                 }
             }
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -44,6 +45,10 @@ namespace B0r3dDeRes
             get => View.ScaleOverride;
             set => View.ScaleOverride = value;
         }
+
+        // for the tests: the settings as they are now, and the picture that's open
+        internal Settings Current => settings;
+        internal LoadedPicture OpenedPicture => picture;
 
         // startWith: a picture to open; else the Rukus sample, as the website starts (`sample` false, for
         // the tests: nothing)
@@ -107,10 +112,7 @@ namespace B0r3dDeRes
         {
             foreach (Profile p in Profiles.All)
             {
-                byte[] colours = Profiles.PaletteBytes(p);
-                BitmapSource strip = BitmapSource.Create(colours.Length / 3, 1, 96, 96, PixelFormats.Rgb24, null, colours, colours.Length);
-                strip.Freeze();
-                var colourStrip = new Image { Source = strip, Stretch = Stretch.Fill, Height = 6 };
+                var colourStrip = new Image { Source = Strip(Profiles.PaletteBytes(p)), Stretch = Stretch.Fill, Height = 6 };
                 RenderOptions.SetBitmapScalingMode(colourStrip, BitmapScalingMode.NearestNeighbor);
                 // (a hairline round it, so white shows on a light card)
                 var swatch = new Border { Child = colourStrip, BorderThickness = new Thickness(1), Margin = new Thickness(0, 6, 0, 0) };
@@ -133,6 +135,7 @@ namespace B0r3dDeRes
                 };
                 AutomationProperties.SetName(card, p.Name);
                 card.Checked += OnMachine;
+                card.Click += OnMachineAgain;
                 Cards.Children.Add(card);
             }
             foreach (DitherInfo d in Dither.All)
@@ -220,9 +223,26 @@ namespace B0r3dDeRes
                 BackgroundPanel.Visibility = picture != null && picture.Source.HasAlpha ? Visibility.Visible : Visibility.Collapsed;
                 BackWhite.IsChecked = d.Background == Backgrounds.White;
                 BackBlack.IsChecked = d.Background == Backgrounds.Black;
+                BackKeep.IsChecked = d.Background == Backgrounds.Transparent;
+                KeepNote.Text = Words.KeepNote;
+                KeepNote.Visibility = d.Background == Backgrounds.Transparent ? Visibility.Visible : Visibility.Collapsed;
 
                 foreach (RadioButton card in Cards.Children) card.IsChecked = (string)card.Tag == p.Id;
+                ShowCustomStrip();
                 AboutLine.Text = Words.About(p);
+                // Range, pool and Custom machines pick their colours from the picture; the slider can
+                // ask for fewer, never more than the machine had.
+                int? maxColours = Profiles.MaxColourCount(p);
+                PaletteTools.Visibility = maxColours != null ? Visibility.Visible : Visibility.Collapsed;
+                if (maxColours != null)
+                {
+                    int count = Profiles.ColourCount(p, d.CustomCount).Value;
+                    ColoursSlider.Maximum = maxColours.Value;
+                    ColoursSlider.Value = count;
+                    ColoursValue.Text = count + " colours";
+                    ColoursPanel.Visibility = p.Kind == PaletteKind.Custom && d.CustomPalette != null ? Visibility.Collapsed : Visibility.Visible;
+                }
+                GrabPaletteButton.IsEnabled = GrabMenu.IsEnabled = picture != null;
 
                 BrightnessSlider.Value = JsMath.Round(d.Adjust.Brightness * 100);
                 ContrastSlider.Value = JsMath.Round(d.Adjust.Contrast * 100);
@@ -233,8 +253,17 @@ namespace B0r3dDeRes
                 SaturationValue.Text = Words.Percent(d.Adjust.Saturation);
                 GammaValue.Text = Words.Gamma(d.Adjust.Gamma);
 
-                string dither = Dither.ById(d.Dither) != null ? d.Dither : p.Dither;
-                foreach (RadioButton item in Dithers.Children) item.IsChecked = (string)item.Tag == dither;
+                foreach (RadioButton item in Dithers.Children)
+                {
+                    DitherInfo info = Dither.ById((string)item.Tag);
+                    // a machine's own dither only on that machine; greyed out where it would change nothing
+                    item.Visibility = !info.Native || p.NativeDither == info.Id ? Visibility.Visible : Visibility.Collapsed;
+                    item.IsEnabled = Profiles.DitherApplies(p, info.Id);
+                    item.IsChecked = d.Dither == info.Id && item.IsEnabled;
+                }
+                string ditherNote = Profiles.DitherNote(p);
+                DitherNote.Text = ditherNote ?? "";
+                DitherNote.Visibility = ditherNote != null ? Visibility.Visible : Visibility.Collapsed;
 
                 bool square = g != null ? g.SquarePixels : p.SquarePixels;
                 ShapePanel.Visibility = square ? Visibility.Collapsed : Visibility.Visible;
@@ -255,9 +284,17 @@ namespace B0r3dDeRes
                 if (g != null)
                 {
                     Export.Size(g.Width, g.Height, g.ParX, g.ParY, settings.Multiplier, tv, out int ew, out int eh);
-                    SizeLine.Text = Words.SizeLine(ew, eh, p);
+                    SizeLine.Text = Words.SizeLine(ew, eh, p, d);
                 }
                 else SizeLine.Text = "";
+
+                // the machine's own file (.scr, .koa or .chr), and why there's none where that needs saying
+                string format = p.EmulatorFormats.FirstOrDefault();
+                EmulatorButton.Visibility = format != null ? Visibility.Visible : Visibility.Collapsed;
+                EmulatorButton.Content = format != null ? Words.EmulatorButton(p, format) : null;
+                EmulatorButton.IsEnabled = EmulatorMenu.IsEnabled = format != null && picture != null;
+                ExportNote.Text = p.ExportNote ?? "";
+                ExportNote.Visibility = p.ExportNote != null ? Visibility.Visible : Visibility.Collapsed;
             }
             finally
             {
@@ -292,10 +329,53 @@ namespace B0r3dDeRes
             if (Quiet) return;
             Profile p = Profiles.ById((string)((RadioButton)sender).Tag);
             if (p == null || p.Id == settings.Deres.ProfileId) return;
-            // each machine starts with the dither that suits it, as on the website
+            // each machine starts with the dither that suits it, and the Colours slider at its own
+            // count, as on the website
             settings.Deres.ProfileId = p.Id;
             settings.Deres.Dither = p.Dither;
+            settings.Deres.CustomCount = null;
             Changed();
+        }
+
+        // The machine that's picked, clicked again: it starts over with its own dither and count,
+        // as the website picks a machine whenever its card is clicked.
+        void OnMachineAgain(object sender, RoutedEventArgs e)
+        {
+            if (Quiet || (string)((RadioButton)sender).Tag != settings.Deres.ProfileId) return;
+            Profile p = CurrentProfile;
+            if (settings.Deres.Dither == p.Dither && settings.Deres.CustomCount == null) return;
+            settings.Deres.Dither = p.Dither;
+            settings.Deres.CustomCount = null;
+            Changed();
+        }
+
+        void OnColours(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Quiet) return;
+            settings.Deres.CustomCount = (int)JsMath.Round(ColoursSlider.Value);
+            Changed();
+        }
+
+        // the Custom machine's card shows its loaded or grabbed palette
+        void ShowCustomStrip()
+        {
+            Profile custom = Profiles.ById(Profiles.CustomId);
+            string[] palette = settings.Deres.CustomPalette;
+            string key = palette == null ? "" : string.Join(",", palette);
+            if (key == customStripKey) return;
+            customStripKey = key;
+            foreach (RadioButton card in Cards.Children)
+                if ((string)card.Tag == custom.Id && ((StackPanel)card.Content).Children[2] is Border swatch && swatch.Child is Image strip)
+                    strip.Source = Strip(Profiles.PaletteBytes(custom, palette));
+        }
+
+        string customStripKey;
+
+        static BitmapSource Strip(byte[] colours)
+        {
+            BitmapSource strip = BitmapSource.Create(colours.Length / 3, 1, 96, 96, PixelFormats.Rgb24, null, colours, colours.Length);
+            strip.Freeze();
+            return strip;
         }
 
         void OnDither(object sender, RoutedEventArgs e)
@@ -390,9 +470,13 @@ namespace B0r3dDeRes
         static int ClampWidth(double w, int min, int max) => (int)Math.Min(max, Math.Max(min, JsMath.Round(w)));
 
         // typing: every whole number in range shows at once; the box is tidied when it's left
+        // whether the width box was typed in since it was last filled in (only then is it taken)
+        bool widthEdited;
+
         void OnWidthTyped(object sender, TextChangedEventArgs e)
         {
             if (Quiet || !WidthBox.IsKeyboardFocusWithin) return;
+            widthEdited = true;
             WidthLimits(out int min, out int max);
             if (int.TryParse(WidthBox.Text.Trim(), out int w) && w >= min && w <= max && w != settings.Deres.CustomWidth)
             {
@@ -403,10 +487,14 @@ namespace B0r3dDeRes
 
         void OnWidthLeft(object sender, KeyboardFocusChangedEventArgs e) => TidyWidth();
 
+        // for the tests: the width box left
+        internal void LeaveWidthBox() => TidyWidth();
+
         // for the tests: a width typed into the box, then Enter
         internal void TypeWidth(string text)
         {
             WidthBox.Text = text;
+            widthEdited = true;
             TidyWidth();
         }
 
@@ -417,13 +505,19 @@ namespace B0r3dDeRes
             e.Handled = true;
         }
 
+        // Left, or Enter: what was typed is taken (in range), and the box shows the width there is.
+        // Untouched, it only catches up: a look opened meanwhile keeps its own width.
         void TidyWidth()
         {
+            bool edited = widthEdited;
+            widthEdited = false;
             WidthLimits(out int min, out int max);
-            if (double.TryParse(WidthBox.Text.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double typed) && !double.IsNaN(typed) && !double.IsInfinity(typed))
+            if (edited && double.TryParse(WidthBox.Text.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double typed) && !double.IsNaN(typed) && !double.IsInfinity(typed))
                 settings.Deres.CustomWidth = ClampWidth(typed, min, max);
+            quiet = true;
             WidthBox.Text = (PlannedGeometry()?.Width ?? settings.Deres.CustomWidth ?? CurrentProfile.Width).ToString();
-            Changed();
+            quiet = false;
+            if (edited) Changed();
         }
 
         void OnWidthSlider(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -524,7 +618,13 @@ namespace B0r3dDeRes
                     Problem(files.Any(Directory.Exists) ? "That's a folder: drop a picture. (Folders of pictures come in a later version.)" : nothing);
                     return;
                 }
+                // a look file or a palette file sets the look (with a picture beside it, before it opens)
+                string look = existing.FirstOrDefault(f => string.Equals(Path.GetExtension(f), ".json", StringComparison.OrdinalIgnoreCase));
+                string palette = existing.FirstOrDefault(IsPaletteFile);
+                if (look != null) OpenLook(look);
+                if (palette != null) LoadPalette(palette);
                 string[] pictures = existing.Where(Pictures.LooksLikePicture).ToArray();
+                if (pictures.Length == 0 && (look != null || palette != null)) return;
                 string first = pictures.FirstOrDefault() ?? existing[0];
                 OpenFile(first);
                 if (pictures.Length > 1) Flash("Opened " + Pictures.NameOf(first) + ", the first of " + pictures.Length + " pictures.", "Dim");
@@ -545,10 +645,17 @@ namespace B0r3dDeRes
                 Problem("Couldn't look at the clipboard: another program is using it. Try again.");
                 return;
             }
-            OpenData(data, NothingCopied);
+            Paste(data);
         }
 
-        const string NothingCopied = "Nothing to open on the clipboard: copy a picture, or a picture file, first.";
+        // a copied picture opens; a copied share link sets its look
+        internal void Paste(IDataObject data)
+        {
+            if (!Pictures.CanRead(data) && LinkIn(data) is Dictionary<string, object> link) UseLook(link, "the share link");
+            else OpenData(data, NothingCopied);
+        }
+
+        const string NothingCopied = "Nothing to open on the clipboard: copy a picture, a picture file or a share link first.";
 
         // pictures or picture files dragged onto the window open; what nothing takes is refused
         void OnPreviewDragOver(object sender, DragEventArgs e)
@@ -664,15 +771,26 @@ namespace B0r3dDeRes
             shownWith = s;
             shownFrom = from;
             renders++;
-            View.Show(r.Rgb, r.Width, r.Height, PixelRatio(r));
+            // kept see-through: a checkerboard behind, as on the website
+            View.SetChecker(s.Background == Backgrounds.Transparent && from.Source.HasAlpha);
+            View.Show(r.Rgb, r.Width, r.Height, PixelRatio(r), r.Alpha);
             View.SetOriginal(original);
-            BitmapSource small = BitmapSource.Create(r.Width, r.Height, 96, 96, PixelFormats.Rgb24, null, r.Rgb, r.Width * 3);
-            small.Freeze();
-            DragThumb.Source = small;
+            DragThumb.Source = Sharing.Small(r);
+            ShowTileFit(r.TileFit);
             ShowStage();
             ShowReadout();
             ShowZoom();
             CommandManager.InvalidateRequerySuggested();
+        }
+
+        // the tile meter: how many different 8×8 tiles, against what the machine could hold
+        void ShowTileFit(HardwareFitReport report)
+        {
+            TileFit.Visibility = report != null ? Visibility.Visible : Visibility.Collapsed;
+            if (report == null) return;
+            TileFitText.Text = report.Summary;
+            TileFitText.SetResourceReference(TextBlock.ForegroundProperty, report.TilesFit ? "Good" : "Bad");
+            TileFit.SetResourceReference(Border.BorderBrushProperty, report.TilesFit ? "Good" : "Bad");
         }
 
         // how wide a pixel is shown: its shape on a TV when that's chosen, else square
@@ -684,6 +802,7 @@ namespace B0r3dDeRes
             string text = shown != null ? Words.Readout(shown) : "";
             if (Rendering && !busyTimer.IsEnabled && shown != null) text += " · working…";
             Readout.Text = text;
+            Readout.ToolTip = text.Length > 0 ? text : null;   // (all of it, should a narrow window cut it short)
         }
 
         void ShowStage(string message = null)
@@ -800,9 +919,9 @@ namespace B0r3dDeRes
                 {
                     return;
                 }
-                if (!Pictures.CanRead(data)) return;
+                if (!Pictures.CanRead(data) && LinkIn(data) == null) return;
                 e.Handled = true;
-                OpenData(data, NothingCopied);
+                Paste(data);
             }
             else if (e.Key == Key.C && shown != null)
             {
@@ -860,12 +979,20 @@ namespace B0r3dDeRes
                 return;
             }
             if (path == null) return;
-            await SavePng(path, r, m, tv);
+            CouldntSave(path, await SavePng(path, r, m, tv));
         }
 
         internal bool Saving { get; private set; }
 
-        internal async Task SavePng(string path, Rendered r, int m, bool tv)
+        // a save that went wrong, said in a box (only from a menu or a button: the tests call the
+        // save methods themselves, which give back what went wrong instead)
+        void CouldntSave(string path, string problem)
+        {
+            if (problem != null) MessageBox.Show(this, "Couldn't save " + Path.GetFileName(path) + ":\n\n" + problem, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        // the PNG at `path`; what went wrong, or null
+        internal async Task<string> SavePng(string path, Rendered r, int m, bool tv)
         {
             Saving = true;
             Flash("Saving " + Path.GetFileName(path) + "…", "Dim");
@@ -884,8 +1011,8 @@ namespace B0r3dDeRes
                 problem = "there isn't enough memory free for a picture that big";
             }
             Saving = false;
-            if (problem != null) MessageBox.Show(this, "Couldn't save " + Path.GetFileName(path) + ":\n\n" + problem, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-            else Flash("Saved " + Path.GetFileName(path) + " (" + width + "×" + height + ").", "Good");
+            if (problem == null) Flash("Saved " + Path.GetFileName(path) + " (" + width + "×" + height + ").", "Good");
+            return problem;
         }
 
         // Copy and drag hand over at most this many pixels, the website's own limit for any
@@ -1012,6 +1139,435 @@ namespace B0r3dDeRes
         {
             share.Make(r);
             return Exports.DataFor(share.Picture, share.Png, share.Name, withFile);
+        }
+
+        // ---------- the machine's own file (.scr, .koa, .chr) ----------
+
+        async void OnSaveEmulator(object sender, RoutedEventArgs e)
+        {
+            Profile p = CurrentProfile;
+            string format = p.EmulatorFormats.FirstOrDefault();
+            if (format == null || picture == null) return;
+            Rendered r = await Latest();
+            if (r == null) return;
+            string name = Export.EmulatorFileName(Export.BaseName(shownFrom?.Name ?? "photo"), p.Id, format);
+            string path;
+            try
+            {
+                path = FileDialogs.Save(this, "Save the picture for an emulator", Words.EmulatorType(format), "." + format, name);
+            }
+            catch (COMException x)
+            {
+                MessageBox.Show(this, "Windows' Save dialog didn't open:\n\n" + x.Message, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (path != null) CouldntSave(path, await SaveEmulator(path, format));
+        }
+
+        // The machine's own file of the picture as it is now. A screen file (.scr, .koa) can't
+        // hold see-through pixels: with them kept it's made as if on black. Tiles (.chr) keep
+        // them as colour 0. What went wrong, or null.
+        internal async Task<string> SaveEmulator(string path, string format)
+        {
+            DeresSettings s = settings.Deres.Clone();
+            if (s.Background == Backgrounds.Transparent && format != "chr") s.Background = Backgrounds.Black;
+            LoadedPicture pic = picture;
+            if (pic == null) return "there's no picture";
+            Saving = true;
+            string problem = null;
+            EmulatorFile file = null;
+            try
+            {
+                file = await Task.Run(() => Make(pic, s).Item1.EmulatorFile);
+                if (file == null || file.Format != format) problem = "this machine has no ." + format + " file";
+                else await Task.Run(() => Exports.Write(path, file.Data));
+            }
+            catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is NotSupportedException || x is System.Security.SecurityException ||
+                x is InvalidOperationException || x is ArgumentException)
+            {
+                problem = x.Message;
+            }
+            catch (OutOfMemoryException)
+            {
+                problem = "there isn't enough memory free to make the picture";
+            }
+            finally
+            {
+                Saving = false;
+            }
+            if (problem == null) Flash("Saved " + Path.GetFileName(path) + " (" + file.Data.Length.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " bytes).", "Good");
+            return problem;
+        }
+
+        // ---------- palettes ----------
+
+        void OnLoadPalette(object sender, RoutedEventArgs e)
+        {
+            string path;
+            try
+            {
+                path = FileDialogs.OpenPalette(this);
+            }
+            catch (COMException x)
+            {
+                MessageBox.Show(this, "Windows' Open dialog didn't open:\n\n" + x.Message, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (path != null) LoadPalette(path);
+        }
+
+        static bool IsPaletteFile(string path)
+        {
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            return ext == ".hex" || ext == ".pal" || ext == ".gpl";
+        }
+
+        // A palette file (.hex, .pal, .gpl, or a picture's colours) becomes the Custom machine's.
+        internal void LoadPalette(string path)
+        {
+            string name = Pictures.NameOf(path);
+            string[] colours;
+            try
+            {
+                // a .png is a palette picture; anything else is read as palette text, as on the website
+                if (string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)) colours = Pictures.PaletteColours(path);
+                else
+                {
+                    if (new FileInfo(path).Length > 16 << 20) throw new PictureException("it's too big for a palette file");
+                    colours = PaletteFile.ParseText(System.Text.Encoding.UTF8.GetString(Pictures.ReadFile(path)));
+                }
+            }
+            catch (PictureException x)
+            {
+                Problem("Couldn't load the palette " + name + ": " + x.Message + ".");
+                return;
+            }
+            catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is ArgumentException || x is NotSupportedException)
+            {
+                Problem("Couldn't load the palette " + name + ": " + x.Message.TrimEnd('.') + ".");
+                return;
+            }
+            if (colours.Length == 0)
+            {
+                Problem("No valid colours found in " + name + ".");
+                return;
+            }
+            UsePalette(colours);
+            Flash("Loaded palette \"" + name + "\" (" + colours.Length + " colours).", "Good");
+        }
+
+        void UsePalette(string[] colours)
+        {
+            DeresSettings d = settings.Deres;
+            d.ProfileId = Profiles.CustomId;
+            d.CustomPalette = colours;
+            d.CustomCount = colours.Length;
+            Changed();
+        }
+
+        async void OnGrabPalette(object sender, RoutedEventArgs e)
+        {
+            string[] colours = await GrabPalette();
+            if (colours == null) return;
+            // as the website hands over a .hex of it: keep it as a file too, if wanted
+            string name = Export.BaseName(picture?.Name ?? "photo") + "-palette.hex";
+            string path;
+            try
+            {
+                path = FileDialogs.SaveAs(this, "Keep the grabbed palette as a file", PaletteTypes, 0, name, out int type);
+                string problem = path != null ? await SavePalette(path, type, colours) : null;
+                CouldntSave(path, problem);
+                if (path != null && problem == null)
+                {
+                    Flash("Grabbed " + colours.Length + " colours and saved " + Path.GetFileName(path) + ".", "Good");
+                    return;
+                }
+            }
+            catch (COMException)
+            {
+                // no dialog: the palette is in use all the same
+            }
+            Flash("Grabbed " + colours.Length + " colours. Save palette… in the File menu keeps them as a file.", "Good");
+        }
+
+        // The picture's own colours (as many as the machine picks, else 16) become the Custom
+        // machine's palette: the whole photo's pixels, by the website's median cut.
+        internal async Task<string[]> GrabPalette()
+        {
+            LoadedPicture pic = picture;
+            if (pic == null)
+            {
+                Problem("Open a picture first to grab its palette.");
+                return null;
+            }
+            int count = Profiles.ColourCount(CurrentProfile, settings.Deres.CustomCount) ?? 16;
+            byte[] raw = await Task.Run(() => Quantize.Grab(pic.Source, count));
+            if (raw.Length == 0) return null;
+            string[] colours = Enumerable.Range(0, raw.Length / 3).Select(i => Colour.RgbToHex(raw[i * 3], raw[i * 3 + 1], raw[i * 3 + 2])).ToArray();
+            UsePalette(colours);
+            return colours;
+        }
+
+        static readonly FileDialogs.FileType[] PaletteTypes =
+        {
+            new FileDialogs.FileType("Palette", ".hex"), new FileDialogs.FileType("JASC palette", ".pal"),
+            new FileDialogs.FileType("GIMP palette", ".gpl"), new FileDialogs.FileType("Palette picture", ".png"),
+        };
+
+        // the colours of the picture on screen: its machine's palette, or the colours it makes (at most 256)
+        string[] ShownPalette()
+        {
+            if (shown == null) return null;
+            byte[] palette = shown.Indexed ? shown.Palette : Census.Palette(shown.Rgb, shown.Alpha);
+            return palette == null ? null : Enumerable.Range(0, palette.Length / 3).Select(i => Colour.RgbToHex(palette[i * 3], palette[i * 3 + 1], palette[i * 3 + 2])).ToArray();
+        }
+
+        async void OnSavePalette(object sender, RoutedEventArgs e)
+        {
+            Rendered r = await Latest();
+            if (r == null)
+            {
+                Problem("Open a picture first: the palette is the colours of the picture.");
+                return;
+            }
+            string[] colours = ShownPalette();
+            if (colours == null)
+            {
+                Problem("This picture has more than 256 colours, so there's no palette to save.");
+                return;
+            }
+            string name = Export.BaseName(shownFrom?.Name ?? "photo") + "-" + r.Profile.Id + "-palette.hex";
+            string path;
+            int type;
+            try
+            {
+                path = FileDialogs.SaveAs(this, "Save the palette", PaletteTypes, 0, name, out type);
+            }
+            catch (COMException x)
+            {
+                MessageBox.Show(this, "Windows' Save dialog didn't open:\n\n" + x.Message, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (path == null) return;
+            string problem = await SavePalette(path, type, colours);
+            CouldntSave(path, problem);
+            if (problem == null) Flash("Saved " + Path.GetFileName(path) + " (" + colours.Length + " colours).", "Good");
+        }
+
+        // the colours as a .hex, .pal, .gpl or palette PNG (by PaletteTypes); what went wrong, or null
+        internal async Task<string> SavePalette(string path, int type, string[] colours)
+        {
+            try
+            {
+                await Task.Run(() =>
+                {
+                    if (type == 3) Exports.Write(path, PaletteFile.Png(colours));
+                    else Exports.Write(path, System.Text.Encoding.UTF8.GetBytes(type == 1 ? PaletteFile.Jasc(colours) : type == 2 ? PaletteFile.Gpl(colours) : PaletteFile.Hex(colours)));
+                });
+                return null;
+            }
+            catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is NotSupportedException || x is System.Security.SecurityException)
+            {
+                return x.Message;
+            }
+        }
+
+        // ---------- looks: share links and look files ----------
+
+        void OnCopyLink(object sender, RoutedEventArgs e)
+        {
+            string link = Looks.Link(settings);
+            try
+            {
+                var data = new DataObject();
+                data.SetText(link, TextDataFormat.UnicodeText);
+                Exports.KeepOffTheCloud(data);
+                Clipboard.SetDataObject(data, true);
+                Flash("Share link copied to the clipboard.", "Good");
+            }
+            catch (ExternalException)
+            {
+                Problem("Couldn't copy: another program is using the clipboard. Try again.");
+            }
+        }
+
+        // a share link in copied text, by the website's own reading (null: none)
+        static Dictionary<string, object> LinkIn(IDataObject data)
+        {
+            try
+            {
+                if (data == null || !data.GetDataPresent(DataFormats.UnicodeText)) return null;
+                string text = data.GetData(DataFormats.UnicodeText) as string;
+                return text != null && text.Length < 100000 && text.Contains("#s=") ? Looks.FromLink(text) : null;
+            }
+            catch (Exception x) when (x is ExternalException || x is OutOfMemoryException)
+            {
+                return null;
+            }
+        }
+
+        // The look in a share link or a look file, checked as the website checks a link, over the
+        // settings there are. Whatever it holds that comes with a later version is said.
+        internal void UseLook(Dictionary<string, object> loaded, string what)
+        {
+            Settings next = Looks.Apply(loaded, settings, out string later);
+            settings.Deres = next.Deres;
+            settings.TvPixels = next.TvPixels;
+            settings.Multiplier = next.Multiplier;
+            Changed();
+            Flash(later == null ? "Opened " + what + "." : "Opened " + what + ". " + char.ToUpperInvariant(later[0]) + later.Substring(1) +
+                (later.Contains(" and ") ? " come" : " comes") + " with a later version of b0r3d DeRes.", later == null ? "Good" : "Warn");
+        }
+
+        void OnOpenLook(object sender, RoutedEventArgs e)
+        {
+            string path;
+            try
+            {
+                path = FileDialogs.OpenLook(this);
+            }
+            catch (COMException x)
+            {
+                MessageBox.Show(this, "Windows' Open dialog didn't open:\n\n" + x.Message, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (path != null) OpenLook(path);
+        }
+
+        internal void OpenLook(string path)
+        {
+            string name = Pictures.NameOf(path);
+            Dictionary<string, object> loaded;
+            try
+            {
+                if (new FileInfo(path).Length > 1 << 20) throw new PictureException("it's too big for a look file");
+                loaded = Looks.FromFile(System.Text.Encoding.UTF8.GetString(Pictures.ReadFile(path)));
+            }
+            catch (PictureException x)
+            {
+                Problem("Couldn't open " + name + ": " + x.Message + ".");
+                return;
+            }
+            catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is ArgumentException || x is NotSupportedException)
+            {
+                Problem("Couldn't open " + name + ": " + x.Message.TrimEnd('.') + ".");
+                return;
+            }
+            if (loaded == null)
+            {
+                Problem("Couldn't open " + name + ": it isn't a b0r3d DeRes look.");
+                return;
+            }
+            UseLook(loaded, "the look " + name);
+        }
+
+        async void OnSaveLook(object sender, RoutedEventArgs e)
+        {
+            string path;
+            try
+            {
+                path = FileDialogs.Save(this, "Save the look", "Look", ".json", settings.Deres.ProfileId + "-look.json");
+            }
+            catch (COMException x)
+            {
+                MessageBox.Show(this, "Windows' Save dialog didn't open:\n\n" + x.Message, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (path != null) CouldntSave(path, await SaveLook(path));
+        }
+
+        // the look file at `path`; what went wrong, or null
+        internal async Task<string> SaveLook(string path)
+        {
+            string text = Looks.FileText(settings);
+            try
+            {
+                await Task.Run(() => Exports.Write(path, new System.Text.UTF8Encoding(false).GetBytes(text)));
+                Flash("Saved the look as " + Path.GetFileName(path) + ".", "Good");
+                return null;
+            }
+            catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is NotSupportedException || x is System.Security.SecurityException)
+            {
+                return x.Message;
+            }
+        }
+
+        // ---------- Surprise me and Reset settings ----------
+
+        static readonly Random dice = new Random();
+
+        void OnSurprise(object sender, RoutedEventArgs e) => Surprise(dice);
+
+        // A random machine (not Custom), dither (its own one too) and adjustments, as the website's
+        // button rolls them. (It rolls a screen effect too, which comes with a later version.)
+        internal void Surprise(Random random)
+        {
+            Profile[] eligible = Profiles.All.Where(x => x.Id != Profiles.CustomId).ToArray();
+            Profile p = eligible[random.Next(eligible.Length)];
+            var dithers = Dither.All.Where(x => !x.Native).Select(x => x.Id).ToList();
+            if (p.NativeDither != null) dithers.Add(p.NativeDither);
+            string dither = dithers[random.Next(dithers.Count)];
+            DeresSettings d = settings.Deres;
+            d.ProfileId = p.Id;
+            d.CustomCount = null;
+            d.Dither = dither;
+            d.Adjust = new Adjust
+            {
+                Brightness = JsMath.Round((random.NextDouble() * 0.2 - 0.1) * 100) / 100,
+                Contrast = JsMath.Round((0.9 + random.NextDouble() * 0.3) * 100) / 100,
+                Saturation = JsMath.Round((0.85 + random.NextDouble() * 0.4) * 100) / 100,
+                Gamma = d.Adjust.Gamma,
+            };
+            Changed();
+            Flash("Rolled: " + p.Name + ", " + Dither.ById(dither).Name + " dither.", "Dim");
+        }
+
+        DispatcherTimer resetTimer;
+
+        // two clicks, as on the website: the first asks, the second (within 4 seconds) resets
+        void OnResetButton(object sender, RoutedEventArgs e)
+        {
+            if (resetTimer == null)
+            {
+                resetTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+                resetTimer.Tick += (s, a) => CalmReset();
+            }
+            if (!resetTimer.IsEnabled)
+            {
+                ResetButton.Content = "_Reset everything?";
+                ResetButton.SetResourceReference(ForegroundProperty, "Bad");
+                resetTimer.Start();
+                return;
+            }
+            CalmReset();
+            ResetSettings();
+        }
+
+        void CalmReset()
+        {
+            resetTimer?.Stop();
+            ResetButton.Content = "_Reset settings";
+            ResetButton.ClearValue(ForegroundProperty);
+        }
+
+        void OnResetMenu(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show(this, "Put every setting back to how b0r3d DeRes starts? The picture stays, and so do light or dark (View → Look) and the window.", Program.Name,
+                MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes) ResetSettings();
+        }
+
+        // Every setting back to how a first start has them (palettes grabbed or loaded go too); the
+        // picture stays, and so do the program's look and the window.
+        internal void ResetSettings()
+        {
+            Settings fresh = Settings.Defaults();
+            settings.Deres = fresh.Deres;
+            settings.TvPixels = fresh.TvPixels;
+            settings.Multiplier = fresh.Multiplier;
+            Changed();
+            saveTimer.Stop();
+            SaveSettings();
+            Flash("Settings reset.", "Dim");
         }
 
         // ---------- the look, notes and the rest ----------

@@ -75,9 +75,20 @@ namespace B0r3dDeRes
         }
 
         // the chosen picture, or null when cancelled
-        public static string OpenPicture(Window owner)
+        public static string OpenPicture(Window owner) => Open(owner, PrepareOpen());
+
+        // a palette file (.hex, .pal, .gpl or a palette picture), or null when cancelled
+        public static string OpenPalette(Window owner) => Open(owner, PrepareOpen("Load a palette",
+            new FilterSpec { Name = "Palettes (.hex, .pal, .gpl, .png)", Spec = "*.hex;*.pal;*.gpl;*.png" },
+            new FilterSpec { Name = "All files", Spec = "*.*" }));
+
+        // a look file, or null when cancelled
+        public static string OpenLook(Window owner) => Open(owner, PrepareOpen("Open a look",
+            new FilterSpec { Name = "Looks (.json)", Spec = "*.json" },
+            new FilterSpec { Name = "All files", Spec = "*.*" }));
+
+        static string Open(Window owner, IFileOpenDialog dialog)
         {
-            IFileOpenDialog dialog = PrepareOpen();
             try
             {
                 int result = dialog.Show(Handle(owner));
@@ -111,17 +122,17 @@ namespace B0r3dDeRes
             return dialog;
         }
 
-        internal static IFileOpenDialog PrepareOpen()
+        internal static IFileOpenDialog PrepareOpen() => PrepareOpen("Open a picture",
+            new FilterSpec { Name = "Pictures", Spec = Pictures.DialogPattern },
+            new FilterSpec { Name = "All files", Spec = "*.*" });
+
+        internal static IFileOpenDialog PrepareOpen(string title, params FilterSpec[] filters)
         {
             var dialog = (IFileOpenDialog)new FileOpenDialogObject();
             dialog.GetOptions(out uint options);
             dialog.SetOptions(options | OpenOptions);
-            dialog.SetTitle("Open a picture");
-            dialog.SetFileTypes(2, new[]
-            {
-                new FilterSpec { Name = "Pictures", Spec = Pictures.DialogPattern },
-                new FilterSpec { Name = "All files", Spec = "*.*" },
-            });
+            dialog.SetTitle(title);
+            dialog.SetFileTypes((uint)filters.Length, filters);
             return dialog;
         }
 

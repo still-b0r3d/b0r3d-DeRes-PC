@@ -29,6 +29,13 @@ namespace B0r3dDeRes
         // a fresh start, as the website's first visit
         public static Settings Defaults() => new Settings();
 
+        public Settings Copy()
+        {
+            var copy = (Settings)MemberwiseClone();
+            copy.Deres = Deres.Clone();
+            return copy;
+        }
+
         public static Settings Load() => Load(System.IO.Path.Combine(DataFolder.Path, FileName));
 
         // missing or garbled lines keep their defaults, field by field, as the website checks its own
@@ -78,7 +85,14 @@ namespace B0r3dDeRes
                         if (Number(value, out double detail)) d.Detail = Clamp(detail, 0, 1);
                         break;
                     case "transparent":
-                        if (value == Backgrounds.White || value == Backgrounds.Black) d.Background = value;
+                        if (value == Backgrounds.White || value == Backgrounds.Black || value == Backgrounds.Transparent) d.Background = value;
+                        break;
+                    case "colours":
+                        if (Number(value, out double count)) d.CustomCount = (int)JsMath.Round(Clamp(count, 2, 256));
+                        break;
+                    case "palette":
+                        string[] palette = value.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries).Where(PaletteFile.IsColour).Take(PaletteFile.MaxColours).ToArray();
+                        d.CustomPalette = palette.Length > 0 ? palette : null;
                         break;
                     case "brightness":
                         if (Number(value, out double brightness)) d.Adjust.Brightness = Clamp(brightness, -0.5, 0.5);
@@ -105,6 +119,9 @@ namespace B0r3dDeRes
             }
             // a machine's dither when the one kept isn't one there is
             d.Dither = dither != null && Dither.ById(dither) != null ? dither : (Profiles.ById(d.ProfileId) ?? Profiles.Default).Dither;
+            // The Colours slider starts at a machine's own count whenever one is picked, so a kept
+            // count only stays for the Custom machine, as on the website.
+            if (d.ProfileId != Profiles.CustomId) d.CustomCount = null;
             return s;
         }
 
@@ -146,6 +163,8 @@ namespace B0r3dDeRes
             Line("saturation", N(d.Adjust.Saturation));
             Line("gamma", N(d.Adjust.Gamma));
             Line("dither", d.Dither);
+            if (d.CustomCount.HasValue) Line("colours", d.CustomCount.Value.ToString(CultureInfo.InvariantCulture));
+            if (d.CustomPalette != null && d.CustomPalette.Length > 0) Line("palette", string.Join(" ", d.CustomPalette));
             Line("pixel_shape", TvPixels ? "tv" : "raw");
             Line("size", Multiplier.ToString(CultureInfo.InvariantCulture));
             return text.ToString();

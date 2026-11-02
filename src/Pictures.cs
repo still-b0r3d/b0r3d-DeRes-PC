@@ -79,9 +79,11 @@ namespace B0r3dDeRes
         }
 
         // A picture file. Safe on any thread.
-        public static LoadedPicture Load(string path)
+        public static LoadedPicture Load(string path) => FromBytes(ReadFile(path), NameOf(path));
+
+        // A file's bytes, or a PictureException saying why not. Safe on any thread.
+        public static byte[] ReadFile(string path)
         {
-            string name = NameOf(path);
             byte[] bytes;
             try
             {
@@ -109,7 +111,29 @@ namespace B0r3dDeRes
             {
                 throw new PictureException("that isn't a file Windows can open");
             }
-            return FromBytes(bytes, name);
+            return bytes;
+        }
+
+        // A palette picture's different colours (see-through or not) in reading order, at most
+        // 256, from its pixels as the file has them (no colour profile, as the website reads one).
+        public static string[] PaletteColours(string path)
+        {
+            byte[] bytes = ReadFile(path);
+            try
+            {
+                BitmapDecoder decoder = BitmapDecoder.Create(new MemoryStream(bytes, false), BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None);
+                BitmapFrame frame = decoder.Frames[0];
+                if ((long)frame.PixelWidth * frame.PixelHeight > MaxPixels) throw new PictureException("it's too big for a palette");
+                byte[] bgra = Pixels(frame, out int width, out int height);
+                return PaletteFile.FromPixels(bgra, width, height);
+            }
+            catch (PictureException) { throw; }
+            catch (OutOfMemoryException) { throw new PictureException("it's too big to open with the memory this PC has free"); }
+            catch (Exception e) when (e is NotSupportedException || e is FileFormatException || e is ArgumentException || e is IOException || e is ExternalException ||
+                e is InvalidOperationException || e is OverflowException)
+            {
+                throw new PictureException(Damaged);
+            }
         }
 
         // A picture from its file's bytes. Safe on any thread.

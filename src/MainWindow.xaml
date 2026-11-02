@@ -33,14 +33,25 @@
             <MenuItem Header="_File">
                 <MenuItem Header="_Open picture…" Command="{x:Static local:Commands.OpenPicture}" />
                 <MenuItem x:Name="SamplesMenu" Header="Open a sa_mple" />
+                <MenuItem Header="Open _look…" Click="OnOpenLook" />
+                <MenuItem Header="Open p_alette…" Click="OnLoadPalette" />
                 <Separator />
                 <MenuItem Header="_Save PNG…" Command="{x:Static local:Commands.SavePng}" />
+                <MenuItem x:Name="EmulatorMenu" Header="Save for an _emulator…" Click="OnSaveEmulator" />
+                <MenuItem Header="Save loo_k…" Click="OnSaveLook" />
+                <MenuItem x:Name="SavePaletteMenu" Header="Save pale_tte…" Click="OnSavePalette" />
                 <Separator />
                 <MenuItem Header="E_xit" InputGestureText="Alt+F4" Click="OnExit" />
             </MenuItem>
             <MenuItem Header="_Edit">
                 <MenuItem Header="_Copy picture" Command="{x:Static local:Commands.CopyPicture}" InputGestureText="Ctrl+C" />
-                <MenuItem Header="_Paste picture" Command="{x:Static local:Commands.PastePicture}" InputGestureText="Ctrl+V" />
+                <MenuItem Header="_Paste picture or link" Command="{x:Static local:Commands.PastePicture}" InputGestureText="Ctrl+V" />
+                <Separator />
+                <MenuItem Header="Copy share _link" Click="OnCopyLink" />
+                <MenuItem x:Name="GrabMenu" Header="_Grab palette" Click="OnGrabPalette" />
+                <MenuItem Header="S_urprise me" Click="OnSurprise" />
+                <Separator />
+                <MenuItem Header="_Reset settings…" Click="OnResetMenu" />
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="Zoom _in" Command="{x:Static local:Commands.ZoomIn}" InputGestureText="Ctrl++" />
@@ -117,7 +128,7 @@
                                                 <TextBlock Style="{StaticResource Label}" Text="Framing" />
                                                 <UniformGrid Rows="1">
                                                     <RadioButton x:Name="FitFill" Style="{StaticResource Segment}" GroupName="Framing" Content="Crop to fill" Tag="fill" Padding="0" Checked="OnFraming" AutomationProperties.Name="Crop to fill" />
-                                                    <RadioButton x:Name="FitFit" Style="{StaticResource Segment}" GroupName="Framing" Content="Fit, with bars" Tag="fit" Checked="OnFraming" AutomationProperties.Name="Fit, with bars" />
+                                                    <RadioButton x:Name="FitFit" Style="{StaticResource Segment}" GroupName="Framing" Content="Fit, with bars" Tag="fit" Padding="0" Checked="OnFraming" AutomationProperties.Name="Fit, with bars" />
                                                     <RadioButton x:Name="FitStretch" Style="{StaticResource Segment}" GroupName="Framing" Content="Stretch" Tag="stretch" Margin="0" Checked="OnFraming" AutomationProperties.Name="Stretch" />
                                                 </UniformGrid>
                                             </StackPanel>
@@ -133,16 +144,39 @@
                                                 <TextBlock Style="{StaticResource Label}" Text="Transparent areas" />
                                                 <UniformGrid Rows="1">
                                                     <RadioButton x:Name="BackWhite" Style="{StaticResource Segment}" GroupName="Background" Content="White" Tag="white" Checked="OnBackground" AutomationProperties.Name="Transparent areas on white" />
-                                                    <RadioButton x:Name="BackBlack" Style="{StaticResource Segment}" GroupName="Background" Content="Black" Tag="black" Margin="0" Checked="OnBackground" AutomationProperties.Name="Transparent areas on black" />
+                                                    <RadioButton x:Name="BackBlack" Style="{StaticResource Segment}" GroupName="Background" Content="Black" Tag="black" Checked="OnBackground" AutomationProperties.Name="Transparent areas on black" />
+                                                    <RadioButton x:Name="BackKeep" Style="{StaticResource Segment}" GroupName="Background" Content="Keep" Tag="transparent" Margin="0" Checked="OnBackground" AutomationProperties.Name="Keep transparent areas see-through" />
                                                 </UniformGrid>
+                                                <TextBlock x:Name="KeepNote" Style="{StaticResource Hint}" Visibility="Collapsed" />
                                             </StackPanel>
                                         </StackPanel>
                                     </Expander>
 
                                     <Expander x:Name="HardwareSection" Style="{StaticResource Section}" Header="Hard_ware">
                                         <StackPanel>
+                                            <Button x:Name="SurpriseButton" Content="S_urprise me" Click="OnSurprise" HorizontalAlignment="Stretch" Margin="0,0,0,10"
+                                                    ToolTip="A random machine, dither and adjustments" />
                                             <UniformGrid x:Name="Cards" Columns="2" Margin="0,0,-6,0" />
                                             <TextBlock x:Name="AboutLine" Style="{StaticResource Hint}" Margin="0,4,0,0" />
+                                            <!-- the tile meter: would it fit the machine? -->
+                                            <Border x:Name="TileFit" Visibility="Collapsed" Margin="0,8,0,0" Padding="10,6" CornerRadius="4" BorderThickness="1" Background="{DynamicResource Field}">
+                                                <TextBlock x:Name="TileFitText" FontFamily="Consolas" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                                            </Border>
+                                            <!-- the machines that pick their colours from the picture -->
+                                            <StackPanel x:Name="PaletteTools" Visibility="Collapsed" Margin="0,12,0,0">
+                                                <StackPanel x:Name="ColoursPanel">
+                                                    <DockPanel>
+                                                        <TextBlock x:Name="ColoursValue" DockPanel.Dock="Right" />
+                                                        <TextBlock Text="Colours" Foreground="{DynamicResource Dim}" />
+                                                    </DockPanel>
+                                                    <Slider x:Name="ColoursSlider" Minimum="2" Maximum="256" SmallChange="1" LargeChange="8" IsSnapToTickEnabled="True" TickFrequency="1"
+                                                            ValueChanged="OnColours" AutomationProperties.Name="Colours" />
+                                                </StackPanel>
+                                                <WrapPanel Margin="0,8,0,0">
+                                                    <Button x:Name="LoadPaletteButton" Content="_Load palette…" Click="OnLoadPalette" Margin="0,0,8,6" ToolTip=".hex, .pal, .gpl or a palette .png" />
+                                                    <Button x:Name="GrabPaletteButton" Content="_Grab palette" Click="OnGrabPalette" Margin="0,0,0,6" ToolTip="Pick the colours from the picture" />
+                                                </WrapPanel>
+                                            </StackPanel>
                                         </StackPanel>
                                     </Expander>
 
@@ -173,7 +207,10 @@
                                     </Expander>
 
                                     <Expander x:Name="DitherSection" Style="{StaticResource Section}" Header="Di_ther">
-                                        <StackPanel x:Name="Dithers" />
+                                        <StackPanel>
+                                            <TextBlock x:Name="DitherNote" Style="{StaticResource Hint}" Margin="0,0,0,8" Visibility="Collapsed" />
+                                            <StackPanel x:Name="Dithers" />
+                                        </StackPanel>
                                     </Expander>
 
                                     <Expander x:Name="ExportSection" Style="{StaticResource Section}" Header="E_xport">
@@ -195,8 +232,16 @@
                                             </WrapPanel>
                                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
                                                        Text="Or drag the small picture under the preview into a folder or another program." />
+                                            <!-- the machine's own file, for emulators and editors -->
+                                            <Button x:Name="EmulatorButton" Click="OnSaveEmulator" HorizontalAlignment="Stretch" Margin="0,12,0,0" Visibility="Collapsed" />
+                                            <TextBlock x:Name="ExportNote" Style="{StaticResource Hint}" Visibility="Collapsed" />
+                                            <Button x:Name="ShareButton" Content="Copy share lin_k" Click="OnCopyLink" HorizontalAlignment="Stretch" Margin="0,12,0,0"
+                                                    ToolTip="A link that opens these settings on img.b0r3d.org (or here, pasted)" />
                                         </StackPanel>
                                     </Expander>
+
+                                    <!-- every setting back to how a first start has them (the picture stays) -->
+                                    <Button x:Name="ResetButton" Content="_Reset settings" Click="OnResetButton" HorizontalAlignment="Right" Margin="0,18,0,0" MinWidth="150" />
                                 </StackPanel>
                             </ScrollViewer>
                         </Border>
@@ -219,7 +264,8 @@
                                 </Grid>
                             </Border>
 
-                            <DockPanel x:Name="ViewBar" Grid.Row="1" Margin="0,10,0,0">
+                            <!-- (a fixed height: a readout of two lines never moves the picture) -->
+                            <DockPanel x:Name="ViewBar" Grid.Row="1" Margin="0,10,0,0" Height="50">
                                 <Border x:Name="DragOut" DockPanel.Dock="Left" Width="40" Height="40" Margin="0,0,12,0" CornerRadius="4" Cursor="Hand"
                                         Background="{DynamicResource Stage}" BorderBrush="{DynamicResource FieldLine}" BorderThickness="1"
                                         ToolTip="Drag the picture into a folder or another program" AutomationProperties.Name="Drag the picture out"
@@ -236,7 +282,8 @@
                                     <Button x:Name="FullScreenButton" Content="Full screen" Margin="10,0,0,0" Command="{x:Static local:Commands.FullScreen}" ToolTip="Just the picture (F11; Esc to come back)" />
                                 </StackPanel>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock x:Name="Readout" TextTrimming="CharacterEllipsis" FontFamily="Consolas" AutomationProperties.LiveSetting="Polite" />
+                                    <TextBlock x:Name="Readout" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" LineHeight="15" LineStackingStrategy="BlockLineHeight" MaxHeight="30"
+                                               FontFamily="Consolas" AutomationProperties.LiveSetting="Polite" />
                                     <TextBlock x:Name="HoldHint" Style="{StaticResource Hint}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
                                                Text="Hold the picture (or Space) to see the original." />
                                 </StackPanel>

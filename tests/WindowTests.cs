@@ -172,7 +172,7 @@ namespace B0r3dDeRes.Tests
             Pick(window, "mac");
             Check(window.ShownWith.Dither == DitherIds.Atkinson, "the Mac should start with Atkinson, not " + window.ShownWith.Dither);
             Pick(window, "nes");
-            Check(window.ShownWith.Dither == DitherIds.Floyd && window.Readout.Text.EndsWith("· 256×240 · 8:7 pixels", StringComparison.Ordinal), "the NES: " + window.ShownWith.Dither + ", " + window.Readout.Text);
+            Check(window.ShownWith.Dither == DitherIds.Floyd && window.Readout.Text.Contains("· 256×240 · 8:7 pixels · ") && window.Readout.Text.EndsWith(" tiles (+704 over limit)", StringComparison.Ordinal), "the NES: " + window.ShownWith.Dither + ", " + window.Readout.Text);
             Check(window.ShapePanel.Visibility == Visibility.Visible, "the NES's pixels aren't square, so Pixel shape should show");
             window.ShapeTv.IsChecked = true;
             WaitForPicture(window);

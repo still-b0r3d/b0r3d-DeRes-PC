@@ -22,8 +22,8 @@ namespace B0r3dDeRes.Engine
     // for the same picture, every time. (The website's core/dither.ts and core/bayer.ts.)
     static class Dither
     {
-        // The website's list, in its order. The Game Boy Camera's and the PlayStation's own come
-        // with those machines.
+        // The website's list, in its order. The last two are the Game Boy Camera's and the
+        // PlayStation's own, offered only on those machines.
         public static readonly DitherInfo[] All =
         {
             new DitherInfo { Id = DitherIds.None, Name = "None", Hint = "Flat areas of colour" },
@@ -33,6 +33,8 @@ namespace B0r3dDeRes.Engine
             new DitherInfo { Id = DitherIds.Floyd, Name = "Floyd–Steinberg", Hint = "Smooth, grainy" },
             new DitherInfo { Id = DitherIds.Atkinson, Name = "Atkinson", Hint = "Crisp, Mac-style" },
             new DitherInfo { Id = DitherIds.Yliluoma, Name = "Yliluoma", Hint = "Patterned, for uneven palettes" },
+            new DitherInfo { Id = DitherIds.GameBoyCamera, Name = "Camera", Hint = "The Game Boy Camera's own", Native = true },
+            new DitherInfo { Id = DitherIds.Ps1, Name = "PS1 GPU", Hint = "The PlayStation GPU's 4×4 dither", Native = true },
         };
 
         public static DitherInfo ById(string id) => All.FirstOrDefault(d => d.Id == id);
@@ -63,7 +65,40 @@ namespace B0r3dDeRes.Engine
                 case DitherIds.Floyd: FloydSteinberg(input, output); break;
                 case DitherIds.Atkinson: Atkinson(input, output); break;
                 case DitherIds.Yliluoma: Yliluoma(input, output); break;
+                case DitherIds.GameBoyCamera: GameBoyCamera(input, output); break;
+                case DitherIds.Ps1: Ps1(input, output); break;
                 default: NearestOnly(input, output); break;
+            }
+        }
+
+        // The Game Boy Camera's sensor dithers its 4 shades with a 4×4 threshold matrix, evenly
+        // spaced in its output (close to sRGB, not linear light), so mid-tones come out lighter and
+        // crunchier than a plain Bayer 4×4.
+        static void GameBoyCamera(Input input, byte[] output)
+        {
+            if (!input.Mono) Ordered(input, 4, output);
+            else OrderedLevels(input, 4, true, output);
+        }
+
+        // The PlayStation GPU's 4×4 dither table (from psx-spx).
+        public static readonly int[] Ps1Table = { -4, 0, -3, 1, 2, -2, 3, -1, -3, 1, -4, 0, 3, -1, 2, -2 };
+
+        static void Ps1(Input input, byte[] output)
+        {
+            float[] rgb = input.Rgb;
+            double spread = input.Matcher.Spread * 255;
+            for (int y = 0; y < input.Height; y++)
+            {
+                int my = (y + input.OffsetY) & 3;
+                for (int x = 0; x < input.Width; x++)
+                {
+                    int mx = (x + input.OffsetX) & 3, i = y * input.Width + x;
+                    double offset = Ps1Table[my * 4 + mx] / 8.0 * spread;
+                    output[i] = (byte)input.Matcher.NearestByte(
+                        ToByte(Colour.ToSrgb(rgb[i * 3]) * 255 + offset),
+                        ToByte(Colour.ToSrgb(rgb[i * 3 + 1]) * 255 + offset),
+                        ToByte(Colour.ToSrgb(rgb[i * 3 + 2]) * 255 + offset));
+                }
             }
         }
 

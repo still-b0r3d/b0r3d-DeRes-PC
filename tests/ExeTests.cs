@@ -65,6 +65,8 @@ namespace B0r3dDeRes.Tests
                 Check(found["render"] == "ok" && found["png"] == "ok", "the picture or its PNG didn't come out right inside the exe: " + all);
                 Check(found.TryGetValue("samples", out string samples) && samples == "ok", "the samples didn't open from inside the exe: " + all);
                 Check(found.TryGetValue("windows", out string windows) && windows == "ok", "the windows didn't build from inside the exe: " + all);
+                Check(found.TryGetValue("machines", out string machines) && machines == "ok" && found.TryGetValue("link", out string link) && link == "ok",
+                    "every machine and a share link should work inside the exe: " + all);
                 Check(found["bits"] == "64", "the exe ran as a " + found["bits"] + "-bit program; only 64-bit does the website's sums to the last bit");
                 Check(found["dpi"] == "per-monitor-v2", "the exe follows the screens' scaling as \"" + found["dpi"] + "\", not per-monitor-v2 (is the manifest in?)");
                 Check(found["version"] == Program.FullVersion, "the exe says " + found["version"]);
@@ -94,6 +96,8 @@ namespace B0r3dDeRes.Tests
         {
             "https://b0r3d.org",              // Help → b0r3d.org, opened in the browser
             "https://img.b0r3d.org",          // Help → the website, opened in the browser
+            "https://img.b0r3d.org/",         // a share link's start, copied as text (never opened)
+            "https://img.b0r3d.org/#s=",
         };
         // an address: a scheme, then a host after the // ("https://" alone, in "Add https://", is none)
         const string Address = @"[A-Za-z][A-Za-z0-9+.\-]*://[A-Za-z0-9\[][^\s""'<>]*";
@@ -170,7 +174,7 @@ namespace B0r3dDeRes.Tests
                         if (!AllowedAddresses.Contains(address.Value)) bad.Add("the address " + address.Value);
                 Check(bad.Count == 0, "the exe has " + string.Join(", ", bad.Distinct()));
                 Check(md.TypeReferences.Count > 50, "the scan saw almost nothing; is this the right file?");
-                Check(md.AssemblyReferences.All(h => new[] { "mscorlib", "System", "System.Core", "PresentationCore", "PresentationFramework", "WindowsBase", "System.Xaml" }
+                Check(md.AssemblyReferences.All(h => new[] { "mscorlib", "System", "System.Core", "System.Numerics", "PresentationCore", "PresentationFramework", "WindowsBase", "System.Xaml" }
                     .Contains(md.GetString(md.GetAssemblyReference(h).Name))), "the exe needs more than .NET Framework itself: " +
                     string.Join(", ", md.AssemblyReferences.Select(h => md.GetString(md.GetAssemblyReference(h).Name))));
             }

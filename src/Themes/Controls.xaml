@@ -169,6 +169,7 @@
         <Setter Property="MinWidth" Value="42" />
         <Setter Property="Height" Value="30" />
         <Setter Property="Margin" Value="0,0,6,0" />
+        <Setter Property="Padding" Value="12,0" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource Focus}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
@@ -176,7 +177,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="Box" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0" RecognizesAccessKey="True" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">

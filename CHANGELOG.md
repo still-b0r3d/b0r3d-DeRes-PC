@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.2 (not released yet)
+
+The second stage: every machine of the website but its analog looks, and looks that travel.
+
+- 20 more machines, the same pictures as the website's pixel for pixel: the Game Boy Camera
+  (its sharpening and its own dither), the machines that pick their colours from the picture
+  (Super Nintendo, Sega Genesis, Master System, PC-9801, VGA 256, Atari ST, the Amstrad CPC in
+  modes 0 and 1, and Custom), the ones that pick them cell by cell (ZX Spectrum, C64
+  multicolour, NES attributes, Apple II hi-res, MSX Screen 2, Game Boy Color), Amiga HAM6, the
+  PlayStation with its GPU's dither, the Nintendo 64's filter, and CGA composite. 36 in all.
+- The Colours slider for the machines that pick their colours, and Custom's palette: loaded
+  from a `.hex`, `.pal` or `.gpl` (opened, or dropped on the window) or a palette picture
+  (opened), or grabbed from the picture; File → Save palette… keeps a picture's colours in any
+  of the four.
+- Transparent areas: Keep. They stay see-through, over a checkerboard in the preview, and in
+  the PNG (one more palette entry, or alpha).
+- The tile meter: how many different 8×8 tiles, against what the machine could hold, under the
+  machines and in the line under the picture.
+- The dithers each machine offers: the machines' own on them only, the ones that change
+  nothing greyed out, and a line saying why.
+- The machines' own files, byte for byte as the website makes them: the Spectrum's `.scr`, the
+  C64's Koala `.koa`, Game Boy and NES tiles (`.chr`).
+- Looks: File → Save look… and Open look… (`.json`, the website's own names), a look file
+  dropped on the window, Copy share link, and a website share link pasted with Ctrl+V. Links
+  are the website's own, letter for letter, and read as it reads them; what comes with a
+  later version (a screen effect, the Signal, an analog look) is said.
+- Surprise me, and Reset settings (asks first).
+- PNGs of the looks that make their own colours hold exactly those colours, or go full colour.
+- The line under the picture takes two lines when it needs them.
+- 65 tests: 645 pictures and 243 PNGs against the website's own engine, its links, the numbers
+  in them, palette files and the grabber.
+
 ## 0.1 (not released yet)
 
 The first stage: the program, and the machines with fixed palettes.
