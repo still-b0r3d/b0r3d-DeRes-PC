@@ -186,9 +186,12 @@ namespace B0r3dDeRes
             public FxSettings Fx;           // the screen effect, or null
             public SignalSettings Signal;   // the signal, or null
             public int Width, Height;
+            public int SignalFrame;         // an animated GIF's frame: the signal's engine frame,
+            public double Phase;            // and its place in the loop
 
             public bool Same(ScreenJob o) => o != null && o.Picture == Picture && (o.Fx == null ? Fx == null : Fx != null && o.Fx.SameAs(Fx)) &&
-                (o.Signal == null ? Signal == null : Signal != null && o.Signal.SameAs(Signal)) && o.Width == Width && o.Height == Height;
+                (o.Signal == null ? Signal == null : Signal != null && o.Signal.SameAs(Signal)) && o.Width == Width && o.Height == Height &&
+                o.SignalFrame == SignalFrame && o.Phase == Phase;
         }
 
         ScreenJob screenWanted, screenShown;
@@ -208,6 +211,9 @@ namespace B0r3dDeRes
         // the preview's screen effect and signal, made again for the picture shown, its zoom and settings
         void FxSoon()
         {
+            // frames played with older settings (or at another size) are no good; a GIF playing makes its own
+            CheckPlayKey();
+            if (player.Playing || player.Holding) return;
             Rendered r = shown;
             if (r == null || settings.Fx.Screen == Screens.Off && settings.SignalOn == null)
             {
@@ -227,6 +233,8 @@ namespace B0r3dDeRes
                 Signal = settings.SignalOn?.Clone(),
                 Width = w,
                 Height = h,
+                SignalFrame = SignalFrameOf(r),
+                Phase = PhaseOf(r),
             };
             if (job.Same(screenShown) && !screenRendering || job.Same(screenWanted)) return;
             screenWanted = job;
@@ -249,9 +257,9 @@ namespace B0r3dDeRes
                         Rendered r = job.Picture;
                         rgba = await Task.Run(() =>
                         {
-                            SignalImage sig = SignalFor(r, job.Signal);
-                            RowRenderer render = sig != null ? Signal.Renderer(sig, job.Width, job.Height, job.Fx, 0, r.Paper)
-                                : new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, job.Width, job.Height, job.Fx);
+                            SignalImage sig = SignalFor(r, job.Signal, job.SignalFrame);
+                            RowRenderer render = sig != null ? Signal.Renderer(sig, job.Width, job.Height, job.Fx, job.Phase, r.Paper)
+                                : new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, job.Width, job.Height, job.Fx, job.Phase);
                             return render.Rgba();
                         });
                     }
@@ -266,8 +274,8 @@ namespace B0r3dDeRes
                         if (screenWanted == null) Problem(x is OutOfMemoryException ? "There isn't enough memory free to show " + what + "." : "Couldn't show " + what + ": " + x.Message);
                         continue;
                     }
-                    // the screen and the signal turned off meanwhile: this one's no longer wanted
-                    if (settings.Fx.Screen == Screens.Off && settings.SignalOn == null) continue;
+                    // the screen and the signal turned off meanwhile, or a GIF started playing: this one's no longer wanted
+                    if (settings.Fx.Screen == Screens.Off && settings.SignalOn == null || player.Playing || player.Holding) continue;
                     // A newer picture meanwhile: this one still shows while the newer one's is made,
                     // when it's of the same photo at the same size (a slider moving), so the preview
                     // follows a slider that makes the picture again; else it's no longer wanted.
@@ -303,7 +311,7 @@ namespace B0r3dDeRes
             if (path != null) CouldntSave(path, await SaveWallpaper(path, r, w));
         }
 
-        internal string WallpaperName(Rendered r, Wallpaper w) => Export.WallpaperName(Export.BaseName(shownFrom?.Name ?? "photo"), r.Profile.Id, w.Id);
+        internal string WallpaperName(Rendered r, Wallpaper w) => Export.WallpaperName(BaseOf(r), r.Profile.Id, w.Id);
 
         // the wallpaper at `path`, through the signal when it's on; what went wrong, or null
         internal async Task<string> SaveWallpaper(string path, Rendered r, Wallpaper w)
@@ -313,10 +321,12 @@ namespace B0r3dDeRes
             bool tv = settings.TvPixels && !r.Geometry.SquarePixels;
             FxSettings fx = settings.ExportScreen?.Clone();
             SignalSettings signal = settings.SignalOn?.Clone();
+            int signalFrame = SignalFrameOf(r);
+            double phase = PhaseOf(r);
             string problem = null;
             try
             {
-                await Task.Run(() => Exports.Write(path, stream => Export.WriteWallpaper(stream, r, w.Width, w.Height, tv, fx, SignalFor(r, signal))));
+                await Task.Run(() => Exports.Write(path, stream => Export.WriteWallpaper(stream, r, w.Width, w.Height, tv, fx, SignalFor(r, signal, signalFrame), phase)));
             }
             catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is NotSupportedException || x is System.Security.SecurityException)
             {

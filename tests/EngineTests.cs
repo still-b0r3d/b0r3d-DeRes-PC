@@ -36,9 +36,13 @@ namespace B0r3dDeRes.Tests
         public int UniqueTiles, UniqueColours, EmuLength;
         // made with the signal on (CGA composite dithers to its colours), or null
         public SignalSettings Signal;
+        // where the dither's pattern starts (the dither shimmer's frames)
+        public int OffsetX, OffsetY;
 
         public DeresSettings Settings() => Engine.Signal.ForRender(new DeresSettings
         {
+            DitherOffsetX = OffsetX,
+            DitherOffsetY = OffsetY,
             ProfileId = Profile,
             Fit = Fit,
             Custom = CustomWidth >= 0,
@@ -53,7 +57,8 @@ namespace B0r3dDeRes.Tests
 
         public override string ToString() => Input + " " + Profile + " " + Dither + (CustomWidth >= 0 ? " width " + CustomWidth : " " + Fit) + " detail " + Detail + " " + Background +
             (Brightness != 0 || Contrast != 1 || Saturation != 1 || Gamma != 1 ? " adjust " + Brightness + "/" + Contrast + "/" + Saturation + "/" + Gamma : "") +
-            (Count >= 0 ? " colours " + Count : "") + (CustomPalette.Length > 0 ? " palette of " + CustomPalette.Split(',').Length : "");
+            (Count >= 0 ? " colours " + Count : "") + (CustomPalette.Length > 0 ? " palette of " + CustomPalette.Split(',').Length : "") +
+            (OffsetX != 0 || OffsetY != 0 ? " dither from " + OffsetX + "," + OffsetY : "");
     }
 
     // One PNG the website exported from a picture above, by its parts.

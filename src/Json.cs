@@ -34,6 +34,28 @@ namespace B0r3dDeRes
             return bits;
         }
 
+        // JavaScript's x.toFixed(digits) for a finite x under 10^21: the decimal with that many places
+        // nearest the double's exact value, the bigger one when two are as near.
+        public static string Fixed(double x, int digits)
+        {
+            bool negative = x < 0;
+            long bits = BitConverter.DoubleToInt64Bits(Math.Abs(x));
+            int exp = (int)((bits >> 52) & 0x7FF);
+            long mant = bits & 0xFFFFFFFFFFFFFL;
+            if (exp == 0) exp = 1;
+            else mant |= 1L << 52;
+            int e = exp - 1075;     // |x| = mant × 2^e
+            BigInteger scaled = mant * BigInteger.Pow(10, digits);
+            BigInteger n = e >= 0 ? scaled << e : (scaled * 2 + (BigInteger.One << -e)) / (BigInteger.One << (1 - e));
+            string text = n.ToString(CultureInfo.InvariantCulture);
+            if (digits > 0)
+            {
+                text = text.PadLeft(digits + 1, '0');
+                text = text.Substring(0, text.Length - digits) + "." + text.Substring(text.Length - digits);
+            }
+            return (negative ? "-" : "") + text;
+        }
+
         // Decimal digits (leading zeros allowed) × 10^exp10, to the nearest double. Past 800
         // significant digits the rest only decide which way to round, so they're one more digit,
         // 1 when any of them isn't 0: no halfway point between two doubles needs more than 767

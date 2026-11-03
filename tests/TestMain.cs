@@ -23,9 +23,9 @@ namespace B0r3dDeRes.Tests
     // Runs every test and prints a PASS, FAIL or SKIP line for each. It never shows a dialog:
     // whatever goes wrong ends as a line, and a watchdog stops the run after 90 seconds.
     //   b0r3dDeResTests.exe                        run the tests
-    //   b0r3dDeResTests.exe --part engine|window   run one part of them (build.cmd test runs
-    //                                              the two in turn, each within its 90 seconds
-    //                                              on a 2-core CI machine too)
+    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|window   run one part of them
+    //                                              (build.cmd test runs the five in turn, each
+    //                                              within its 90 seconds on a 2-core CI machine too)
     //   b0r3dDeResTests.exe --shots <folder>       draw the windows to PNG files (see Shots.cs)
     static partial class TestMain
     {
@@ -62,10 +62,10 @@ namespace B0r3dDeRes.Tests
                     TryDelete(Work);
                     return shot;
                 }
-                if (args.Length == 2 && args[0] == "--part" && (args[1] == "engine" || args[1] == "window")) only = args[1];
+                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "window" }.Contains(args[1])) only = args[1];
                 else if (args.Length > 0)
                 {
-                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|window] [--shots <folder>]");
+                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|window] [--shots <folder>]");
                     return 2;
                 }
 
@@ -115,7 +115,7 @@ namespace B0r3dDeRes.Tests
                 Run("pictures: all eight EXIF orientations come out upright", TurnsPhotosUpright);
                 Run("pictures: other colour profiles are applied, sRGB ones leave the pixels as browsers do", AppliesColourProfiles);
                 Run("pictures: Windows' JPEG reader is close to Chromium's on the sample photos", JpegsLikeTheBrowser);
-                Run("pictures: a GIF opens at its first picture, on its own screen, with its frame count", GifsOpenAtTheirFirstPicture);
+                Run("pictures: an animated GIF opens at its first frame through DeRes's own decoder, on its own screen, with its frames; a one-frame GIF as a still", GifsOpenAtTheirFirstPicture);
                 Run("pictures: pasted PNGs and bitmaps, a dropped picture opens, several or a folder go to the batch, broken files said", OpensCopiedAndDropped);
 
                 Run("data folder: next to the exe, or where --data says; nothing kept in Temp or AppData", DataFolderPlaces);
@@ -124,6 +124,26 @@ namespace B0r3dDeRes.Tests
                 Run("settings: a folder that can't be written to is caught at start and said", SettingsWhereTheyCantBeKept);
                 Run("settings: a save that fails once (a held file) doesn't stop the next", SaveFailsOnlyOnce);
                 Run("command line: --data, --selftest, a picture, and unknown options", CommandLines);
+
+                part = "animation";
+                Run("GIFs: " + Website.GifDecodes.Length + " GIFs read frame by frame as the website's decoder reads them: disposals, interlacing, tables, clipping, LZW, delays, loops, damage", GifsReadLikeTheWebsite);
+                Run("GIFs: opened as animations as the website opens them, shrunk and cut to a budget, stills left as stills", GifsOpenLikeTheWebsite);
+                Run("GIF and APNG: the website's writers, byte for byte (GIF) and chunk for chunk (APNG), the shared palette and the see-through entry", GifAndApngWritersLikeTheWebsite);
+                Run("loops: " + Website.Loops.Length + " Screen FX loops, A/B wipes and dither shimmers as the website's, with the screen effect, the signal and see-through pixels", LoopsLikeTheWebsite);
+                Run("animations: the size they come out at, and the GIF's words, as the website's", AnimationSizesAndWordsLikeTheWebsite);
+
+                part = "gifs";
+                Run("GIF frames: every other one of " + Website.FramesExports.Length + " animated GIFs' own frames through a machine as the website's, made on two lanes; a frame's PNG", () => GifFramesLikeTheWebsite(0));
+                Run("window: a GIF plays through the settings (and the signal), pauses on a frame that's then the picture, the slider goes to any frame, a frame's PNG says which", GifPlaysInTheWindow);
+                Run("window: GIF and APNG of every loop and of a GIF's own frames, the engine's files, named as the website names them; the signal's loop, Stop, the line by the buttons, the style kept", AnimationsSaveInTheWindow);
+                Run("batch: a GIF or an APNG each, an animated GIF as its own frames, a still as the loop picked, each made straight into its file and read back", BatchMakesGifs);
+
+                part = "frames";
+                Run("GIF frames: the other half of them, made on two lanes", () => GifFramesLikeTheWebsite(1));
+                Run("GIFs: shrunk to be held, they go by their own size: Custom's height and widest, Detail and the resolution line as the website's", ShrunkGifsGoByTheirOwnSize);
+                Run("window: GIFs shrunk to be held: Custom's height and widest and the resolution line by the GIF's own size", ShrunkGifInTheWindow);
+                Run("batch: GIFs skipped (not made) or replaced, Stop while one's made leaves no file and counts nothing, a file that came to the name meanwhile left as it was", BatchGifsSkipReplaceStop);
+                if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DERES_MEASURE"))) Run("measure: an animation at the PC's limits, its time and memory", MeasureAnimations);
 
                 part = "window";
                 Run("look: the three colour sets match, and every colour used is in them", ThemesMatch);
@@ -166,9 +186,13 @@ namespace B0r3dDeRes.Tests
             }
         }
 
+        // with DERES_ONLY set (by hand, never by build.cmd), only the tests whose names hold its text
+        static readonly string onlyNamed = Environment.GetEnvironmentVariable("DERES_ONLY");
+
         static void Run(string name, Action test)
         {
             if (only != null && part != only) return;
+            if (!string.IsNullOrEmpty(onlyNamed) && name.IndexOf(onlyNamed, StringComparison.OrdinalIgnoreCase) < 0 && !name.StartsWith("footprint", StringComparison.Ordinal)) return;
             running = name;
             var watch = Stopwatch.StartNew();
             try

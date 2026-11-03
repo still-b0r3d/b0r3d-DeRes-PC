@@ -20,8 +20,10 @@ namespace B0r3dDeRes
     enum Clash { Number, Replace, Skip }
 
     // The batch: a folder or a pile of pictures through the look the main window has now, into a
-    // folder: a PNG or a wallpaper each (and the machine's own file, when asked), several pictures
-    // at once on every core. Every file is written whole, then read back from the disk.
+    // folder: a PNG, a wallpaper, a GIF or an APNG each (and the machine's own file, when asked),
+    // several pictures at once on every core. An animated GIF goes out as its own frames, any other
+    // picture as the loop picked under Export. Every file is written whole, then read back from
+    // the disk.
     public partial class BatchWindow : Window
     {
         readonly MainWindow owner;
@@ -172,6 +174,9 @@ namespace B0r3dDeRes
 
         Wallpaper ChosenWallpaper => WallpaperChoice.IsChecked == true ? (WallpaperBox.SelectedItem as ComboBoxItem)?.Tag as Wallpaper : null;
 
+        // an animation each: false for GIF, true for APNG; null for neither
+        bool? ChosenAnimation => GifChoice.IsChecked == true ? false : ApngChoice.IsChecked == true ? true : (bool?)null;
+
         void Refresh()
         {
             // (the buttons' first Checked comes while the window is still being built)
@@ -195,8 +200,17 @@ namespace B0r3dDeRes
             FxSettings fx = s.ExportScreen;
             string screen = MainWindow.ScreenName(s.Fx.Screen) + " screen";
             Wallpaper w = ChosenWallpaper;
+            bool? animated = ChosenAnimation;
             bool withFx;
-            if (w == null)
+            if (animated != null)
+            {
+                withFx = Export.WithFx(fx, s.Multiplier) || s.AnimationStyle == Animation.ScreenFx && s.SignalOn == null;
+                string loop = s.AnimationStyle == Animation.CompareWipe ? "A/B wipe" : s.AnimationStyle == Animation.DitherShimmer ? "dither shimmer" : s.SignalOn != null ? "signal loop" : "Screen FX loop";
+                MakeLine.Text = "An animated GIF goes out as its own frames, any other picture as the " + loop +
+                    (s.AnimationStyle == Animation.ScreenFx && s.SignalOn != null ? " (" + s.LoopFrames + " frames at " + s.LoopFps + " fps)" : "") +
+                    " picked under Export. At " + s.Multiplier + "×" + (tv ? ", as on a TV" : "") + ", or the biggest Size that fits an animation.";
+            }
+            else if (w == null)
             {
                 withFx = Export.WithFx(fx, s.Multiplier);
                 MakeLine.Text = "At " + s.Multiplier + "×" + (tv ? ", as on a TV" : "") + (withFx ? ", with the " + screen : "") +
@@ -230,7 +244,7 @@ namespace B0r3dDeRes
             StopButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
             FolderButton.IsEnabled = PicturesButton.IsEnabled = ClearButton.IsEnabled = IntoButton.IsEnabled = !busy;
             PngChoice.IsEnabled = WallpaperChoice.IsEnabled = WallpaperBox.IsEnabled = MachineFileBox.IsEnabled = !busy;
-            NumberChoice.IsEnabled = ReplaceChoice.IsEnabled = SkipChoice.IsEnabled = !busy;
+            NumberChoice.IsEnabled = ReplaceChoice.IsEnabled = SkipChoice.IsEnabled = GifChoice.IsEnabled = ApngChoice.IsEnabled = !busy;
         }
 
         // ---------- making the files ----------
@@ -240,6 +254,8 @@ namespace B0r3dDeRes
         {
             public Settings Settings;
             public Wallpaper Wallpaper;     // null: a PNG each
+            public bool? Animated;          // a GIF (false) or an APNG (true) each; null: neither
+            public readonly CancellationTokenSource Stop = new CancellationTokenSource();   // Stop: animations under way stop too
             public bool MachineFile;
             public Clash Clash;
             public string Into;
@@ -250,12 +266,19 @@ namespace B0r3dDeRes
             public readonly ConcurrentQueue<string> TooBig = new ConcurrentQueue<string>();
         }
 
-        // one file a picture makes: its name (before any number) and bytes, and for a PNG its size
+        // One file a picture makes: its name (before any number), and its bytes, or for an
+        // animation what makes it straight into its file (it may be more than memory holds). For a
+        // PNG, GIF or APNG its size, and an animation's frames and what went into the file, summed
+        // and counted, to read it back by.
         sealed class Output
         {
             public string Name;
             public byte[] Bytes;
-            public int Width, Height;
+            public Action<Stream> Make;
+            public int Width, Height, Frames;
+            public bool Gif;
+            public uint Sum;
+            public long Length;
         }
 
         void OnMake(object sender, RoutedEventArgs e) => Make(NumberChoice.IsChecked == true ? Clash.Number : ReplaceChoice.IsChecked == true ? Clash.Replace : Clash.Skip);
@@ -280,6 +303,7 @@ namespace B0r3dDeRes
             {
                 Settings = owner.Current.Copy(),
                 Wallpaper = ChosenWallpaper,
+                Animated = ChosenAnimation,
                 MachineFile = MachineFileBox.Visibility == Visibility.Visible && MachineFileBox.IsChecked == true,
                 Clash = clash,
                 Into = folder,
@@ -289,10 +313,21 @@ namespace B0r3dDeRes
                 TaskContinuationOptions.OnlyOnFaulted);
         }
 
+        // the batch under way (its Stop stops animations being made)
+        Job running;
+
+        // stops the batch: the pictures under way finish, but an animation being made stops (leaving no file)
+        void StopRunning()
+        {
+            stopping = true;
+            running?.Stop.Cancel();
+        }
+
         async Task Run(Job job, List<string> todo)
         {
             busy = true;
             stopping = false;
+            running = job;
             ShowButtons();
             Progress.Maximum = todo.Count;
             Progress.Value = 0;
@@ -300,7 +335,8 @@ namespace B0r3dDeRes
             ShowProgress(job, todo.Count, null);
             try
             {
-                int atOnce = AtOnce ?? Math.Max(1, Math.Min(4, Environment.ProcessorCount / 3));
+                // (animations hold their frames: two at most)
+                int atOnce = AtOnce ?? Math.Max(1, Math.Min(job.Animated != null ? 2 : 4, Environment.ProcessorCount / 3));
                 using (var gate = new SemaphoreSlim(atOnce))
                 {
                     var running = new List<Task>();
@@ -358,6 +394,7 @@ namespace B0r3dDeRes
         {
             string name = Pictures.NameOf(file);
             bool wrote = false;
+            List<string> names = null;
             try
             {
                 LoadedPicture picture = Pictures.Load(file);
@@ -369,29 +406,55 @@ namespace B0r3dDeRes
                 string stem = Export.BaseName(picture.Name);
                 bool tv = job.Settings.TvPixels && !r.Geometry.SquarePixels;
                 FxSettings fx = job.Settings.ExportScreen;
-                // through the signal when it's on (always kept), its connection in the name
-                SignalImage through = signal != null ? Signal.Run(r, r.Profile.Id, signal, 0) : null;
-                string connection = through != null ? Signal.Connection(signal.Mode, Signal.Machine(r.Profile.Id, r.Width)) : null;
+                // through the signal when it's on (always kept), its connection in the name (an
+                // animation makes its own frames of it)
+                SignalImage through = signal != null && job.Animated == null ? Signal.Run(r, r.Profile.Id, signal, 0) : null;
+                string connection = signal != null ? Signal.Connection(signal.Mode, Signal.Machine(r.Profile.Id, r.Width)) : null;
                 var outputs = new List<Output>();
-                using (var bytes = new MemoryStream())
+                var png = new Output();
+                if (job.Animated != null)
                 {
-                    var png = new Output();
-                    if (job.Wallpaper == null)
+                    // an animated GIF's own frames, any other picture the loop picked under Export,
+                    // at the Size or the biggest that fits; made as it's written (once its name is
+                    // the picture's: a skipped one isn't made)
+                    bool apng = job.Animated.Value;
+                    Settings js = job.Settings;
+                    string kind = picture.Animation != null ? Animation.GifFrames : js.AnimationStyle;
+                    Geometry g = r.Geometry;
+                    AnimationFit fit = Animation.FitFor(g.Width, g.Height, g.ParX, g.ParY, js.TvPixels, js.Multiplier, kind, signal != null ? js.LoopFrames : (int?)null, AnimationLimits.Pc);
+                    if (fit.Multiplier == null) throw new AnimationException("it's too big for an animation at any Size");
+                    png.Gif = !apng;
+                    png.Name = kind == Animation.GifFrames ? Export.FramesName(stem, r.Profile.Id, connection, apng) : Export.LoopName(stem, r.Profile.Id, kind, connection, apng);
+                    png.Make = into =>
                     {
-                        int m = job.Settings.Multiplier;
-                        Export.WritePng(bytes, r, m, tv, fx, out png.Width, out png.Height, through);
-                        png.Name = Export.FileName(stem, r.Profile.Id, r.Width, r.Height, m, tv, Export.WithFx(fx, m), connection);
-                    }
-                    else
-                    {
-                        Export.WriteWallpaper(bytes, r, job.Wallpaper.Width, job.Wallpaper.Height, tv, fx, through);
-                        png.Width = job.Wallpaper.Width;
-                        png.Height = job.Wallpaper.Height;
-                        png.Name = Export.WallpaperName(stem, r.Profile.Id, job.Wallpaper.Id);
-                    }
-                    png.Bytes = bytes.ToArray();
-                    outputs.Add(png);
+                        AnimationResult made = MainWindow.MakeAnimation(into, picture, 0, r, Signal.ForRender(s, signal), kind, apng, fit.Multiplier.Value, js.TvPixels, fx, signal,
+                            js.LoopFrames, js.LoopFps, null, job.Stop.Token);
+                        // Stop while the frames were put together: still no file
+                        job.Stop.Token.ThrowIfCancellationRequested();
+                        png.Width = made.Width;
+                        png.Height = made.Height;
+                        png.Frames = made.Frames;
+                    };
                 }
+                else
+                    using (var bytes = new MemoryStream())
+                    {
+                        if (job.Wallpaper == null)
+                        {
+                            int m = job.Settings.Multiplier;
+                            Export.WritePng(bytes, r, m, tv, fx, out png.Width, out png.Height, through);
+                            png.Name = Export.FileName(stem, r.Profile.Id, r.Width, r.Height, m, tv, Export.WithFx(fx, m), connection);
+                        }
+                        else
+                        {
+                            Export.WriteWallpaper(bytes, r, job.Wallpaper.Width, job.Wallpaper.Height, tv, fx, through);
+                            png.Width = job.Wallpaper.Width;
+                            png.Height = job.Wallpaper.Height;
+                            png.Name = Export.WallpaperName(stem, r.Profile.Id, job.Wallpaper.Id);
+                        }
+                        png.Bytes = bytes.ToArray();
+                    }
+                outputs.Add(png);
                 string missing = null;
                 string format = r.Profile.EmulatorFormats.FirstOrDefault();
                 if (job.MachineFile && format != null)
@@ -408,13 +471,15 @@ namespace B0r3dDeRes
                     if (forFile.EmulatorFile != null) outputs.Add(new Output { Name = Export.EmulatorFileName(stem, r.Profile.Id, forFile.EmulatorFile.Format), Bytes = forFile.EmulatorFile.Data });
                     else missing = "its ." + format + " file didn't come out";
                 }
-                List<string> names = Reserve(job, outputs);
+                names = Reserve(job, outputs);
                 for (int i = 0; i < outputs.Count; i++)
                 {
                     if (names[i] == null) continue;
+                    // (whole or not at all: an animation that runs out of memory leaves no file)
+                    string path = Write(job, Path.Combine(job.Into, names[i]), outputs[i]);
                     wrote = true;
-                    string problem = WriteAndCheck(Path.Combine(job.Into, names[i]), outputs[i]);
-                    if (problem != null) Fail(job, file, name + ": " + names[i] + " " + problem);
+                    string problem = ReadBack(path, outputs[i]);
+                    if (problem != null) Fail(job, file, name + ": " + Path.GetFileName(path) + " " + problem);
                     else lock (job) job.Made++;
                 }
                 if (missing != null) Fail(job, file, name + ": " + missing);
@@ -422,9 +487,18 @@ namespace B0r3dDeRes
             catch (Exception x)
             {
                 Exception why = x is AggregateException all ? all.Flatten().InnerExceptions[0] : x;
+                // stopped while its animation was made: nothing written, and it isn't done (its
+                // names go back, a skip with them)
+                if (why is OperationCanceledException && job.Stop.IsCancellationRequested)
+                {
+                    if (names != null && !wrote) Release(job, names);
+                    return;
+                }
                 bool memory = why is OutOfMemoryException || why is PictureException p && p.OutOfMemory;
                 if (memory && !alone && !wrote)
                 {
+                    // its names go back, for when it's made alone
+                    if (names != null) Release(job, names);
                     job.TooBig.Enqueue(file);
                     return;
                 }
@@ -465,16 +539,125 @@ namespace B0r3dDeRes
         static string Numbered(string fileName, int n) =>
             n == 1 ? fileName : Path.GetFileNameWithoutExtension(fileName) + " (" + n + ")" + Path.GetExtension(fileName);
 
-        // A file written whole, then read back from the disk: the same bytes, and a PNG that
-        // Windows reads as its size (its header: the pixels are the bytes checked). Why not, or null.
-        static string WriteAndCheck(string path, Output output)
+        // the names a picture had, given back when it wrote nothing (it's made again later)
+        static void Release(Job job, List<string> names)
         {
-            Exports.Write(path, output.Bytes);
+            lock (job)
+                foreach (string n in names)
+                    if (n != null) job.Taken.Remove(n);
+                    else job.Skipped--;
+        }
+
+        // A file written whole or not at all, an animation made straight into it (what goes in
+        // summed and counted on the way). Unless the batch replaces files, one that came to its
+        // name while it was made isn't written over: it takes the next number. The path it went to.
+        static string Write(Job job, string path, Output output)
+        {
+            Func<string> elsewhere = job.Clash == Clash.Replace ? null : (Func<string>)(() => NextFree(job, output.Name));
+            if (output.Make == null) return Exports.Write(path, stream => stream.Write(output.Bytes, 0, output.Bytes.Length), elsewhere);
+            return Exports.Write(path, stream =>
+            {
+                var summed = new Summed(stream);
+                output.Make(summed);
+                output.Sum = summed.Sum;
+                output.Length = summed.Count;
+            }, elsewhere);
+        }
+
+        // the next number free for a file's name, in the batch and in the folder, taken
+        static string NextFree(Job job, string fileName)
+        {
+            lock (job)
+                for (int k = 2; ; k++)
+                {
+                    string n = Numbered(fileName, k);
+                    if (job.Taken.Contains(n) || File.Exists(Path.Combine(job.Into, n))) continue;
+                    job.Taken.Add(n);
+                    return Path.Combine(job.Into, n);
+                }
+        }
+
+        // A file read back from the disk: the same bytes, and a PNG that Windows reads as its size
+        // (its header: the pixels are the bytes checked). An animation, too big to hold perhaps, is
+        // read through once: the bytes summed as they were going in, and a GIF or APNG of its size
+        // and frames, whole to its end. Why not, or null.
+        static string ReadBack(string path, Output output)
+        {
+            if (output.Make != null)
+                using (var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20))
+                {
+                    var summed = new Summed(file);
+                    int width, height, frames;
+                    bool whole = output.Gif ? GifInfo.Shape(summed, out width, out height, out frames) : ApngInfo.Shape(summed, out width, out height, out frames);
+                    summed.ReadToEnd();
+                    if (summed.Count != output.Length || summed.Sum != output.Sum) return "came back from the disk different";
+                    return whole && width == output.Width && height == output.Height && frames == output.Frames ? null
+                        : "didn't read back as a " + output.Width + "×" + output.Height + (output.Gif ? " GIF" : " APNG") + " of " + output.Frames + " frames";
+                }
             byte[] back = File.ReadAllBytes(path);
             if (back.Length != output.Bytes.Length || !back.SequenceEqual(output.Bytes)) return "came back from the disk different";
             if (output.Width == 0) return null;
             BitmapFrame frame = BitmapDecoder.Create(new MemoryStream(back, false), BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile, BitmapCacheOption.None).Frames[0];
             return frame.PixelWidth == output.Width && frame.PixelHeight == output.Height ? null : "didn't read back as a " + output.Width + "×" + output.Height + " PNG";
+        }
+
+        // A stream on its way into or out of a file, each byte summed (a CRC) and counted.
+        sealed class Summed : Stream
+        {
+            readonly Stream inner;
+            public uint Sum = 0xffffffff;
+            public long Count;
+
+            public Summed(Stream inner) => this.inner = inner;
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                inner.Write(buffer, offset, count);
+                Sum = Png.Crc(Sum, buffer, offset, count);
+                Count += count;
+            }
+
+            public override void WriteByte(byte value)
+            {
+                inner.WriteByte(value);
+                Sum = Png.Crc(Sum, value);
+                Count++;
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                int n = inner.Read(buffer, offset, count);
+                Sum = Png.Crc(Sum, buffer, offset, n);
+                Count += n;
+                return n;
+            }
+
+            public override int ReadByte()
+            {
+                int b = inner.ReadByte();
+                if (b >= 0)
+                {
+                    Sum = Png.Crc(Sum, (byte)b);
+                    Count++;
+                }
+                return b;
+            }
+
+            // the rest of it, to its end
+            public void ReadToEnd()
+            {
+                var rest = new byte[1 << 16];
+                while (Read(rest, 0, rest.Length) > 0) { }
+            }
+
+            public override bool CanRead => inner.CanRead;
+            public override bool CanWrite => inner.CanWrite;
+            public override bool CanSeek => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() => inner.Flush();
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
         }
 
         static void Fail(Job job, string picture, string why)
@@ -488,14 +671,15 @@ namespace B0r3dDeRes
 
         void OnStop(object sender, RoutedEventArgs e)
         {
-            stopping = true;
-            StatusLine.Text = "Stopping: the pictures under way finish first.";
+            StopRunning();
+            StatusLine.Text = "Stopping: the pictures under way finish first (an animation being made stops).";
         }
 
         // the main window is closing: the pictures under way finish, then it closes
         internal void StopThenCloseOwner()
         {
-            stopping = closeOwnerWhenDone = true;
+            StopRunning();
+            closeOwnerWhenDone = true;
             StatusLine.Text = "Stopping: the pictures under way finish first, then b0r3d DeRes closes.";
         }
 
@@ -549,7 +733,8 @@ namespace B0r3dDeRes
         {
             if (!busy) return;
             e.Cancel = true;
-            stopping = closeWhenDone = true;
+            StopRunning();
+            closeWhenDone = true;
             StatusLine.Text = "Stopping: the pictures under way finish first, then this window closes.";
         }
     }

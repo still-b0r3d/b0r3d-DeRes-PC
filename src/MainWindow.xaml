@@ -23,14 +23,14 @@
         <CommandBinding Command="{x:Static local:Commands.ZoomOut}" Executed="OnZoomOut" CanExecute="WhenThereIsAPicture" />
         <CommandBinding Command="{x:Static local:Commands.ZoomFit}" Executed="OnZoomFit" CanExecute="WhenThereIsAPicture" />
         <CommandBinding Command="{x:Static local:Commands.ZoomOne}" Executed="OnZoomOne" CanExecute="WhenThereIsAPicture" />
-        <CommandBinding Command="{x:Static local:Commands.Compare}" Executed="OnCompare" CanExecute="WhenThereIsAPicture" />
+        <CommandBinding Command="{x:Static local:Commands.Compare}" Executed="OnCompare" CanExecute="WhenThereIsAnOriginal" />
         <CommandBinding Command="{x:Static local:Commands.FullScreen}" Executed="OnFullScreen" CanExecute="WhenThereIsAPicture" />
         <CommandBinding Command="{x:Static local:Commands.About}" Executed="OnAbout" />
     </Window.CommandBindings>
 
     <DockPanel x:Name="Root" Background="{DynamicResource Back}">
         <!-- Access keys: F E V H on the bar, D for the tab; I W A T G N X for the sections; O, S, C,
-             B, L, U, K and R on buttons; each menu list has its own. -->
+             B, L, U, K, R and P (Play) on buttons; each menu list has its own. -->
         <Menu x:Name="MenuBar" DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open picture…" Command="{x:Static local:Commands.OpenPicture}" />
@@ -41,6 +41,8 @@
                 <MenuItem Header="Open p_alette…" Click="OnLoadPalette" />
                 <Separator />
                 <MenuItem Header="_Save PNG…" Command="{x:Static local:Commands.SavePng}" />
+                <MenuItem x:Name="SaveGifMenu" Header="Save _GIF…" Click="OnSaveGif" />
+                <MenuItem x:Name="SaveApngMenu" Header="Save A_PNG…" Click="OnSaveApng" />
                 <MenuItem x:Name="WallpaperMenu" Header="Save _wallpaper" />
                 <MenuItem x:Name="EmulatorMenu" Header="Save for an _emulator…" Click="OnSaveEmulator" />
                 <MenuItem Header="Save loo_k…" Click="OnSaveLook" />
@@ -66,6 +68,7 @@
                 <Separator />
                 <MenuItem x:Name="CompareMenu" Header="_Compare" Command="{x:Static local:Commands.Compare}" IsCheckable="False" />
                 <MenuItem x:Name="FullScreenMenu" Header="F_ull screen" Command="{x:Static local:Commands.FullScreen}" />
+                <MenuItem x:Name="PlayMenu" Header="_Play or pause the GIF" Click="OnPlayMenu" />
                 <Separator />
                 <MenuItem Header="_Look">
                     <MenuItem x:Name="LookWindows" Header="Like _Windows" IsCheckable="True" Tag="Windows" Click="OnLook" />
@@ -270,7 +273,9 @@
                                                     </StackPanel>
                                                 </Expander>
                                             </StackPanel>
-                                            <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0">
+                                            <TextBlock x:Name="SignalMoves" Style="{StaticResource Hint}" Margin="0,10,0,0"
+                                                       Text="The noise moves when a GIF plays, and in the animations under Export." />
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0">
                                                 <Run Text="Signal engine: " /><Hyperlink Click="OnSignalEngine" ToolTip="github.com/valadaptive/ntsc-rs (opens your browser)">ntsc-rs</Hyperlink><Run Text=" by valadaptive (MIT) · " /><Hyperlink Click="OnSignalNotices" ToolTip="Help → About">notices</Hyperlink>
                                             </TextBlock>
                                         </StackPanel>
@@ -352,6 +357,21 @@
                                             </WrapPanel>
                                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
                                                        Text="Or drag the small picture under the preview into a folder or another program." />
+                                            <!-- GIF and APNG: a loop of the picture, or an animated GIF's own frames -->
+                                            <TextBlock Style="{StaticResource Label}" Text="Animation loop" />
+                                            <UniformGrid x:Name="AnimStyles" Rows="1" Margin="0,0,-6,0" />
+                                            <StackPanel x:Name="LoopRows" Visibility="Collapsed">
+                                                <TextBlock Style="{StaticResource Label}" Text="Loop length" />
+                                                <UniformGrid x:Name="LoopLengths" Rows="1" Margin="0,0,-6,0" />
+                                                <TextBlock Style="{StaticResource Label}" Text="Loop speed" />
+                                                <UniformGrid x:Name="LoopSpeeds" Rows="1" Margin="0,0,-6,0" />
+                                            </StackPanel>
+                                            <WrapPanel Margin="0,12,0,0">
+                                                <Button x:Name="SaveGifButton" Content="Save GIF…" Click="OnSaveGif" Margin="0,0,8,6" ToolTip="A looping GIF: the loop above, or an animated GIF's own frames" />
+                                                <Button x:Name="SaveApngButton" Content="Save APNG…" Click="OnSaveApng" Margin="0,0,8,6" ToolTip="An animated PNG: full colour, played by browsers" />
+                                                <Button x:Name="StopAnimationButton" Content="Stop" Click="OnStopAnimation" Margin="0,0,0,6" Visibility="Collapsed" AutomationProperties.Name="Stop making the animation" />
+                                            </WrapPanel>
+                                            <TextBlock x:Name="AnimHint" Style="{StaticResource Hint}" Margin="0,2,0,0" Visibility="Collapsed" />
                                             <!-- the website's wallpapers, and one for each of the PC's screens -->
                                             <TextBlock Style="{StaticResource Label}" Text="Wallpaper" />
                                             <UniformGrid x:Name="WallpaperButtons" Columns="2" Margin="0,0,-6,0" />
@@ -389,8 +409,17 @@
                                 </Grid>
                             </Border>
 
+                            <!-- an animated GIF's play bar: Play / Pause, the frame slider and its counter -->
+                            <DockPanel x:Name="PlayBar" Grid.Row="1" Margin="0,10,0,0" Visibility="Collapsed">
+                                <Button x:Name="PlayButton" DockPanel.Dock="Left" MinWidth="96" ToolTip="Play the GIF through the look, at its own speed" />
+                                <TextBlock x:Name="FrameCounter" DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" TextAlignment="Right" FontFamily="Consolas"
+                                           AutomationProperties.Name="Frame number" />
+                                <Slider x:Name="FrameSlider" Minimum="0" Maximum="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" TickFrequency="1" IsMoveToPointEnabled="True"
+                                        VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Frame" />
+                            </DockPanel>
+
                             <!-- (a fixed height: a readout of two lines never moves the picture) -->
-                            <DockPanel x:Name="ViewBar" Grid.Row="1" Margin="0,10,0,0" Height="50">
+                            <DockPanel x:Name="ViewBar" Grid.Row="2" Margin="0,10,0,0" Height="50">
                                 <Border x:Name="DragOut" DockPanel.Dock="Left" Width="40" Height="40" Margin="0,0,12,0" CornerRadius="4" Cursor="Hand"
                                         Background="{DynamicResource Stage}" BorderBrush="{DynamicResource FieldLine}" BorderThickness="1"
                                         ToolTip="Drag the picture into a folder or another program" AutomationProperties.Name="Drag the picture out"

@@ -38,6 +38,10 @@ namespace B0r3dDeRes
         Rendered shown;      // the picture on screen
         DeresSettings shownWith;
         LoadedPicture shownFrom;   // the picture it was made from (one being opened may be newer)
+        // an animated GIF: the frame that's the picture (paused there; 0 for a still), and the
+        // frame `shown` was made from
+        int frame, shownFrame;
+        readonly Player player;
 
         // for the tests: a pretend screen scaling (1.5 = 150 %)
         internal double? ScaleOverride
@@ -61,7 +65,12 @@ namespace B0r3dDeRes
             Height = settings.WindowHeight;
             if (settings.Maximized) WindowState = WindowState.Maximized;
             maximized = settings.Maximized;
-            StateChanged += (s, e) => { if (WindowState != WindowState.Minimized && !fullScreen) maximized = WindowState == WindowState.Maximized; };
+            StateChanged += (s, e) =>
+            {
+                if (WindowState != WindowState.Minimized && !fullScreen) maximized = WindowState == WindowState.Maximized;
+                // minimized, a GIF playing pauses rather than going on making frames nobody sees
+                if (WindowState == WindowState.Minimized) player?.Pause();
+            };
 
             noteTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
             noteTimer.Tick += (s, e) => { noteTimer.Stop(); ShowNote(); };
@@ -84,6 +93,7 @@ namespace B0r3dDeRes
             View.ZoomChanged += FxSoon;
 
             Exports.ClearDragFolder();
+            player = new Player(PlayButton, FrameSlider, FrameCounter, PlayBar, PlayBudget, MakePlayed, ShowPlayed, OnPlayStarted, OnPlayPaused, Problem, () => picture);
             BuildLists();
             OnTheme();
             ShowNote();
@@ -170,7 +180,13 @@ namespace B0r3dDeRes
             for (int i = 0; i < Pictures.Samples.Length; i++)
             {
                 var sample = Pictures.Samples[i];
-                if (i > 0) SampleLine.Inlines.Add(new Run(" · "));
+                // the GIF on a line of its own, as on the website
+                if (sample.File.EndsWith(".gif", StringComparison.Ordinal))
+                {
+                    SampleLine.Inlines.Add(new LineBreak());
+                    SampleLine.Inlines.Add(new Run("Try a GIF: "));
+                }
+                else if (i > 0) SampleLine.Inlines.Add(new Run(" · "));
                 var link = new Hyperlink(new Run(sample.Label)) { Tag = sample.Id };
                 link.Click += (s, e) => OpenSample((string)((Hyperlink)s).Tag);
                 SampleLine.Inlines.Add(link);
@@ -180,6 +196,7 @@ namespace B0r3dDeRes
             }
             BuildSignals();
             BuildScreens();
+            BuildAnimation();
         }
 
         static TextBlock Dim(TextBlock text)
@@ -214,7 +231,7 @@ namespace B0r3dDeRes
                     WidthSlider.Value = ToTravel(w, min, max);
                 }
                 double coverX = 0, coverY = 0;
-                if (g != null) g.Coverage(picture.Source.Width, picture.Source.Height, picture.Source.Width, picture.Source.Height, out coverX, out coverY);
+                if (g != null) g.Coverage(picture.Source.Width, picture.Source.Height, picture.Source.OrigW, picture.Source.OrigH, out coverX, out coverY);
                 ResolutionInfo.Text = Words.Resolution(p, d.Custom, g, coverX, coverY, g != null);
                 FitPanel.Visibility = !d.Custom && !p.AutoHeight ? Visibility.Visible : Visibility.Collapsed;
                 FitFill.IsChecked = d.Fit == Fits.Fill;
@@ -292,6 +309,7 @@ namespace B0r3dDeRes
                 else SizeLine.Text = "";
                 SyncSignal(p, g);
                 SyncScreen();
+                SyncAnimation(p, g);
 
                 // the machine's own file (.scr, .koa or .chr), and why there's none where that needs saying
                 string format = p.EmulatorFormats.FirstOrDefault();
@@ -314,7 +332,7 @@ namespace B0r3dDeRes
             if (picture == null) return null;
             DeresSettings d = settings.Deres;
             PictureSource src = picture.Source;
-            return Geometry.Plan(src.Width, src.Height, src.Width, src.Height, CurrentProfile, d.Custom, d.CustomWidth, d.Fit);
+            return Geometry.Plan(src.Width, src.Height, src.OrigW, src.OrigH, CurrentProfile, d.Custom, d.CustomWidth, d.Fit);
         }
 
         // A setting changed: the controls follow, the picture is made again, and the settings are
@@ -476,7 +494,7 @@ namespace B0r3dDeRes
                 return;
             }
             PictureSource src = picture.Source;
-            Geometry.CustomWidthRange(src.Width, src.Height, src.Width, src.Height, out min, out max);
+            Geometry.CustomWidthRange(src.Width, src.Height, src.OrigW, src.OrigH, out min, out max);
         }
 
         static int ToTravel(int w, int min, int max) => max > min ? (int)JsMath.Round(WidthTravel * Math.Log((double)w / min) / Math.Log((double)max / min)) : 0;
@@ -571,6 +589,10 @@ namespace B0r3dDeRes
         {
             int ticket = ++opening;
             Opening = true;
+            // a GIF playing stops where it is while the next picture opens (and if that one won't,
+            // the frame it stopped on is the picture)
+            bool wasPlaying = player.Playing;
+            player.Halt();
             if (picture == null) ShowStage("Opening…");
             else Readout.Text = "Opening…";
             LoadedPicture loaded = null;
@@ -599,9 +621,14 @@ namespace B0r3dDeRes
                 Problem("Couldn't open " + name + ": " + problem + ".");
                 if (picture == null) ShowStage("Choose a picture to start.");
                 else ShowReadout();
+                if (wasPlaying && picture?.Animation != null) OnPlayPaused(player.Frame);
                 return;
             }
             picture = loaded;
+            frame = 0;
+            // an animated GIF's animation is its own frames, until another loop is picked
+            gifFramesChosen = true;
+            player.SetAnimation(loaded.Animation?.DelaysMs);
             Sync();
             RenderSoon();
         }
@@ -707,6 +734,7 @@ namespace B0r3dDeRes
         DeresSettings wanted;
         string[] wantedColours;   // CGA composite's colours from the signal, when the picture wanted has them
         LoadedPicture wantedPicture;
+        int wantedFrame;
         bool rendering;
         int renders;   // for the tests: how many have been shown
 
@@ -714,14 +742,20 @@ namespace B0r3dDeRes
         internal int Renders => renders;
         internal Rendered Shown => shown;
         internal DeresSettings ShownWith => shownWith;
+        internal int ShownFrame => shownFrame;
+        internal Player GifPlayer => player;
 
         void RenderSoon()
         {
             if (picture == null) return;
+            // frames played with older settings are no good; a GIF playing makes its own
+            CheckPlayKey();
+            if (player.Playing) return;
             // (with the signal on, CGA composite is dithered to the colours the signal makes)
             wanted = Signal.ForRender(settings.Deres.Clone(), settings.SignalOn);
             wantedColours = wanted.FixedPalette;
             wantedPicture = picture;
+            wantedFrame = frame;
             if (!rendering) RenderLoop();
         }
 
@@ -735,13 +769,14 @@ namespace B0r3dDeRes
                 {
                     DeresSettings s = wanted;
                     LoadedPicture pic = wantedPicture;
+                    int at = wantedFrame;
                     wanted = null;
                     Rendered r = null;
                     BitmapSource original = null;
                     string problem = null;
                     try
                     {
-                        (r, original) = await Task.Run(() => Make(pic, s));
+                        (r, original) = await Task.Run(() => Make(pic, s, at));
                     }
                     catch (OutOfMemoryException)
                     {
@@ -752,12 +787,13 @@ namespace B0r3dDeRes
                         problem = "Something went wrong making the picture: " + x.Message;
                     }
                     // Shown even when newer settings are waiting (they're made next), as the
-                    // website does: a slow picture still follows a slider as it moves.
+                    // website does: a slow picture still follows a slider as it moves. A GIF's
+                    // frame the slider has since left isn't: the one it's on is made next.
                     if (problem != null)
                     {
                         if (wanted == null) Problem(problem);
                     }
-                    else Show(r, original, s, pic);
+                    else if (at == frame || wanted == null) Show(r, original, s, pic, at);
                 }
             }
             finally
@@ -771,30 +807,40 @@ namespace B0r3dDeRes
         string originalKey;
         BitmapSource originalPicture;
 
-        // on a worker thread, one at a time: the picture, and the original framed the same way
-        (Rendered, BitmapSource) Make(LoadedPicture pic, DeresSettings s)
+        // On a worker thread, one at a time: the picture (frame `at` of an animated GIF), and the
+        // original framed the same way.
+        (Rendered, BitmapSource) Make(LoadedPicture pic, DeresSettings s, int at = 0)
         {
             lock (engine)
             {
-                if (engine.Source != pic.Source) engine.SetSource(pic.Source);
+                PictureSource source = pic.SourceAt(at);
+                if (engine.Source != source) engine.SetSource(source);
                 Rendered r = engine.Render(s);
                 Geometry g = r.Geometry;
-                string key = string.Join("|", pic.GetHashCode(), g.Width, g.Height, g.Src.X, g.Src.Y, g.Src.W, g.Src.H, g.Dst.X, g.Dst.Y, g.Dst.W, g.Dst.H, s.Background);
+                string key = string.Join("|", pic.GetHashCode(), at, g.Width, g.Height, g.Src.X, g.Src.Y, g.Src.W, g.Src.H, g.Dst.X, g.Dst.Y, g.Dst.W, g.Dst.H, s.Background);
                 if (key != originalKey)
                 {
-                    originalPicture = Original.Framed(pic.Source, g, s.Background);
+                    originalPicture = Original.Framed(source, g, s.Background);
                     originalKey = key;
                 }
                 return (r, originalPicture);
             }
         }
 
-        void Show(Rendered r, BitmapSource original, DeresSettings s, LoadedPicture from)
+        void Show(Rendered r, BitmapSource original, DeresSettings s, LoadedPicture from, int at)
         {
             shown = r;
             shownWith = s;
             shownFrom = from;
+            shownFrame = at;
             renders++;
+            // a GIF playing (or its slider held) shows the frames it makes; this one waits for the pause
+            if (player.Playing || player.Holding)
+            {
+                CommandManager.InvalidateRequerySuggested();
+                return;
+            }
+            onScreen = null;
             // kept see-through: a checkerboard behind, as on the website
             View.SetChecker(s.Background == Backgrounds.Transparent && from.Source.HasAlpha);
             View.Show(r.Rgb, r.Width, r.Height, PixelRatio(r), r.Alpha);
@@ -821,10 +867,15 @@ namespace B0r3dDeRes
         // how wide a pixel is shown: its shape on a TV when that's chosen, else square
         double PixelRatio(Rendered r) => settings.TvPixels && !r.Geometry.SquarePixels ? (double)r.Geometry.ParX / r.Geometry.ParY : 1;
 
+        // a GIF's frame on screen while it plays, made by the player (null: `shown` is)
+        Rendered onScreen;
+        int onScreenFrame;
+
         void ShowReadout()
         {
             if (Opening) return;
-            string text = shown != null ? Words.Readout(shown) : "";
+            Rendered r = onScreen ?? shown;
+            string text = r != null ? Words.Readout(r) : "";
             if (Rendering && !busyTimer.IsEnabled && shown != null) text += " · working…";
             Readout.Text = text;
             Readout.ToolTip = text.Length > 0 ? text : null;   // (all of it, should a narrow window cut it short)
@@ -835,8 +886,9 @@ namespace B0r3dDeRes
             if (message == null && shown == null && picture == null) message = "Choose a picture to start.";
             StageNote.Text = message ?? "";
             StageNote.Visibility = message != null ? Visibility.Visible : Visibility.Collapsed;
-            HoldHint.Visibility = shown != null ? Visibility.Visible : Visibility.Hidden;
-            DragOut.Visibility = shown != null ? Visibility.Visible : Visibility.Hidden;
+            bool something = shown != null || onScreen != null;
+            HoldHint.Visibility = something ? Visibility.Visible : Visibility.Hidden;
+            DragOut.Visibility = something ? Visibility.Visible : Visibility.Hidden;
         }
 
         void ShowZoom()
@@ -850,6 +902,13 @@ namespace B0r3dDeRes
         void WhenThereIsAPicture(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = shown != null;
+            e.Handled = true;
+        }
+
+        // Compare: not while a GIF plays (a moving frame has no original to show); it comes back on the paused frame
+        void WhenThereIsAnOriginal(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = shown != null && !player.Playing;
             e.Handled = true;
         }
 
@@ -976,15 +1035,27 @@ namespace B0r3dDeRes
 
         // ---------- getting the picture out ----------
 
-        // the picture as it is now: waits for one being made with the latest settings
+        // The picture as it is now: waits for one being made with the latest settings. A GIF playing
+        // pauses first: the frame on screen is the one that goes out.
         async Task<Rendered> Latest()
         {
+            if (player.Playing) player.Pause();
             while (Rendering) await Task.Delay(20);
             return shown;
         }
 
+        // the start of a file's name: the photo's, and an animated GIF's frame after the first ("photo-frame12")
+        string BaseOf(Rendered r) => Export.FrameBase(Export.BaseName(shownFrom?.Name ?? "photo"), shownFrom?.Animation != null, FrameOf(r));
+
+        // where a picture made here sits in an animated GIF: its frame (0 for a still), the engine
+        // frame of its signal (frame k of a GIF: k × its step, so the noise moves at the GIF's
+        // speed), and its place in the loop for the screen effect's moving parts
+        int FrameOf(Rendered r) => r != null && r == onScreen ? onScreenFrame : r != null && r == shown ? shownFrame : 0;
+        int SignalFrameOf(Rendered r) => shownFrom?.Animation != null ? FrameOf(r) * shownFrom.Animation.SignalStep : 0;
+        double PhaseOf(Rendered r) => shownFrom?.Animation != null ? shownFrom.Animation.Phase(FrameOf(r)) : 0;
+
         string FileName(Rendered r, int multiplier) =>
-            Export.FileName(Export.BaseName(shownFrom?.Name ?? "photo"), r.Profile.Id, r.Width, r.Height, multiplier, settings.TvPixels && !r.Geometry.SquarePixels,
+            Export.FileName(BaseOf(r), r.Profile.Id, r.Width, r.Height, multiplier, settings.TvPixels && !r.Geometry.SquarePixels,
                 Export.WithFx(settings.ExportScreen, multiplier), SignalConnection(r));
 
         async void OnSavePng(object sender, ExecutedRoutedEventArgs e)
@@ -1025,9 +1096,11 @@ namespace B0r3dDeRes
             Flash("Saving " + Path.GetFileName(path) + "…", "Dim");
             int width = 0, height = 0;
             string problem = null;
+            int signalFrame = SignalFrameOf(r);
+            double phase = PhaseOf(r);
             try
             {
-                await Task.Run(() => Exports.Write(path, stream => Export.WritePng(stream, r, m, tv, fx, out width, out height, SignalFor(r, signal))));
+                await Task.Run(() => Exports.Write(path, stream => Export.WritePng(stream, r, m, tv, fx, out width, out height, SignalFor(r, signal, signalFrame), phase)));
             }
             catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is NotSupportedException || x is System.Security.SecurityException)
             {
@@ -1058,6 +1131,7 @@ namespace B0r3dDeRes
             public bool Tv;
             public FxSettings Fx;   // the screen effect, or null
             public Func<SignalImage> Signal;    // the picture through the signal, when it's on
+            public double Phase;    // an animated GIF's frame: its place in the loop
             public string Name;
             public byte[] Png;
             public BitmapSource Picture;
@@ -1066,7 +1140,7 @@ namespace B0r3dDeRes
             public void Make(Rendered r)
             {
                 SignalImage signal = Signal?.Invoke();
-                Png = Export.PngBytes(r, Multiplier, Tv, Fx, signal);
+                Png = Export.PngBytes(r, Multiplier, Tv, Fx, signal, Phase);
                 Picture = Export.WithFx(Fx, Multiplier) || signal != null ? Sharing.FromPng(Png) : Sharing.Picture(r, Multiplier, Tv);
             }
         }
@@ -1074,8 +1148,9 @@ namespace B0r3dDeRes
         internal Shared ToShare(Rendered r)
         {
             SignalSettings signal = settings.SignalOn?.Clone();
-            var s = new Shared { Tv = settings.TvPixels && !r.Geometry.SquarePixels, Multiplier = 1, Fx = settings.ExportScreen?.Clone() };
-            if (signal != null) s.Signal = () => SignalFor(r, signal);
+            var s = new Shared { Tv = settings.TvPixels && !r.Geometry.SquarePixels, Multiplier = 1, Fx = settings.ExportScreen?.Clone(), Phase = PhaseOf(r) };
+            int signalFrame = SignalFrameOf(r);
+            if (signal != null) s.Signal = () => SignalFor(r, signal, signalFrame);
             foreach (int m in Export.Multipliers)
             {
                 if (m > settings.Multiplier) break;
@@ -1128,9 +1203,10 @@ namespace B0r3dDeRes
             if (shown == null) return;
             dragStart = e.GetPosition(this);
             dragArmed = true;
-            // the picture on screen, as the small picture shows it (a drag can't wait for one being
-            // made), made off this thread: with the screen effect a big one takes a moment
-            Rendered r = shown;
+            // the picture on screen (a GIF's frame playing, too), as the small picture shows it (a
+            // drag can't wait for one being made), made off this thread: with the screen effect a
+            // big one takes a moment
+            Rendered r = onScreen ?? shown;
             Shared share = ToShare(r);
             dragReady = Task.Run(() =>
             {
@@ -1203,7 +1279,7 @@ namespace B0r3dDeRes
             if (format == null || picture == null) return;
             Rendered r = await Latest();
             if (r == null) return;
-            string name = Export.EmulatorFileName(Export.BaseName(shownFrom?.Name ?? "photo"), p.Id, format);
+            string name = Export.EmulatorFileName(BaseOf(r), p.Id, format);
             string path;
             try
             {
@@ -1229,9 +1305,10 @@ namespace B0r3dDeRes
             Saving = true;
             string problem = null;
             EmulatorFile file = null;
+            int at = frame;
             try
             {
-                file = await Task.Run(() => Make(pic, s).Item1.EmulatorFile);
+                file = await Task.Run(() => Make(pic, s, at).Item1.EmulatorFile);
                 if (file == null || file.Format != format) problem = "this machine has no ." + format + " file";
                 else await Task.Run(() => Exports.Write(path, file.Data));
             }
@@ -1472,6 +1549,7 @@ namespace B0r3dDeRes
             settings.ExportFx = next.ExportFx;
             settings.LoopFrames = next.LoopFrames;
             settings.LoopFps = next.LoopFps;
+            settings.AnimationStyle = next.AnimationStyle;
             Changed();
             Flash("Opened " + what + ".", "Good");
         }
@@ -1628,6 +1706,7 @@ namespace B0r3dDeRes
             settings.ExportFx = fresh.ExportFx;
             settings.LoopFrames = fresh.LoopFrames;
             settings.LoopFps = fresh.LoopFps;
+            settings.AnimationStyle = fresh.AnimationStyle;
             Changed();
             saveTimer.Stop();
             SaveSettings();
@@ -1723,6 +1802,16 @@ namespace B0r3dDeRes
                 Flash("Stopping the batch: the pictures under way finish, then b0r3d DeRes closes.", "Warn");
                 return;
             }
+            // an animation being made stops (leaving no file), then the window closes
+            if (animating != null)
+            {
+                e.Cancel = true;
+                closeAfterAnimation = true;
+                animating.Cancel();
+                Flash("Stopping the animation, then b0r3d DeRes closes.", "Warn");
+                return;
+            }
+            player.Halt();
             if (fullScreen) SetFullScreen(false);
             saveTimer.Stop();
             SaveSettings();

@@ -70,6 +70,8 @@ namespace B0r3dDeRes.Tests
                 Check(found.TryGetValue("screens", out string screens) && screens == "ok", "every screen effect should work inside the exe: " + all);
                 Check(SelfTest.RukusOverRf == Website.SelfTestSignal, "the self-test's frame over RF isn't the website's (make the test files again, and copy their hash into SelfTest.cs)");
                 Check(found.TryGetValue("signal", out string signal) && signal == "ok", "the signal inside the exe should make the website's very frame: " + all);
+                Check(SelfTest.RukusGif == Website.SelfTestGif, "the self-test's GIF isn't the website's (make the test files again, and copy its hash into SelfTest.cs)");
+                Check(found.TryGetValue("gif", out string gif) && gif == "ok", "the GIF sample inside the exe should read as the website reads it and make the website's very GIF: " + all);
                 Check(found["bits"] == "64", "the exe ran as a " + found["bits"] + "-bit program; only 64-bit does the website's sums to the last bit");
                 Check(found["dpi"] == "per-monitor-v2", "the exe follows the screens' scaling as \"" + found["dpi"] + "\", not per-monitor-v2 (is the manifest in?)");
                 Check(found["version"] == Program.FullVersion, "the exe says " + found["version"]);

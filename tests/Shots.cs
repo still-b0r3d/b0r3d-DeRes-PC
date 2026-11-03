@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using B0r3dDeRes.Engine;
@@ -13,13 +14,15 @@ namespace B0r3dDeRes.Tests
     // Export open; Compare with its divider and a custom width; the ZX Spectrum with its tile meter;
     // Rukus kept see-through on the Super Nintendo; the Amstrad's Colours slider; the PlayStation's
     // dithers; the C64's .koa and the share link; the screens, a CRT close up at 150 %, the analog
-    // looks, the export's wallpapers, a batch and the snip; nothing opened yet) and About, in
-    // light and dark, into PNG files, straight from the controls. Nothing shows on screen and
-    // nothing takes focus; menus that pop open, and full screen, aren't in them.
+    // looks, the export's wallpapers, a batch and the snip; the signal; the GIF sample playing and
+    // paused, the Animation loop, a VHS loop's rows and a batch of GIFs; nothing opened yet) and
+    // About, in light and dark, into PNG files, straight from the controls. Nothing shows on screen
+    // and nothing takes focus; menus that pop open, and full screen, aren't in them.
     static partial class TestMain
     {
         static int TakeShots(string folder)
         {
+            running = "taking the screenshots";
             Directory.CreateDirectory(folder);
             foreach (Look look in new[] { Look.Light, Look.Dark })
             {
@@ -255,6 +258,56 @@ namespace B0r3dDeRes.Tests
                 Settle(line);
                 ScrollTo(line, line.SizeLine);
                 Shoot(line.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "signal-export-" + name + ".png"));
+
+                // stage 5: the GIF sample on Deep Fry at 4× (playing, then paused on a frame), the
+                // Animation loop under Export, a 48-frame VHS loop's rows and the line by the buttons
+                MainWindow gif = NewMain();
+                WaitForPicture(gif);
+                gif.OpenSample("rukus-gif");
+                WaitForPicture(gif);
+                Pick(gif, "deepfry");
+                gif.ImageSection.IsExpanded = true;
+                Settle(gif);
+                gif.GifPlayer.Play();
+                Pump(() => gif.GifPlayer.Frame >= 8, 20000);
+                LayOut(gif.Root, MainWidth, MainHeight);
+                Shoot(gif.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "gif-playing-" + name + ".png"));
+                gif.GifPlayer.Pause();
+                WaitForPicture(gif);
+                gif.ImageSection.IsExpanded = false;
+                gif.ExportSection.IsExpanded = true;
+                Settle(gif);
+                ScrollTo(gif, gif.AnimStyles);
+                Shoot(gif.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "gif-paused-export-" + name + ".png"));
+                gif.GifPlayer.Halt();
+
+                MainWindow vhs = NewMain();
+                WaitForPicture(vhs);
+                vhs.OpenSample("cat-nap");
+                WaitForPicture(vhs);
+                Pick(vhs, "nes");
+                PickSignal(vhs, SignalModes.VhsEp);
+                vhs.LoopLengths.Children.OfType<RadioButton>().First(b => (int)b.Tag == 48).IsChecked = true;
+                vhs.Sizes.Children.OfType<RadioButton>().First(b => (int)b.Tag == 16).IsChecked = true;
+                vhs.ImageSection.IsExpanded = false;
+                vhs.ExportSection.IsExpanded = true;
+                Settle(vhs);
+                ScrollTo(vhs, vhs.AnimStyles);
+                Shoot(vhs.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "gif-vhs-loop-" + name + ".png"));
+
+                // the batch with GIFs picked, after a run (the GIF on Deep Fry, from the first window)
+                string gifs = Path.Combine(Work, "shots-batch-gifs");
+                Fresh(gifs);
+                File.WriteAllBytes(Path.Combine(gifs, "rukus-breaks-out.gif"), SampleBytes("rukus-gif"));
+                File.WriteAllBytes(Path.Combine(gifs, "rukus.png"), SampleBytes("rukus"));
+                gif.Sizes.Children.OfType<RadioButton>().First(b => (int)b.Tag == 1).IsChecked = true;
+                BatchWindow gifBatch = gif.OpenBatch(new[] { gifs });
+                gifBatch.GifChoice.IsChecked = true;
+                gifBatch.Make(Clash.Number);
+                Pump(() => gifBatch.Running.IsCompleted, 60000);
+                Size gifBatchSize = LayOut(gifBatch.Root, 640, 760);
+                Shoot(gifBatch.Root, gifBatchSize.Width, gifBatchSize.Height, 1, Path.Combine(folder, "batch-gif-" + name + ".png"));
+                gifBatch.Close();
 
                 // nothing opened yet (a picture that won't open)
                 MainWindow empty = NewMain(1, false);

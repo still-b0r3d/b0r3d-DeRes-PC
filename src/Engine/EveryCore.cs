@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 
@@ -16,7 +17,7 @@ namespace B0r3dDeRes.Engine
             }
             catch (AggregateException x)
             {
-                ExceptionDispatchInfo.Capture(x.Flatten().InnerExceptions[0]).Throw();
+                Rethrow(x);
             }
         }
 
@@ -29,8 +30,16 @@ namespace B0r3dDeRes.Engine
             }
             catch (AggregateException x)
             {
-                ExceptionDispatchInfo.Capture(x.Flatten().InnerExceptions[0]).Throw();
+                Rethrow(x);
             }
+        }
+
+        // what a core threw; when several did, running out of memory comes first, whichever core
+        // got there first
+        static void Rethrow(AggregateException x)
+        {
+            var all = x.Flatten().InnerExceptions;
+            ExceptionDispatchInfo.Capture(all.FirstOrDefault(e => e is OutOfMemoryException) ?? all[0]).Throw();
         }
     }
 }

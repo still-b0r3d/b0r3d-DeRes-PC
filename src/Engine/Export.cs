@@ -53,7 +53,8 @@ namespace B0r3dDeRes.Engine
         // The PNG, written to `output`, with the screen effect `fx` from 3× up (null: none), and
         // through the analog signal when there is one (`signal`, always kept: full colour). TV
         // pixels only stretch when the pixels aren't square.
-        public static void WritePng(Stream output, Rendered r, int multiplier, bool tv, FxSettings fx, out int width, out int height, SignalImage signal = null)
+        // `phase`: where an animated GIF's frame sits in its loop (the screen effect's moving parts).
+        public static void WritePng(Stream output, Rendered r, int multiplier, bool tv, FxSettings fx, out int width, out int height, SignalImage signal = null, double phase = 0)
         {
             int m = Math.Max(1, multiplier);
             Size(r.Width, r.Height, r.Geometry.ParX, r.Geometry.ParY, m, tv, out width, out height);
@@ -61,13 +62,13 @@ namespace B0r3dDeRes.Engine
             byte[] alpha = r.Alpha;
             if (signal != null)
             {
-                RowRenderer render = Signal.Renderer(signal, width, height, WithFx(fx, m) ? fx : null, 0, r.Paper);
+                RowRenderer render = Signal.Renderer(signal, width, height, WithFx(fx, m) ? fx : null, phase, r.Paper);
                 Engine.Png.WriteTruecolour(output, width, height, signal.Alpha != null, Bands(render, signal.Alpha != null, null));
                 return;
             }
             if (WithFx(fx, m))
             {
-                var screen = new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, alpha, width, height, fx);
+                var screen = new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, alpha, width, height, fx, phase);
                 Engine.Png.WriteTruecolour(output, width, height, alpha != null, Bands(screen, alpha != null, null));
                 return;
             }
@@ -112,11 +113,11 @@ namespace B0r3dDeRes.Engine
             }, alpha != null ? colours : (int?)null);
         }
 
-        public static byte[] PngBytes(Rendered r, int multiplier, bool tv, FxSettings fx = null, SignalImage signal = null)
+        public static byte[] PngBytes(Rendered r, int multiplier, bool tv, FxSettings fx = null, SignalImage signal = null, double phase = 0)
         {
             using (var bytes = new MemoryStream())
             {
-                WritePng(bytes, r, multiplier, tv, fx, out _, out _, signal);
+                WritePng(bytes, r, multiplier, tv, fx, out _, out _, signal, phase);
                 return bytes.ToArray();
             }
         }
@@ -143,7 +144,7 @@ namespace B0r3dDeRes.Engine
         // fits (as on a TV when `tv`), with the screen effect from 3× up and through the signal
         // when there is one, centred on the backdrop (its palette's first colour); a picture too
         // big even at 1× shows its middle.
-        public static void WriteWallpaper(Stream output, Rendered r, int width, int height, bool tv, FxSettings fx, SignalImage signal = null)
+        public static void WriteWallpaper(Stream output, Rendered r, int width, int height, bool tv, FxSettings fx, SignalImage signal = null, double phase = 0)
         {
             int best = 1;
             for (int m = 1; m <= 32; m++)
@@ -163,8 +164,8 @@ namespace B0r3dDeRes.Engine
 
             if (WithFx(fx, best) || signal != null)
             {
-                RowRenderer screen = signal != null ? Signal.Renderer(signal, scaledW, scaledH, WithFx(fx, best) ? fx : null, 0, r.Paper)
-                    : new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, scaledW, scaledH, fx);
+                RowRenderer screen = signal != null ? Signal.Renderer(signal, scaledW, scaledH, WithFx(fx, best) ? fx : null, phase, r.Paper)
+                    : new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, scaledW, scaledH, fx, phase);
                 Action<int, byte[]> rows = Bands(screen, false, back);
                 var shown = new byte[scaledW * 3];
                 Engine.Png.WriteTruecolour(output, width, height, false, (y, row) =>
@@ -231,5 +232,17 @@ namespace B0r3dDeRes.Engine
 
         // a machine's own file: photo-zx-spectrum.scr
         public static string EmulatorFileName(string baseName, string profileId, string format) => baseName + "-" + profileId + "." + format;
+
+        // a name's start for an animated GIF's frame after the first: "photo-frame12"
+        public static string FrameBase(string baseName, bool animated, int frame) =>
+            animated && frame > 0 ? baseName + "-frame" + (frame + 1).ToString(CultureInfo.InvariantCulture) : baseName;
+
+        // a loop: photo-nes-screen-fx-loop.gif, photo-nes-compare-wipe-rf-animated.png
+        public static string LoopName(string baseName, string profileId, string style, string signal, bool apng) =>
+            baseName + "-" + profileId + "-" + style + (signal != null ? "-" + signal : "") + (apng ? "-animated.png" : "-loop.gif");
+
+        // an animated GIF's own frames: photo-nes.gif, photo-nes-rf-animated.png
+        public static string FramesName(string baseName, string profileId, string signal, bool apng) =>
+            baseName + "-" + profileId + (signal != null ? "-" + signal : "") + (apng ? "-animated.png" : ".gif");
     }
 }

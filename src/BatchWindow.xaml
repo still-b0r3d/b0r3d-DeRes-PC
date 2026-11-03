@@ -34,9 +34,11 @@
 
                 <!-- what to make of each -->
                 <TextBlock Style="{StaticResource Label}" Margin="0,16,0,6" Text="Make" />
-                <UniformGrid Rows="1">
-                    <RadioButton x:Name="PngChoice" Style="{StaticResource Segment}" GroupName="Make" Content="A PNG each" IsChecked="True" Checked="OnMakeChoice" />
-                    <RadioButton x:Name="WallpaperChoice" Style="{StaticResource Segment}" GroupName="Make" Content="A wallpaper each" Margin="0" Checked="OnMakeChoice" />
+                <UniformGrid Columns="2">
+                    <RadioButton x:Name="PngChoice" Style="{StaticResource Segment}" GroupName="Make" Content="A PNG each" IsChecked="True" Margin="0,0,6,6" Checked="OnMakeChoice" />
+                    <RadioButton x:Name="WallpaperChoice" Style="{StaticResource Segment}" GroupName="Make" Content="A wallpaper each" Margin="0,0,0,6" Checked="OnMakeChoice" />
+                    <RadioButton x:Name="GifChoice" Style="{StaticResource Segment}" GroupName="Make" Content="A GIF each" Checked="OnMakeChoice" />
+                    <RadioButton x:Name="ApngChoice" Style="{StaticResource Segment}" GroupName="Make" Content="An APNG each" Margin="0" Checked="OnMakeChoice" />
                 </UniformGrid>
                 <ComboBox x:Name="WallpaperBox" Margin="0,8,0,0" Visibility="Collapsed" SelectionChanged="OnWallpaperChoice" AutomationProperties.Name="Wallpaper size" />
                 <TextBlock x:Name="MakeLine" Style="{StaticResource Hint}" TextWrapping="Wrap" />

@@ -356,7 +356,13 @@ namespace B0r3dDeRes.Tests
             int At(int x, int y) => (y * 10 + x) * 4;
             Check(px[At(4, 3) + 2] == 255 && px[At(4, 3) + 3] == 255, "the first picture should be red where it is");
             Check(px[At(0, 0) + 3] == 0 && px[At(9, 7) + 3] == 0, "outside the first picture should be see-through");
-            Check(Words.PictureInfo(p) == "moving.gif · 10×8 · first of 2 frames", "the picture line: " + Words.PictureInfo(p));
+            Check(Words.PictureInfo(p) == "moving.gif · 10×8 · 2 frames · 0.2 s", "the picture line: " + Words.PictureInfo(p));
+            // its second frame covers the first, through DeRes's own decoder
+            Check(p.Animation != null && p.Animation.Frames.Length == 2 && p.SourceAt(1).Bgra[At(0, 0) + 1] == 255 && p.SourceAt(1).Bgra[At(0, 0) + 3] == 255 && p.SourceAt(1).HasAlpha,
+                "the second frame should be green all over (and count as see-through, as the first frame has see-through parts)");
+            // a GIF with one picture opens as a still, through Windows
+            LoadedPicture still = Pictures.FromBytes(GifFile("gif-still"), "still.gif");
+            Check(still.Animation == null && still.Frames == 1 && Words.PictureInfo(still) == "still.gif · 3×2", "a one-frame GIF: " + Words.PictureInfo(still));
         }
 
         // ---- the clipboard and drops ----

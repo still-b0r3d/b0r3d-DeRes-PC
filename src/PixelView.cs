@@ -122,6 +122,7 @@ namespace B0r3dDeRes
 
         internal bool HasScreen => screenRgba != null;
         internal byte[] ScreenPixels => screenRgba;
+        internal byte[] PicturePixels => rgb;
         internal int ScreenWidth => sw;
         internal int ScreenHeight => sh;
 

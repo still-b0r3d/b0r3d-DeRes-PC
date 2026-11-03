@@ -11,20 +11,33 @@ namespace B0r3dDeRes
     static class Exports
     {
         // Writes the whole file or nothing: into a temporary file of its own beside it first (a
-        // name nobody else uses), then into place.
+        // name nobody else uses), then into place. With `elsewhere`, a file at `path` by then (one
+        // that came while this one was made) is never written over: this one goes where
+        // `elsewhere` says instead. The path it went to.
         public static void Write(string path, byte[] bytes) => Write(path, stream => stream.Write(bytes, 0, bytes.Length));
 
-        public static void Write(string path, Action<Stream> write)
+        public static string Write(string path, Action<Stream> write, Func<string> elsewhere = null)
         {
             string full = Path.GetFullPath(path);
             string tmp = Path.Combine(Path.GetDirectoryName(full), "." + Path.GetFileName(full) + "." + Guid.NewGuid().ToString("N").Substring(0, 8) + ".tmp");
             try
             {
                 using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1 << 16)) write(stream);
+                if (elsewhere != null)
+                    while (true)
+                        try
+                        {
+                            File.Move(tmp, full);
+                            return full;
+                        }
+                        catch (IOException) when (File.Exists(full))
+                        {
+                            full = Path.GetFullPath(elsewhere());
+                        }
                 if (!File.Exists(full))
                 {
                     File.Move(tmp, full);
-                    return;
+                    return full;
                 }
                 try
                 {
@@ -36,6 +49,7 @@ namespace B0r3dDeRes
                     File.Copy(tmp, full, true);
                     File.Delete(tmp);
                 }
+                return full;
             }
             catch
             {

@@ -15,8 +15,9 @@
     <ProjectReference Include="..\src\b0r3dDeRes.csproj" />
     <!-- reads the exe's own metadata for the "never goes online" test -->
     <PackageReference Include="System.Reflection.Metadata" Version="10.0.0" />
-    <!-- the pictures the website's engine started from (website\*.png) -->
+    <!-- the pictures the website's engine started from (website\*.png), and the GIFs it read (website\*.gif) -->
     <None Include="website\*.png" CopyToOutputDirectory="PreserveNewest" LinkBase="website" />
+    <None Include="website\*.gif" CopyToOutputDirectory="PreserveNewest" LinkBase="website" />
   </ItemGroup>
 
 </Project>

@@ -54,13 +54,40 @@ namespace B0r3dDeRes
         public static string List(IList<string> items) =>
             items.Count <= 1 ? string.Join("", items) : string.Join(", ", items.Take(items.Count - 1)) + " and " + items[items.Count - 1];
 
-        // "rukus.png · 256×256", and "· first of 58 frames" for a GIF's first picture
+        // "rukus.png · 256×256"; an animated GIF's "· 58 frames · 3.9 s" (at its own size), or a
+        // GIF opened as a still's "· first of 58 frames"
         public static string PictureInfo(LoadedPicture picture)
         {
             if (picture == null) return "No picture yet";
-            string text = picture.Name + " · " + picture.Source.Width + "×" + picture.Source.Height;
-            return picture.Frames > 1 ? text + " · first of " + picture.Frames + " frames" : text;
+            AnimatedGif a = picture.Animation;
+            string text = picture.Name + " · " + (a != null ? a.OrigW + "×" + a.OrigH : picture.Source.Width + "×" + picture.Source.Height);
+            string frames = a != null ? GifInfo.FramesText(picture.Frames, a.Frames.Length, a.Total, a.DurationMs, true) : GifInfo.FramesText(picture.Frames, 0, 0, 0, false);
+            return frames.Length > 0 ? text + " · " + frames : text;
         }
+
+        // What GIF and APNG come out at, when it isn't the Size chosen (the website's words by its
+        // buttons); "" when it is. `withFx`: the screen effect goes into exports; `signalLoop`: the
+        // Screen FX loop with the signal on (its length counts); `screenFxLoop`: the Screen FX loop
+        // without the signal (it's the effect itself, at any size).
+        public static string AnimationHint(AnimationFit fit, Geometry g, bool tv, int chosen, bool withFx, bool signalLoop, bool screenFxLoop, bool custom)
+        {
+            if (fit.Next == null) return "";
+            string whyNot = fit.Limit == "frame" ? "too big for an animation" : "too big for " + fit.Held + " frames";
+            if (fit.Multiplier == null)
+            {
+                Export.Size(g.Width, g.Height, g.ParX, g.ParY, fit.Next.Value, tv, out int aw, out int ah);
+                return "GIF and APNG can't be made: even " + fit.Next + "× (" + aw + "×" + ah + " px) is " + whyNot + "." +
+                    (fit.Limit == "frames" && signalLoop ? " Pick a shorter loop." : fit.Limit == "frame" && custom ? " Pick a smaller width." : "");
+            }
+            Export.Size(g.Width, g.Height, g.ParX, g.ParY, fit.Multiplier.Value, tv, out int w, out int h);
+            bool fxLost = withFx && fit.Multiplier < Export.FxMinMultiplier && !screenFxLoop;
+            return "GIF and APNG come out at " + fit.Multiplier + "× (" + w + "×" + h + " px)" + (fxLost ? ", without the screen effect" : "") + ": " +
+                (fit.Next == chosen ? fit.Next + "× is" : fit.Next + "× and up are") + " " + whyNot + ".";
+        }
+
+        // what's being made, in the bottom line ("Making the Screen FX loop GIF… frame 3 of 12")
+        public static string AnimationName(string style, bool signalOn) =>
+            style == Animation.GifFrames ? "the" : style == Animation.ScreenFx ? (signalOn ? "signal loop" : "Screen FX loop") : style == Animation.CompareWipe ? "Before & After wipe" : "Dither shimmer";
 
         public static string Native(Profile p) => "Native " + p.Width + "×" + (p.AutoHeight ? "auto" : p.Height.ToString(CultureInfo.InvariantCulture));
 

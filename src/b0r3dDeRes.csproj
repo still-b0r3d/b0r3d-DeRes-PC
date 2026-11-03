@@ -22,6 +22,7 @@
     <EmbeddedResource Include="..\assets\samples\rukus.png" Link="samples\rukus.png" LogicalName="B0r3dDeRes.samples.rukus.png" />
     <EmbeddedResource Include="..\assets\samples\crystal-forest.jpg" Link="samples\crystal-forest.jpg" LogicalName="B0r3dDeRes.samples.crystal-forest.jpg" />
     <EmbeddedResource Include="..\assets\samples\cat-nap.jpg" Link="samples\cat-nap.jpg" LogicalName="B0r3dDeRes.samples.cat-nap.jpg" />
+    <EmbeddedResource Include="..\assets\samples\rukus-breaks-out.gif" Link="samples\rukus-breaks-out.gif" LogicalName="B0r3dDeRes.samples.rukus-breaks-out.gif" />
     <EmbeddedResource Include="..\LICENSE" Link="LICENSE" LogicalName="B0r3dDeRes.LICENSE" />
     <EmbeddedResource Include="..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" LogicalName="B0r3dDeRes.THIRD-PARTY-NOTICES.txt" />
   </ItemGroup>

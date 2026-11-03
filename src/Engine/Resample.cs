@@ -10,16 +10,25 @@ namespace B0r3dDeRes.Engine
     {
         public readonly byte[] Bgra;
         public readonly int Width, Height;
+        // the size of the picture it was made from: its own, or an animated GIF's when its frames
+        // were shrunk to be held (Custom's height and Detail go by it, as the website's do)
+        public readonly int OrigW, OrigH;
         // some pixel is at least partly see-through
         public readonly bool HasAlpha;
 
-        public PictureSource(byte[] bgra, int width, int height)
+        // `seeThrough`: counts as having see-through parts whatever its own pixels say (an animated
+        // GIF's frames, when any of them has some, as the website takes them); `origW` × `origH`:
+        // the size it was shrunk from (0: it wasn't)
+        public PictureSource(byte[] bgra, int width, int height, bool seeThrough = false, int origW = 0, int origH = 0)
         {
             if (width < 1 || height < 1 || bgra.Length < (long)width * height * 4) throw new ArgumentException("A picture needs pixels");
             Bgra = bgra;
             Width = width;
             Height = height;
-            for (long i = 3; i < (long)width * height * 4; i += 4)
+            OrigW = origW > 0 ? origW : width;
+            OrigH = origH > 0 ? origH : height;
+            HasAlpha = seeThrough;
+            for (long i = 3; !HasAlpha && i < (long)width * height * 4; i += 4)
                 if (bgra[i] != 255)
                 {
                     HasAlpha = true;
@@ -38,7 +47,7 @@ namespace B0r3dDeRes.Engine
     // a float copy of itself four times its size.
     static class Resample
     {
-        sealed class AxisWeights
+        internal sealed class AxisWeights
         {
             // Start[i] … Start[i+1] index into Src and Weight for output i
             public int[] Start, Src;
@@ -46,7 +55,7 @@ namespace B0r3dDeRes.Engine
             public int Min, Max;
         }
 
-        static AxisWeights Axis(int srcLen, double from, double span, int outLen)
+        internal static AxisWeights Axis(int srcLen, double from, double span, int outLen)
         {
             double ratio = span / outLen;
             double width = Math.Max(ratio, 1);

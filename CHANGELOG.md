@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.5 (not released yet)
+
+The fifth stage: GIFs and loops.
+
+- Animated GIFs open through DeRes's own GIF decoder, as the website's do: every frame as it
+  shows (frames that keep, clear or put back what was under them, interlaced ones, frames off
+  the screen's edge, damaged files up to the damage), at the GIF's own size (up to 128 MP of
+  frames in all; past that they're shrunk to fit, as on the website, which keeps 16 MP).
+- The play bar under the picture: Play / Pause, the frame slider and its counter. Each frame
+  goes through every setting and the Signal (the noise moves at the GIF's own speed) and the
+  screen effect (its moving parts too), made a little ahead and kept while the settings stay
+  the same, so it loops at the GIF's speed. Paused, the frame on screen is the picture: Compare,
+  saves, copies, wallpapers and the machine's own file take it, named `-frame12`.
+- GIF and APNG (Export, and File → Save GIF… and Save APNG…): the GIF's own frames, the Screen FX
+  loop, the A/B wipe or the dither shimmer, as the website makes them; with the signal on, the
+  Screen FX loop is the signal's own moving noise, 16, 32 or 48 frames at 15 or 30 a second.
+  Full-colour GIFs get the website's one shared palette. The same files as the website's: GIFs
+  byte for byte, APNGs chunk for chunk.
+- Bigger than the website's: a frame up to 4096 × 4096, and 128 MP of frames held at once (a
+  48-frame signal loop up to 6× on the NES); an animated GIF's own frames past that are made
+  twice instead of held, so any number fit. A line by the buttons says when they come out at a
+  smaller Size than the one chosen, and why. Frames are made on every core; Stop leaves no file.
+  No side past 65,535 pixels (the most a GIF can say; the website writes a broken GIF there).
+- A GIF shrunk to be held still goes by its own size, as on the website: Custom's height, Detail
+  and the resolution line.
+- Batches can make a GIF or an APNG each: an animated GIF as its own frames, any other picture
+  as the loop picked under Export, each made straight into its file (however big) and read back
+  through to its end.
+- The GIF sample, Rukus breaking out, is inside the exe ("Try a GIF").
+- The Signal's line: "The noise moves when a GIF plays, and in the animations under Export."
+- The settings file and look files keep the loop picked (the GIF's own frames are picked again
+  for every GIF opened).
+- The self-test makes the website's very GIF of the GIF sample's frames on the Game Boy.
+- The tests run in five parts on a two-core machine, each within its 90 seconds.
+
 ## 0.4 (not released yet)
 
 The fourth stage: the Signal.

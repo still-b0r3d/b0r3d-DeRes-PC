@@ -30,6 +30,9 @@ namespace B0r3dDeRes
         public bool ExportFx;           // Export → With the screen effect
         // a signal loop's frames and frames a second (the website's; kept and passed on in links)
         public int LoopFrames = 16, LoopFps = 15;
+        // Export → Animation loop: the Screen FX loop, the A/B wipe or the dither shimmer (an
+        // animated GIF's own frames are picked for each GIF opened, never kept)
+        public string AnimationStyle = Animation.ScreenFx;
 
         public static readonly int[] LoopFrameCounts = { 16, 32, 48 }, LoopSpeeds = { 15, 30 };
 
@@ -181,6 +184,9 @@ namespace B0r3dDeRes
                     case "loop_fps":
                         if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int fps) && LoopSpeeds.Contains(fps)) s.LoopFps = fps;
                         break;
+                    case "animation":
+                        if (Animation.Styles.Contains(value)) s.AnimationStyle = value;
+                        break;
                 }
             }
             // a machine's dither when the one kept isn't one there is
@@ -238,6 +244,7 @@ namespace B0r3dDeRes
             Line("decoder", Signal.Decoder);
             Line("loop_frames", LoopFrames.ToString(CultureInfo.InvariantCulture));
             Line("loop_fps", LoopFps.ToString(CultureInfo.InvariantCulture));
+            Line("animation", AnimationStyle);
             Line("screen", Fx.Screen);
             Line("mask", Fx.Mask);
             Line("scanlines", N(Fx.Scanlines));

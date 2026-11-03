@@ -181,6 +181,7 @@ namespace B0r3dDeRes.Engine
         }
 
         // each pixel's entry in a palette holding every colour that shows; hidden pixels get entry 0
+        // (the website's entriesIn)
         public static byte[] EntriesIn(byte[] palette, byte[] rgb, byte[] alpha)
         {
             var entry = new Dictionary<int, int>();
@@ -191,6 +192,54 @@ namespace B0r3dDeRes.Engine
                 if (alpha != null && alpha[p] == 0) continue;
                 if (!entry.TryGetValue((rgb[i] << 16) | (rgb[i + 1] << 8) | rgb[i + 2], out int k)) throw new InvalidOperationException("A colour is missing from the palette");
                 output[p] = (byte)k;
+            }
+            return output;
+        }
+    }
+
+    // The exact colours in a set of frames while there are no more than 256: a file holding exactly
+    // those is indexed and still shows the very pixels (the looks that make their own colours, in an
+    // animation). (The website's core/census.ts.)
+    sealed class ColourCensus
+    {
+        readonly HashSet<int> seen = new HashSet<int>();
+        readonly List<int> order = new List<int>();
+        bool over;
+
+        // a frame's pixels, r, g, b each; with `alpha`, only the ones that show
+        public void Add(byte[] rgb, byte[] alpha)
+        {
+            if (over) return;
+            int last = -1;
+            for (long i = 0, p = 0; i < rgb.LongLength; i += 3, p++)
+            {
+                if (alpha != null && alpha[p] == 0) continue;
+                int c = (rgb[i] << 16) | (rgb[i + 1] << 8) | rgb[i + 2];
+                // (made pictures come in runs of one colour)
+                if (c == last) continue;
+                last = c;
+                if (!seen.Add(c)) continue;
+                order.Add(c);
+                if (seen.Count > 256)
+                {
+                    over = true;
+                    seen.Clear();
+                    order.Clear();
+                    return;
+                }
+            }
+        }
+
+        // r, g, b a colour, in the order first seen; null when there are more than 256 (or none)
+        public byte[] Palette()
+        {
+            if (over || order.Count == 0) return null;
+            var output = new byte[order.Count * 3];
+            for (int k = 0; k < order.Count; k++)
+            {
+                output[k * 3] = (byte)(order[k] >> 16);
+                output[k * 3 + 1] = (byte)(order[k] >> 8);
+                output[k * 3 + 2] = (byte)order[k];
             }
             return output;
         }

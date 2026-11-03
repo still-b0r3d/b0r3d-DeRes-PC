@@ -12,7 +12,7 @@ namespace B0r3dDeRes.Engine
     // and packed as they come, so even a huge export never needs the whole picture in memory.
     static class Png
     {
-        static readonly byte[] Signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
+        internal static readonly byte[] Signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
         // For the tests that compare hundreds of PNGs' rows with the website's, on their own
         // threads: the rows go into the PNG stored rather than squeezed (still a whole, valid
@@ -33,16 +33,18 @@ namespace B0r3dDeRes.Engine
             return t;
         }
 
-        static uint Crc(uint crc, byte[] bytes, int offset, int count)
+        internal static uint Crc(uint crc, byte[] bytes, int offset, int count)
         {
             for (int i = offset; i < offset + count; i++) crc = crcTable[(crc ^ bytes[i]) & 255] ^ (crc >> 8);
             return crc;
         }
 
+        internal static uint Crc(uint crc, byte value) => crcTable[(crc ^ value) & 255] ^ (crc >> 8);
+
         // bits a pixel for an indexed PNG with this many colours
         public static int IndexDepth(int colours) => colours <= 2 ? 1 : colours <= 4 ? 2 : colours <= 16 ? 4 : 8;
 
-        static void WriteChunk(Stream output, string type, byte[] data, int count)
+        internal static void WriteChunk(Stream output, string type, byte[] data, int count)
         {
             var head = new byte[8];
             head[0] = (byte)(count >> 24);
@@ -57,7 +59,7 @@ namespace B0r3dDeRes.Engine
             output.Write(new[] { (byte)(crc >> 24), (byte)(crc >> 16), (byte)(crc >> 8), (byte)crc }, 0, 4);
         }
 
-        static byte[] Header(int width, int height, int depth, int colourType)
+        internal static byte[] Header(int width, int height, int depth, int colourType)
         {
             if (width <= 0 || height <= 0) throw new ArgumentException("A PNG needs a size");
             var ihdr = new byte[13];
@@ -166,7 +168,7 @@ namespace B0r3dDeRes.Engine
             return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
         }
 
-        static long FilterRow(int type, byte[] cur, byte[] prev, byte[] output, int bpp)
+        internal static long FilterRow(int type, byte[] cur, byte[] prev, byte[] output, int bpp)
         {
             long sum = 0;
             for (int i = 0; i < cur.Length; i++)
@@ -189,17 +191,20 @@ namespace B0r3dDeRes.Engine
 
         // zlib's own format (what PNG keeps): a two-byte header, the deflated bytes, and an
         // Adler-32 check of what went in
-        sealed class ZlibStream : Stream
+        internal sealed class ZlibStream : Stream
         {
             readonly Stream inner;
             readonly DeflateStream deflate;
             uint a = 1, b;
 
-            public ZlibStream(Stream output)
+            public ZlibStream(Stream output) : this(output, Stored) { }
+
+            // `stored`: the tests' Stored, for a stream made on another thread than theirs
+            public ZlibStream(Stream output, bool stored)
             {
                 inner = output;
                 inner.Write(new byte[] { 0x78, 0x9C }, 0, 2);
-                deflate = new DeflateStream(inner, Stored ? CompressionLevel.NoCompression : CompressionLevel.Optimal, true);
+                deflate = new DeflateStream(inner, stored ? CompressionLevel.NoCompression : CompressionLevel.Optimal, true);
             }
 
             public override void Write(byte[] buffer, int offset, int count)

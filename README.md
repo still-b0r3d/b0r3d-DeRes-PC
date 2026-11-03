@@ -8,19 +8,20 @@ stay on your PC: it never goes online, and it never keeps them.
 
 It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install.
 
-**Being built.** This is version 0.4, the fourth of nine stages: the program itself, opening
+**Being built.** This is version 0.5, the fifth of nine stages: the program itself, opening
 pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
 Signal, the screen effects, the preview, saving, copying and dragging out PNGs, wallpapers,
-batches, DeRes the screen, the machines' own files for emulators, palette files, look files and
-share links. GIFs and loops come next, then video, the ASCII / ANSI studio and the EXIF tools.
+animated GIFs playing, GIF and APNG loops, batches, DeRes the screen, the machines' own files for
+emulators, palette files, look files and share links. Video comes next, then the ASCII / ANSI
+studio and the EXIF tools.
 
 ## Make a picture
 
 Put `b0r3dDeRes.exe` in a folder of its own and double-click it. It opens with the Rukus
 sample on the Game Boy, as the website does. Open a picture of your own with **File → Open
 picture…** (Ctrl+O), drop one anywhere on the window, paste one (Ctrl+V), or drop it on
-`b0r3dDeRes.exe` itself. PNG, JPEG, GIF (its first picture, until GIFs play in a later version),
-BMP and TIFF always open, and WebP, HEIC, AVIF,
+`b0r3dDeRes.exe` itself. PNG, JPEG, GIF (an animated one plays: see below), BMP and TIFF always
+open, and WebP, HEIC, AVIF,
 JPEG XL and camera RAW photos where Windows has Microsoft's free extensions for them. Photos
 come out the right way up, and in their own colours when they carry a colour profile. The
 whole photo is used, however big (up to 150 megapixels). **DeRes the screen** (Ctrl+Shift+D)
@@ -74,8 +75,9 @@ The settings on the left fold out like the website's:
   white phosphors. The preview makes it at the zoom shown, every screen pixel its own, on every
   core. Picking a machine while a screen is on brings that machine's own.
 - **Export:** the size (1× to 16×), for machines whose pixels weren't square raw pixels or as
-  on a TV, **With the screen effect** (from 3× up), and the **wallpapers**: the website's phone,
-  b0r3d 95 and Full HD, and one for each of your screens at its real size.
+  on a TV, **With the screen effect** (from 3× up), the **Animation loop** for GIF and APNG, and
+  the **wallpapers**: the website's phone, b0r3d 95 and Full HD, and one for each of your screens
+  at its real size.
 
 **Reset settings** at the bottom puts everything back as a first start has it (the picture
 stays).
@@ -109,11 +111,35 @@ A wallpaper (Export, or **File → Save wallpaper**) is the picture enlarged by 
 step that fits, centred on its first colour, through the signal when it's on and with the
 screen effect from 3× up.
 
+## GIFs and loops
+
+An animated GIF opens through DeRes's own GIF decoder, as on the website, at its own size (up to
+128 megapixels of frames in all; past that it's shrunk to fit). **Try a GIF** opens the GIF
+sample, Rukus breaking out. A play bar comes under the picture: **Play** / **Pause**, the frame
+slider and its counter. Every frame goes through all the settings, the Signal (its noise moves
+at the GIF's own speed) and the screen effect; once each frame has been made it's kept, so it
+loops at the GIF's speed. Paused, the frame on screen is the picture: Compare, Save PNG, copies,
+wallpapers and the machine's own file take it, and a name says which frame
+(`photo-frame12-nes-256x240-4x.png`).
+
+**Save GIF…** and **Save APNG…** (under Export, and in the File menu) make an animation, as the
+website does, of what **Animation loop** says: an animated GIF's own frames (its delays and loop
+kept), the **Screen FX** loop (the CRT's beam, the VHS tape's tracking, the composite's crawl; with
+the signal on, the signal's own moving noise, 16, 32 or 48 frames at 15 or 30 a second), the
+**A/B Wipe** between the original and the picture, or the dither **Shimmer**. Full-colour GIFs get
+one shared palette, so still parts don't shimmer. A frame can be 4096 × 4096, and 128 megapixels
+of frames can be held at once (the website: 1024 × 1024 and 16); an animated GIF's own frames past
+that are made twice instead, so any number fit. When the Size chosen is too big, they come out at
+the biggest that fits and a line by the buttons says so. Frames are made on every core, the
+bottom line counts them, and **Stop** leaves no file.
+
 ## Batches
 
 **File → Batch** (Ctrl+B), or a folder or several pictures dropped on the window, runs them all
 through the look you have (the signal too) into a folder: a PNG each (at the Size, Pixel shape
-and screen effect set under Export) or a wallpaper each, and the machine's own file if you ask. A folder gives its
+and screen effect set under Export), a wallpaper each, or a GIF or an APNG each (an animated GIF
+as its own frames, any other picture as the loop picked under Export), and the machine's own file
+if you ask. A folder gives its
 own pictures, not those in the folders inside it, nor the ones OneDrive keeps only online. You
 choose once what happens to a file that's already there: numbered, replaced or skipped. Several
 pictures are made at once, on every core; every file is written whole and then read back from
@@ -127,8 +153,8 @@ keeps it in a small `.json` file (the website's own names for its settings); **F
 look…**, or dropping the file on the window, brings it back. **Copy share link** (in Export and
 the Edit menu) copies a link that opens the same look on img.b0r3d.org; a share link made on the
 website, pasted here with Ctrl+V, opens its look on the PC. The links are the website's very
-own, letter for letter, screen effect and signal and all (the signal's loop length and speed
-too, kept for the loops of a later version).
+own, letter for letter, screen effect and signal and all (the signal loop's length and speed
+too). A look file also keeps the Animation loop picked.
 
 **View → Look** follows Windows' light or dark setting, or stays light or dark.
 
@@ -154,8 +180,9 @@ download folder inside AppData), it still works and says settings won't be kept.
 ## The same pictures as the website
 
 The engine is the website's own, translated from its TypeScript into C# file by file, and the
-tests check it against the website's engine itself: 761 pictures (every machine and analog look
-with every dither that changes it, the framings, custom widths, Detail, the adjustments,
+tests check it against the website's engine itself: 797 pictures (every machine and analog look
+with every dither that changes it, its pattern started elsewhere as the shimmer does, the
+framings, custom widths, Detail, the adjustments,
 see-through parts kept and laid on white and black, the Colours slider and loaded palettes) come
 out the same, pixel for pixel, with the same tile meter and the same machine files; 253 PNGs
 hold the same palette, see-through entries and pixel rows; 215 screen effects at many sizes and
@@ -174,6 +201,11 @@ the WebAssembly, C# here does every multiply and add on its own, rounded each ti
 processor's fused shortcuts), and the signal's sines, powers and the like are copies of the
 routines Rust's maths library (libm) has. The self-test checks one of those frames on the PC
 it runs on.
+GIFs and loops: hand-made GIFs for every rule of the decoder (and the GIF sample) read as the
+website reads them, frame by frame; the GIF and APNG writers make the website's files (GIFs
+byte for byte, APNGs chunk for chunk, as with PNGs); and every loop style, with the screen
+effect, the signal and see-through pixels, and animated GIFs' own frames through many machines,
+come out as the website's own files. The self-test makes one of those GIFs on the PC it runs on.
 Share links and look files write and read numbers exactly as JavaScript does. The test files
 are made from the website at the version named at the top of `tests/WebsiteCases.cs`.
 
@@ -182,8 +214,10 @@ as Chromium, and an sRGB colour profile leaves them as they are, as in browsers.
 still differ from a browser by a level here and there: a photo over 2048 pixels, which the
 website shrinks first and b0r3d DeRes uses whole (a little more exact; the grabber takes the
 whole photo's colours too), and the part-see-through edges of a picture, which browsers keep
-premultiplied. One more on purpose: a Game Boy Color picture too small for one 8×8 tile stops
-the website with an error; here it comes out black.
+premultiplied. Two more on purpose: a Game Boy Color picture too small for one 8×8 tile stops
+the website with an error; here it comes out black. And a GIF or APNG with a side past 65,535
+pixels, which the website writes as a broken GIF, is too big here: it comes out at a smaller
+Size.
 
 ## Building it
 
@@ -192,8 +226,8 @@ takes any 10.0 one); the program itself runs on .NET Framework 4.8, which comes 
 and 11. Double-click
 `build.cmd`, or run `build.cmd test` to build and run the tests. The exe lands in
 `bin\b0r3dDeRes.exe`. The tests print a PASS or FAIL line each, and a run stops itself after 90
-seconds; `build.cmd test` runs them in two parts (`--part engine`, then `--part window`) so each
-stays well within that on a two-core machine too.
+seconds; `build.cmd test` runs them in five parts (`--part engine`, `animation`, `gifs`,
+`frames`, then `window`) so each stays within that on a two-core machine too.
 `bin\tests\b0r3dDeResTests.exe --shots <folder>` draws the windows to PNG files.
 
 ## Licence

@@ -30,6 +30,8 @@ namespace B0r3dDeRes.Engine
         // composite's bit patterns, so the dither aims at what the TV will show (set by the
         // program while the signal is on, never kept).
         public string[] FixedPalette;
+        // where the dither's patterns start (the dither shimmer moves them a frame at a time; never kept)
+        public int DitherOffsetX, DitherOffsetY;
 
         public DeresSettings Clone()
         {
@@ -117,8 +119,9 @@ namespace B0r3dDeRes.Engine
         {
             PictureSource src = source ?? throw new InvalidOperationException("No picture loaded");
             Profile profile = Profiles.ById(s.ProfileId) ?? Profiles.Default;
-            // the engine works from the whole photo, so it is its own "working copy"
-            Geometry g = Geometry.Plan(src.Width, src.Height, src.Width, src.Height, profile, s.Custom, s.CustomWidth, s.Fit);
+            // the engine works from the whole photo, so it is its own "working copy" (an animated
+            // GIF's frames shrunk to be held go by the GIF's own size, as the website's do)
+            Geometry g = Geometry.Plan(src.Width, src.Height, src.OrigW, src.OrigH, profile, s.Custom, s.CustomWidth, s.Fit);
             int width = g.Width, height = g.Height;
             RectI dst = g.Dst;
 
@@ -127,7 +130,7 @@ namespace B0r3dDeRes.Engine
             // comes out as it always did, black bars included.
             string background = s.Background == Backgrounds.Transparent && !src.HasAlpha ? Backgrounds.White : s.Background;
             Resize(src, g, background, out float[] part, out byte[] partAlpha);
-            g.Coverage(src.Width, src.Height, src.Width, src.Height, out double coverX, out double coverY);
+            g.Coverage(src.Width, src.Height, src.OrigW, src.OrigH, out double coverX, out double coverY);
             double amount = Engine.Detail.Amount(s.Detail, coverX, coverY);
             float[] shown = amount > 0 ? Engine.Detail.Keep(part, dst.W, dst.H, amount) : part;
             var rgb = new float[width * height * 3];
@@ -409,6 +412,8 @@ namespace B0r3dDeRes.Engine
                 Matcher = pal.Matcher,
                 Mono = p.Mono,
                 Planner = () => pal.Planner ?? (pal.Planner = new YliluomaPlanner(pal.Matcher)),
+                OffsetX = s.DitherOffsetX,
+                OffsetY = s.DitherOffsetY,
             }, indices);
             if (blackBars)
                 for (int y = 0; y < height; y++)

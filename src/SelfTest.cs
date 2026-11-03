@@ -22,6 +22,10 @@ namespace B0r3dDeRes
         // tests check it against their copy of the website's, Website.SelfTestSignal)
         internal const string RukusOverRf = "e4144a90e4de3245bdc926c59c83d478e993d8aa8d53702ace86b81d116de9d6";
 
+        // the website's own GIF of the GIF sample's frames on the Game Boy at 1× (its SHA-256;
+        // the tests check it against Website.SelfTestGif)
+        internal const string RukusGif = "24928182a5d65f11597832d9f3e8a428f984a3079d353681bcaf0d89abd0481c";
+
         public static int Run(string reportPath)
         {
             var lines = new List<string>();
@@ -96,6 +100,32 @@ namespace B0r3dDeRes
                 signal &= overRf.PixelWidth == 480 && overRf.PixelHeight == 432 && overRf.Format.BitsPerPixel >= 24;
                 lines.Add("signal=" + (signal ? "ok" : "failed"));
                 ok &= signal;
+
+                // GIFs: the GIF sample read by DeRes's own decoder, its frames through the Game Boy
+                // into a GIF: the website's very file, byte for byte
+                LoadedPicture gif = Pictures.Sample("rukus-gif");
+                bool animated = gif.Animation != null && gif.Animation.Frames.Length == gif.Frames && gif.Frames > 1;
+                if (animated)
+                {
+                    var frames = new Deres();
+                    var settings = new DeresSettings();
+                    using (var bytes = new MemoryStream())
+                    using (var sha = System.Security.Cryptography.SHA256.Create())
+                    {
+                        Animation.FramesOf(bytes, new FramesOptions
+                        {
+                            Multiplier = 1, DelaysMs = gif.Animation.DelaysMs, LoopCount = gif.Animation.LoopCount, Indexed = true, SharedPalette = true,
+                            Render = (k, lane) =>
+                            {
+                                frames.SetSource(gif.Animation.Frames[k]);
+                                return frames.Render(settings);
+                            },
+                        });
+                        animated = string.Concat(sha.ComputeHash(bytes.ToArray()).Select(b => b.ToString("x2"))) == RukusGif;
+                    }
+                }
+                lines.Add("gif=" + (animated ? "ok" : "failed"));
+                ok &= animated;
 
                 // a share link, made and read back (with the signal in it)
                 Settings shared = Settings.Defaults();

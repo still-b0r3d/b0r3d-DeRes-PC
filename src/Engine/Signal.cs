@@ -189,6 +189,10 @@ namespace B0r3dDeRes.Engine
             return ((reversed << 2) | (reversed >> 2)) & 15;
         }
 
+        // Engine frames a loop frame steps by, at `fps` frames a second: the engine's noise moves at
+        // 30 fields' worth a second whatever the loop's speed (the website's engineStep).
+        public static int EngineStep(double fps) => (int)Math.Max(1, JsMath.Round(30 / fps));
+
         // the picture as the machine put it on the wire (r, g, b a sample): each pixel held for its share of samples
         public static byte[] Input(Rendered r, SignalMachine machine, out int width)
         {

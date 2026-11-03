@@ -21,9 +21,15 @@ namespace B0r3dDeRes
     // An opened picture: the whole photo for the engine, and what the window says about it.
     sealed class LoadedPicture
     {
-        public PictureSource Source;
-        public string Name;         // "photo.jpg", or "image.png" for a pasted picture, as the website names those
-        public int Frames = 1;      // images in the file (a GIF can hold many; this version shows the first)
+        public PictureSource Source;    // the picture (an animated GIF's first frame)
+        public string Name;             // "photo.jpg", or "image.png" for a pasted picture, as the website names those
+        public int Frames = 1;          // images in the file (a GIF can hold many)
+        public AnimatedGif Animation;   // an animated GIF's frames, or null for a still
+
+        // frame k of an animated GIF (a still has only its picture)
+        public PictureSource SourceAt(int frame) => Animation != null ? Animation.Frames[Math.Max(0, Math.Min(Animation.Frames.Length - 1, frame))] : Source;
+
+        public int FrameCount => Animation?.Frames.Length ?? 1;
     }
 
     // Pictures in: files (through Windows' own picture readers), the clipboard, drops and the
@@ -36,6 +42,15 @@ namespace B0r3dDeRes
         // The biggest picture opened. A 48 MP phone photo takes about 200 MB; this is a camera's
         // 150 MP, about 600 MB, set so a big picture never runs the PC out of memory.
         public const long MaxPixels = 150000000;
+
+        // An animated GIF's frames are held whole, at the GIF's own size, while all of them come
+        // to no more than this many pixels (128 MP, 512 MB: 400 frames of 640×480, eight times the
+        // website's room); past it they're shrunk to fit, down to 256 pixels on the long side, and
+        // past that only the first frames are kept, as on the website. Its screen may be up to
+        // 8192 × 8192, with up to 20,000 frames read in at most a minute. (A test shrinks a small
+        // GIF with less.)
+        internal static long GifBudget = 128L * 1024 * 1024;
+        public static GifLimits GifLimits => new GifLimits { MaxPixels = 8192L * 8192, MaxFrames = 20000, MaxMs = 60000 };
 
         static readonly string[] Extensions =
         {
@@ -64,12 +79,13 @@ namespace B0r3dDeRes
             }
         }
 
-        // the samples, by the website's ids, with their file names
+        // the samples, by the website's ids, with their file names (the GIF last, on a line of its own)
         public static readonly (string Id, string Label, string File, string Menu)[] Samples =
         {
             ("rukus", "Rukus", "rukus.png", "_Rukus"),
             ("forest", "Crystal forest", "crystal-forest.jpg", "Crystal _forest"),
             ("cat-nap", "Cat nap", "cat-nap.jpg", "Cat _nap"),
+            ("rukus-gif", "Rukus breaks out", "rukus-breaks-out.gif", "Rukus _breaks out (GIF)"),
         };
 
         public static LoadedPicture Sample(string id)
@@ -171,6 +187,22 @@ namespace B0r3dDeRes
         {
             string ext = Path.GetExtension(name).ToLowerInvariant();
             if (ext == ".pdf") throw new PictureException("it's a PDF: b0r3d DeRes opens pictures");
+            // An animated GIF: every frame through DeRes's own decoder, as the website opens one
+            // (the frame count from its blocks first, so a still GIF costs nothing). One that won't
+            // open that way opens as a still below.
+            if (GifInfo.FrameCount(bytes) > 1)
+            {
+                AnimatedGif gif;
+                try
+                {
+                    gif = GifFrames.Open(bytes, double.PositiveInfinity, GifBudget, GifLimits);
+                }
+                catch (OutOfMemoryException)
+                {
+                    throw new PictureException("it's too big to open with the memory this PC has free") { OutOfMemory = true };
+                }
+                if (gif != null) return new LoadedPicture { Source = gif.Frames[0], Name = name, Frames = gif.Total, Animation = gif };
+            }
             try
             {
                 BitmapDecoder decoder = BitmapDecoder.Create(new MemoryStream(bytes, false), BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None);

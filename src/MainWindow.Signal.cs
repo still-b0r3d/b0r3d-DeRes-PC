@@ -65,7 +65,7 @@ namespace B0r3dDeRes
         void SignalChanged()
         {
             Sync();
-            if (picture != null && !SameColours(Signal.ForRender(settings.Deres, settings.SignalOn).FixedPalette, wantedColours)) RenderSoon();
+            if (picture != null && !player.Playing && !SameColours(Signal.ForRender(settings.Deres, settings.SignalOn).FixedPalette, wantedColours)) RenderSoon();
             else FxSoon();
             saveTimer.Stop();
             saveTimer.Start();
@@ -104,23 +104,26 @@ namespace B0r3dDeRes
 
         // ---- the signal made from a picture ----
 
-        // the last signal made: the same picture and settings give the same one, so it's kept
+        // the last signal made: the same picture, settings and frame give the same one, so it's kept
         readonly object signalLock = new object();
         Rendered signalPicture;
         SignalSettings signalSettings;
+        int signalFrame;
         SignalImage signalImage;
 
-        // the picture through the signal (frame 0; null with the signal off), on any thread
-        internal SignalImage SignalFor(Rendered r, SignalSettings s)
+        // The picture through the signal (null with the signal off), on any thread: engine frame
+        // `engineFrame` (an animated GIF's frame k is k × its step, so the noise moves at its speed).
+        internal SignalImage SignalFor(Rendered r, SignalSettings s, int engineFrame = 0)
         {
             if (r == null || s == null || s.Mode == SignalModes.Off) return null;
             lock (signalLock)
-                if (signalPicture == r && signalSettings.SameAs(s)) return signalImage;
-            SignalImage made = Signal.Run(r, r.Profile.Id, s, 0);
+                if (signalPicture == r && signalSettings.SameAs(s) && signalFrame == engineFrame) return signalImage;
+            SignalImage made = Signal.Run(r, r.Profile.Id, s, engineFrame);
             lock (signalLock)
             {
                 signalPicture = r;
                 signalSettings = s.Clone();
+                signalFrame = engineFrame;
                 signalImage = made;
             }
             return made;

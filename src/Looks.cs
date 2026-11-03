@@ -200,6 +200,7 @@ namespace B0r3dDeRes
                 "\"mode\": " + Json.Quote(sig.Mode), "\"wear\": " + Json.Number(sig.Wear), "\"colour\": " + Json.Number(sig.Colour),
                 "\"sharpen\": " + Json.Number(sig.Sharpen), "\"decoder\": " + Json.Quote(sig.Decoder),
             }, "{", "}", "  "));
+            fields.Add("\"animationStyle\": " + Json.Quote(settings.AnimationStyle));
             fields.Add("\"loopFrames\": " + Json.Number(settings.LoopFrames));
             fields.Add("\"loopFps\": " + Json.Number(settings.LoopFps));
             if (d.CustomCount.HasValue) fields.Add("\"customCount\": " + Json.Number(d.CustomCount.Value));
@@ -279,6 +280,7 @@ namespace B0r3dDeRes
             s.ExportFx = Get(loaded, "exportFx") is bool ef ? ef : current.ExportFx;
             d.CustomCount = Finite(Get(loaded, "customCount"), out double cc) ? (int)JsMath.Round(Math.Min(256, Math.Max(2, cc))) : b.CustomCount;
             s.Signal = Signal.Check(Get(loaded, "signal"), current.Signal);
+            s.AnimationStyle = OneOf(Get(loaded, "animationStyle"), Animation.Styles, current.AnimationStyle);
             s.LoopFrames = Get(loaded, "loopFrames") is double lf && Settings.LoopFrameCounts.Any(x => x == lf) ? (int)lf : current.LoopFrames;
             s.LoopFps = Get(loaded, "loopFps") is double lfps && Settings.LoopSpeeds.Any(x => x == lfps) ? (int)lfps : current.LoopFps;
             return s;
