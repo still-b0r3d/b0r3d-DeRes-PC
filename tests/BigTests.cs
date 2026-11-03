@@ -75,7 +75,7 @@ namespace B0r3dDeRes.Tests
                 string file = Path.Combine(folder, id + ".png");
                 var watch = Stopwatch.StartNew();
                 int width = 0, height = 0;
-                Exports.Write(file, stream => Export.WritePng(stream, r, 16, false, out width, out height));
+                Exports.Write(file, stream => Export.WritePng(stream, r, 16, false, null, out width, out height));
                 long save = watch.ElapsedMilliseconds;
                 Check(width == w && height == h, id + " at 16× is " + width + "×" + height + ", not " + w + "×" + h);
                 // read back by Windows: its size, and a row from the middle against the picture

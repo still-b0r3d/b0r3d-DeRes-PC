@@ -8,11 +8,14 @@ namespace B0r3dDeRes.Engine
     // is stored). So the engine reads floats into doubles before any sum, and writes 7.0 / 16
     // where the website writes 7 / 16.
     //
-    // The library routines whose last bit differs between .NET and the browser are copies:
-    // cube root is the browser's own (fdlibm's, as in V8), and powers use fdlibm's too, so they
-    // come out the same on every PC. (The browser's power is the system's own, which can differ
-    // in the last bit; the engine only keeps powers as floats, where none of them differ: the
-    // tests check every one against the website's.)
+    // The library routines whose last bit differs between .NET and JavaScript are copies: cube
+    // root, sine, cosine and exp are fdlibm's, as V8 has them in Node (where the website's engine
+    // makes the test files), and powers use fdlibm's too, so they come out the same on every PC.
+    // (V8's power is the system's own, which can differ in the last bit; the engine only keeps
+    // powers as floats, where none of them differ: the tests check every one against the
+    // website's. Today's Chrome rounds sin, cos, exp and cube roots exactly, which can differ from
+    // fdlibm in a double's last bit; once kept as a float that has changed no pixel in any case
+    // checked.)
     static class JsMath
     {
         // Math.round: the nearest whole number, halves upward (C#'s Math.Round sends 2.5 to 2)
@@ -302,5 +305,212 @@ namespace B0r3dDeRes.Engine
         }
 
         static double CopySign(double magnitude, double sign) => (Bits(sign) < 0) == (Bits(magnitude) < 0) ? magnitude : -magnitude;
+
+        // ---- sin, cos and exp: fdlibm's, as V8 has them (src/base/ieee754.cc) ----
+
+        static double KernelSin(double x, double y, int iy)
+        {
+            const double S1 = -1.66666666666666324348e-01, S2 = 8.33333333332248946124e-03, S3 = -1.98412698298579493134e-04,
+                S4 = 2.75573137070700676789e-06, S5 = -2.50507602534068634195e-08, S6 = 1.58969099521155010221e-10;
+            int ix = High(x) & 0x7fffffff;
+            if (ix < 0x3e400000 && (int)x == 0) return x;   // |x| < 2^-27
+            double z = x * x, v = z * x;
+            double r = S2 + z * (S3 + z * (S4 + z * (S5 + z * S6)));
+            if (iy == 0) return x + v * (S1 + z * r);
+            return x - ((z * (0.5 * y - v * r) - y) - v * S1);
+        }
+
+        static double KernelCos(double x, double y)
+        {
+            const double C1 = 4.16666666666666019037e-02, C2 = -1.38888888888741095749e-03, C3 = 2.48015872894767294178e-05,
+                C4 = -2.75573143513906633035e-07, C5 = 2.08757232129817482790e-09, C6 = -1.13596475577881948265e-11;
+            int ix = High(x) & 0x7fffffff;
+            if (ix < 0x3e400000 && (int)x == 0) return 1;   // |x| < 2^-27
+            double z = x * x;
+            double r = z * (C1 + z * (C2 + z * (C3 + z * (C4 + z * (C5 + z * C6)))));
+            if (ix < 0x3fd33333) return 1 - (0.5 * z - (z * r - x * y));   // |x| < 0.3
+            double qx = ix > 0x3fe90000 ? 0.28125 : Words(ix - 0x00200000, 0);   // x/4
+            double iz = 0.5 * z - qx, a = 1 - qx;
+            return a - (iz - (z * r - x * y));
+        }
+
+        static readonly int[] npio2hw =
+        {
+            0x3FF921FB, 0x400921FB, 0x4012D97C, 0x401921FB, 0x401F6A7A, 0x4022D97C, 0x4025FDBB, 0x402921FB, 0x402C463A, 0x402F6A7A, 0x4031475C, 0x4032D97C,
+            0x40346B9C, 0x4035FDBB, 0x40378FDB, 0x403921FB, 0x403AB41B, 0x403C463A, 0x403DD85A, 0x403F6A7A, 0x40407E4C, 0x4041475C, 0x4042106C, 0x4042D97C,
+            0x4043A28C, 0x40446B9C, 0x404534AC, 0x4045FDBB, 0x4046C6CB, 0x40478FDB, 0x404858EB, 0x404921FB,
+        };
+
+        // x less the nearest multiple of pi/2, as y0 + y1, and that multiple; false past 2^19 pi/2,
+        // which needs fdlibm's long reduction (nothing in DeRes comes near it)
+        static bool RemPio2(double x, out double y0, out double y1, out int n)
+        {
+            const double invpio2 = 6.36619772367581382433e-01, pio2_1 = 1.57079632673412561417e+00, pio2_1t = 6.07710050650619224932e-11,
+                pio2_2 = 6.07710050630396597660e-11, pio2_2t = 2.02226624879595063154e-21, pio2_3 = 2.02226624871116645580e-21, pio2_3t = 8.47842766036889956997e-32;
+            int hx = High(x), ix = hx & 0x7fffffff;
+            y0 = x;
+            y1 = 0;
+            n = 0;
+            if (ix <= 0x3fe921fb) return true;   // |x| ~<= pi/4
+            if (ix < 0x4002d97c)
+            {
+                // |x| < 3pi/4: n is +-1
+                double z;
+                if (hx > 0)
+                {
+                    z = x - pio2_1;
+                    if (ix != 0x3ff921fb)
+                    {
+                        y0 = z - pio2_1t;
+                        y1 = (z - y0) - pio2_1t;
+                    }
+                    else
+                    {
+                        z -= pio2_2;
+                        y0 = z - pio2_2t;
+                        y1 = (z - y0) - pio2_2t;
+                    }
+                    n = 1;
+                    return true;
+                }
+                z = x + pio2_1;
+                if (ix != 0x3ff921fb)
+                {
+                    y0 = z + pio2_1t;
+                    y1 = (z - y0) + pio2_1t;
+                }
+                else
+                {
+                    z += pio2_2;
+                    y0 = z + pio2_2t;
+                    y1 = (z - y0) + pio2_2t;
+                }
+                n = -1;
+                return true;
+            }
+            if (ix > 0x413921fb) return false;
+            double t = Math.Abs(x);
+            n = (int)(t * invpio2 + 0.5);
+            double fn = n, r = t - fn * pio2_1, w = fn * pio2_1t;
+            if (n < 32 && ix != npio2hw[n - 1]) y0 = r - w;
+            else
+            {
+                int j = ix >> 20;
+                y0 = r - w;
+                int i = j - ((High(y0) >> 20) & 0x7ff);
+                if (i > 16)
+                {
+                    // a second round, good to 118 bits
+                    t = r;
+                    w = fn * pio2_2;
+                    r = t - w;
+                    w = fn * pio2_2t - ((t - r) - w);
+                    y0 = r - w;
+                    i = j - ((High(y0) >> 20) & 0x7ff);
+                    if (i > 49)
+                    {
+                        // a third, good to 151
+                        t = r;
+                        w = fn * pio2_3;
+                        r = t - w;
+                        w = fn * pio2_3t - ((t - r) - w);
+                        y0 = r - w;
+                    }
+                }
+            }
+            y1 = (r - y0) - w;
+            if (hx < 0)
+            {
+                y0 = -y0;
+                y1 = -y1;
+                n = -n;
+            }
+            return true;
+        }
+
+        // Math.sin
+        public static double Sin(double x)
+        {
+            int ix = High(x) & 0x7fffffff;
+            if (ix <= 0x3fe921fb) return KernelSin(x, 0, 0);
+            if (ix >= 0x7ff00000) return x - x;   // NaN
+            if (!RemPio2(x, out double y0, out double y1, out int n)) return Math.Sin(x);
+            switch (n & 3)
+            {
+                case 0: return KernelSin(y0, y1, 1);
+                case 1: return KernelCos(y0, y1);
+                case 2: return -KernelSin(y0, y1, 1);
+                default: return -KernelCos(y0, y1);
+            }
+        }
+
+        // Math.cos
+        public static double Cos(double x)
+        {
+            int ix = High(x) & 0x7fffffff;
+            if (ix <= 0x3fe921fb) return KernelCos(x, 0);
+            if (ix >= 0x7ff00000) return x - x;   // NaN
+            if (!RemPio2(x, out double y0, out double y1, out int n)) return Math.Cos(x);
+            switch (n & 3)
+            {
+                case 0: return KernelCos(y0, y1);
+                case 1: return -KernelSin(y0, y1, 1);
+                case 2: return -KernelCos(y0, y1);
+                default: return KernelSin(y0, y1, 1);
+            }
+        }
+
+        // Math.exp
+        public static double Exp(double x)
+        {
+            const double o_threshold = 7.09782712893383973096e+02, u_threshold = -7.45133219101941108420e+02, ln2HI = 6.93147180369123816490e-01,
+                ln2LO = 1.90821492927058770002e-10, invln2 = 1.44269504088896338700e+00, P1 = 1.66666666666666019037e-01, P2 = -2.77777777770155933842e-03,
+                P3 = 6.61375632143793436117e-05, P4 = -1.65339022054652515390e-06, P5 = 4.13813679705723846039e-08, E = 2.718281828459045, huge = 1.0e+300,
+                twom1000 = 9.33263618503218878990e-302, two1023 = 8.988465674311579539e307;
+            uint hx = (uint)High(x);
+            int xsb = (int)(hx >> 31) & 1;
+            hx &= 0x7fffffff;
+            double hi = 0, lo = 0;
+            int k = 0;
+            if (hx >= 0x40862E42)
+            {
+                // |x| >= 709.78...
+                if (hx >= 0x7ff00000) return ((hx & 0xfffff) | Low(x)) != 0 ? x + x : xsb == 0 ? x : 0.0;
+                if (x > o_threshold) return huge * huge;
+                if (x < u_threshold) return twom1000 * twom1000;
+            }
+            if (hx > 0x3fd62e42)
+            {
+                // |x| > 0.5 ln2
+                if (hx < 0x3FF0A2B2)
+                {
+                    // and < 1.5 ln2
+                    if (x == 1.0) return E;
+                    hi = x - (xsb == 0 ? ln2HI : -ln2HI);
+                    lo = xsb == 0 ? ln2LO : -ln2LO;
+                    k = 1 - xsb - xsb;
+                }
+                else
+                {
+                    k = (int)(invln2 * x + (xsb == 0 ? 0.5 : -0.5));
+                    double t = k;
+                    hi = x - t * ln2HI;
+                    lo = t * ln2LO;
+                }
+                x = hi - lo;
+            }
+            else if (hx < 0x3e300000)
+            {
+                // |x| < 2^-28
+                if (huge + x > 1) return 1 + x;
+            }
+            double tt = x * x;
+            double twopk = k >= -1021 ? Words(0x3ff00000 + (k << 20), 0) : Words(0x3ff00000 + ((k + 1000) << 20), 0);
+            double c = x - tt * (P1 + tt * (P2 + tt * (P3 + tt * (P4 + tt * P5))));
+            if (k == 0) return 1 - ((x * c) / (c - 2.0) - x);
+            double y = 1 - ((lo - (x * c) / (2.0 - c)) - hi);
+            if (k >= -1021) return k == 1024 ? y * 2.0 * two1023 : y * twopk;
+            return y * twopk * twom1000;
+        }
     }
 }

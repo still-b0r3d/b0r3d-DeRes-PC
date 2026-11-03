@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using B0r3dDeRes.Engine;
 
 namespace B0r3dDeRes.Tests
 {
@@ -10,9 +12,10 @@ namespace B0r3dDeRes.Tests
     // as it starts, at 100 % and 150 %; a photo on the NES with Hardware and Dither open; Adjust and
     // Export open; Compare with its divider and a custom width; the ZX Spectrum with its tile meter;
     // Rukus kept see-through on the Super Nintendo; the Amstrad's Colours slider; the PlayStation's
-    // dithers; the C64's .koa and the share link; nothing opened yet) and About, in light and dark,
-    // into PNG files, straight from the controls. Nothing shows on screen and nothing takes focus;
-    // menus that pop open, and full screen, aren't in them.
+    // dithers; the C64's .koa and the share link; the screens, a CRT close up at 150 %, the analog
+    // looks, the export's wallpapers, a batch and the snip; nothing opened yet) and About, in
+    // light and dark, into PNG files, straight from the controls. Nothing shows on screen and
+    // nothing takes focus; menus that pop open, and full screen, aren't in them.
     static partial class TestMain
     {
         static int TakeShots(string folder)
@@ -126,6 +129,85 @@ namespace B0r3dDeRes.Tests
                 ScrollTo(export, export.ResetButton);
                 Shoot(export.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "export-" + name + ".png"));
 
+                // stage 3: the screens, the analog looks, the export's wallpapers, the batch and the snip
+                foreach (var (machine, sample, screen, shot) in new[]
+                {
+                    ("nes", "cat-nap", Screens.Crt, "screen-crt"), ("gameboy", "forest", Screens.Lcd, "screen-lcd"), ("vhs", "cat-nap", Screens.Vhs, "screen-vhs"),
+                    ("mac", "cat-nap", Screens.P3Amber, "screen-amber"), ("cga-1", "forest", Screens.Composite, "screen-composite"),
+                })
+                {
+                    MainWindow w = NewMain();
+                    WaitForPicture(w);
+                    w.OpenSample(sample);
+                    WaitForPicture(w);
+                    Pick(w, machine);
+                    PickScreen(w, screen);
+                    w.ImageSection.IsExpanded = false;
+                    w.ScreenSection.IsExpanded = true;
+                    Settle(w);
+                    ScrollTo(w, w.ScreenSection);
+                    Shoot(w.Root, MainWidth, MainHeight, 1, Path.Combine(folder, shot + "-" + name + ".png"));
+                }
+
+                // a CRT close up: every screen pixel its own
+                MainWindow close = NewMain(1.5);
+                WaitForPicture(close);
+                Pick(close, "nes");
+                PickScreen(close, Screens.Crt);
+                close.View.ZoomTo(8);
+                Settle(close);
+                Shoot(close.Root, MainWidth, MainHeight, 1.5, Path.Combine(folder, "screen-crt-close-" + name + "-150.png"));
+
+                foreach (var (machine, sample) in new[] { ("ccd-early", "cat-nap"), ("deepfry", "forest"), ("newspaper", "cat-nap"), ("risograph", "forest"), ("fax", "cat-nap") })
+                {
+                    MainWindow w = NewMain();
+                    WaitForPicture(w);
+                    w.OpenSample(sample);
+                    WaitForPicture(w);
+                    Pick(w, machine);
+                    w.ImageSection.IsExpanded = false;
+                    w.HardwareSection.IsExpanded = true;
+                    Settle(w);
+                    ScrollTo(w, w.AboutLine);
+                    Shoot(w.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "analog-" + machine + "-" + name + ".png"));
+                }
+
+                MainWindow papers = NewMain();
+                WaitForPicture(papers);
+                Pick(papers, "nes");
+                PickScreen(papers, Screens.Crt);
+                papers.ExportFxBox.IsChecked = true;
+                papers.ImageSection.IsExpanded = false;
+                papers.ExportSection.IsExpanded = true;
+                Settle(papers);
+                ScrollTo(papers, papers.SizeLine);
+                Shoot(papers.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "export-screen-wallpapers-" + name + ".png"));
+
+                // the batch: a folder of pictures, after a run with one that wouldn't open
+                string pictures = Path.Combine(Work, "shots-batch");
+                Fresh(pictures);
+                foreach (var sample in Pictures.Samples) File.WriteAllBytes(Path.Combine(pictures, sample.File), SampleBytes(sample.Id));
+                File.WriteAllText(Path.Combine(pictures, "notes.png"), "not a picture");
+                BatchWindow batch = papers.OpenBatch(new[] { pictures });
+                batch.AtOnce = 2;
+                batch.Make(Clash.Number);
+                Pump(() => batch.Running.IsCompleted, 30000);
+                Size batchSize = LayOut(batch.Root, 640, 760);
+                Shoot(batch.Root, batchSize.Width, batchSize.Height, 1, Path.Combine(folder, "batch-" + name + ".png"));
+                batch.Close();
+
+                // DeRes the screen: a box being drawn on a screen (here, a picture of this window)
+                var shotOfWindow = new RenderTargetBitmap(1280, 800, 96, 96, PixelFormats.Pbgra32);
+                shotOfWindow.Render(papers.Root);
+                shotOfWindow.Freeze();
+                var snip = new SnipWindow(new Monitors.Monitor { Bounds = new Int32Rect(0, 0, 1280, 800), Scale = 1, Main = true, Number = 1 }, shotOfWindow, true);
+                var snipRoot = (FrameworkElement)snip.Content;
+                LayOut(snipRoot, 1280, 800);
+                snip.ShowBoxForShots(new Rect(560, 90, 520, 470));
+                LayOut(snipRoot, 1280, 800);
+                Shoot(snipRoot, 1280, 800, 1, Path.Combine(folder, "snip-" + name + ".png"));
+                snip.Close();
+
                 // nothing opened yet (a picture that won't open)
                 MainWindow empty = NewMain(1, false);
                 Settle(empty);
@@ -150,9 +232,21 @@ namespace B0r3dDeRes.Tests
             LayOut(window.Root, MainWidth, MainHeight);
         }
 
+        // a sample's file, as it is inside the exe
+        static byte[] SampleBytes(string id)
+        {
+            var sample = Pictures.Samples.First(s => s.Id == id);
+            using (Stream stream = typeof(Pictures).Assembly.GetManifestResourceStream("B0r3dDeRes.samples." + sample.File))
+            using (var bytes = new MemoryStream())
+            {
+                stream.CopyTo(bytes);
+                return bytes.ToArray();
+            }
+        }
+
         static void Settle(MainWindow window)
         {
-            Pump(() => !window.Rendering && !window.Opening, 10000);
+            Pump(() => !window.Rendering && !window.Opening && !window.ScreenRendering, 10000);
             LayOut(window.Root, MainWidth, MainHeight);
             Pump(() => false, 60);
             LayOut(window.Root, MainWidth, MainHeight);

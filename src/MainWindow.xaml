@@ -14,6 +14,8 @@
 
     <Window.CommandBindings>
         <CommandBinding Command="{x:Static local:Commands.OpenPicture}" Executed="OnOpenPicture" />
+        <CommandBinding Command="{x:Static local:Commands.DeresScreen}" Executed="OnDeresScreen" CanExecute="WhenNotSnipping" />
+        <CommandBinding Command="{x:Static local:Commands.Batch}" Executed="OnBatch" />
         <CommandBinding Command="{x:Static local:Commands.PastePicture}" Executed="OnPastePicture" />
         <CommandBinding Command="{x:Static local:Commands.SavePng}" Executed="OnSavePng" CanExecute="WhenThereIsAPicture" />
         <CommandBinding Command="{x:Static local:Commands.CopyPicture}" Executed="OnCopyPicture" CanExecute="WhenThereIsAPicture" />
@@ -33,10 +35,13 @@
             <MenuItem Header="_File">
                 <MenuItem Header="_Open picture…" Command="{x:Static local:Commands.OpenPicture}" />
                 <MenuItem x:Name="SamplesMenu" Header="Open a sa_mple" />
+                <MenuItem Header="DeRes the scree_n…" Command="{x:Static local:Commands.DeresScreen}" />
+                <MenuItem Header="_Batch: a folder or several pictures…" Command="{x:Static local:Commands.Batch}" />
                 <MenuItem Header="Open _look…" Click="OnOpenLook" />
                 <MenuItem Header="Open p_alette…" Click="OnLoadPalette" />
                 <Separator />
                 <MenuItem Header="_Save PNG…" Command="{x:Static local:Commands.SavePng}" />
+                <MenuItem x:Name="WallpaperMenu" Header="Save _wallpaper" />
                 <MenuItem x:Name="EmulatorMenu" Header="Save for an _emulator…" Click="OnSaveEmulator" />
                 <MenuItem Header="Save loo_k…" Click="OnSaveLook" />
                 <MenuItem x:Name="SavePaletteMenu" Header="Save pale_tte…" Click="OnSavePalette" />
@@ -105,8 +110,15 @@
                                     <Expander x:Name="ImageSection" Style="{StaticResource Section}" Header="_Image" IsExpanded="True">
                                         <StackPanel>
                                             <Button x:Name="OpenButton" Content="_Open picture…" Command="{x:Static local:Commands.OpenPicture}" HorizontalAlignment="Stretch" />
+                                            <UniformGrid Rows="1" Margin="0,8,0,0">
+                                                <Button x:Name="SnipButton" Content="DeRes the screen…" Command="{x:Static local:Commands.DeresScreen}" Margin="0,0,4,0"
+                                                        ToolTip="A box of the screen, a whole screen or all of them becomes the picture (Ctrl+Shift+D)" />
+                                                <Button x:Name="BatchButton" Content="Batch…" Command="{x:Static local:Commands.Batch}" Margin="4,0,0,0"
+                                                        ToolTip="A folder or several pictures through this look into a folder (Ctrl+B)" />
+                                            </UniformGrid>
                                             <TextBlock x:Name="SampleLine" Style="{StaticResource Hint}" Margin="0,8,0,0" />
-                                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" Text="Or drop a picture on the window, or paste one." />
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                       Text="Or drop a picture on the window, or paste one. Drop a folder or several pictures for a batch." />
                                             <TextBlock x:Name="PictureInfo" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold" />
 
                                             <TextBlock Style="{StaticResource Label}" Text="Resolution" />
@@ -213,6 +225,62 @@
                                         </StackPanel>
                                     </Expander>
 
+                                    <Expander x:Name="ScreenSection" Style="{StaticResource Section}" Header="Scree_n">
+                                        <StackPanel>
+                                            <UniformGrid x:Name="ScreenButtons" Columns="4" Margin="0,0,-6,0" />
+                                            <!-- the CRT's (the VHS, composite and phosphor screens are CRTs too) -->
+                                            <StackPanel x:Name="CrtPanel">
+                                                <StackPanel x:Name="MaskPanel">
+                                                    <TextBlock Style="{StaticResource Label}" Text="Mask" />
+                                                    <UniformGrid Rows="1">
+                                                        <RadioButton x:Name="MaskNone" Style="{StaticResource Segment}" GroupName="Mask" Content="None" Tag="none" Padding="0" Checked="OnMask" AutomationProperties.Name="No mask" />
+                                                        <RadioButton x:Name="MaskShadow" Style="{StaticResource Segment}" GroupName="Mask" Content="Shadow mask" Tag="shadow" Padding="0" Checked="OnMask" AutomationProperties.Name="Shadow mask" />
+                                                        <RadioButton x:Name="MaskGrille" Style="{StaticResource Segment}" GroupName="Mask" Content="Aperture grille" Tag="grille" Padding="0" Margin="0" Checked="OnMask" AutomationProperties.Name="Aperture grille" />
+                                                    </UniformGrid>
+                                                </StackPanel>
+                                                <DockPanel Margin="0,12,0,0">
+                                                    <TextBlock x:Name="ScanlinesValue" DockPanel.Dock="Right" />
+                                                    <TextBlock Text="Scanlines" Foreground="{DynamicResource Dim}" />
+                                                </DockPanel>
+                                                <Slider x:Name="ScanlinesSlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnFxSlider" AutomationProperties.Name="Scanlines" />
+                                                <DockPanel Margin="0,8,0,0">
+                                                    <TextBlock x:Name="CurveValue" DockPanel.Dock="Right" />
+                                                    <TextBlock Text="Curve" Foreground="{DynamicResource Dim}" />
+                                                </DockPanel>
+                                                <Slider x:Name="CurveSlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnFxSlider" AutomationProperties.Name="Curve" />
+                                                <StackPanel x:Name="BloomPanel">
+                                                    <DockPanel Margin="0,8,0,0">
+                                                        <TextBlock x:Name="BloomValue" DockPanel.Dock="Right" />
+                                                        <TextBlock Text="Bloom" Foreground="{DynamicResource Dim}" />
+                                                    </DockPanel>
+                                                    <Slider x:Name="BloomSlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnFxSlider" AutomationProperties.Name="Bloom" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <StackPanel x:Name="VhsPanel">
+                                                <DockPanel Margin="0,8,0,0">
+                                                    <TextBlock x:Name="TrackingValue" DockPanel.Dock="Right" />
+                                                    <TextBlock Text="Tracking jitter &amp; noise" Foreground="{DynamicResource Dim}" />
+                                                </DockPanel>
+                                                <Slider x:Name="TrackingSlider" Minimum="0" Maximum="100" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5" ValueChanged="OnFxSlider" AutomationProperties.Name="Tracking jitter and noise" />
+                                                <CheckBox x:Name="OsdBox" Content="On-screen display (PLAY ▶)" Margin="0,8,0,0" Checked="OnOsd" Unchecked="OnOsd" />
+                                            </StackPanel>
+                                            <StackPanel x:Name="LcdPanel">
+                                                <DockPanel Margin="0,12,0,0">
+                                                    <TextBlock x:Name="GridValue" DockPanel.Dock="Right" />
+                                                    <TextBlock Text="Pixel grid" Foreground="{DynamicResource Dim}" />
+                                                </DockPanel>
+                                                <Slider x:Name="GridSlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnFxSlider" AutomationProperties.Name="Pixel grid" />
+                                                <DockPanel Margin="0,8,0,0">
+                                                    <TextBlock x:Name="GhostValue" DockPanel.Dock="Right" />
+                                                    <TextBlock Text="Ghosting" Foreground="{DynamicResource Dim}" />
+                                                </DockPanel>
+                                                <Slider x:Name="GhostSlider" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnFxSlider" AutomationProperties.Name="Ghosting" />
+                                            </StackPanel>
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0"
+                                                       Text="For the preview. To keep it in the PNG, tick &quot;With the screen effect&quot; under Export (3× and up)." />
+                                        </StackPanel>
+                                    </Expander>
+
                                     <Expander x:Name="ExportSection" Style="{StaticResource Section}" Header="E_xport">
                                         <StackPanel>
                                             <StackPanel x:Name="ShapePanel">
@@ -226,12 +294,18 @@
                                             <TextBlock Style="{StaticResource Label}" Text="Size" />
                                             <UniformGrid x:Name="Sizes" Columns="4" Margin="0,0,-6,0" />
                                             <TextBlock x:Name="SizeLine" Margin="0,8,0,0" TextWrapping="Wrap" FontFamily="Consolas" />
+                                            <CheckBox x:Name="ExportFxBox" Content="With the screen effect" Margin="0,10,0,0" Checked="OnExportFx" Unchecked="OnExportFx" />
                                             <WrapPanel Margin="0,12,0,0">
                                                 <Button x:Name="SaveButton" Content="_Save PNG…" Command="{x:Static local:Commands.SavePng}" Margin="0,0,8,6" />
                                                 <Button x:Name="CopyButton" Content="_Copy picture" Command="{x:Static local:Commands.CopyPicture}" Margin="0,0,0,6" />
                                             </WrapPanel>
                                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
                                                        Text="Or drag the small picture under the preview into a folder or another program." />
+                                            <!-- the website's wallpapers, and one for each of the PC's screens -->
+                                            <TextBlock Style="{StaticResource Label}" Text="Wallpaper" />
+                                            <UniformGrid x:Name="WallpaperButtons" Columns="2" Margin="0,0,-6,0" />
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                                       Text="Enlarged by the biggest whole step that fits, on its first colour." />
                                             <!-- the machine's own file, for emulators and editors -->
                                             <Button x:Name="EmulatorButton" Click="OnSaveEmulator" HorizontalAlignment="Stretch" Margin="0,12,0,0" Visibility="Collapsed" />
                                             <TextBlock x:Name="ExportNote" Style="{StaticResource Hint}" Visibility="Collapsed" />

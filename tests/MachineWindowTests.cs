@@ -206,9 +206,10 @@ namespace B0r3dDeRes.Tests
             WaitForPicture(window);
             Check(Looks.Link(window.Current) == link, "the dropped look file should bring the look back");
 
-            // a link with what comes later says so
+            // a link's screen effect is used; the Signal, which comes later, is said
             window.UseLook(Looks.FromLink("#s=" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"p\":\"nes\",\"fx\":[\"crt\"],\"sg\":[\"rf\"]}"))), "the share link");
-            Check(window.NoteText.Contains("CRT screen effect and the Signal come with a later version"), "the bottom line: " + window.NoteText);
+            Check(window.NoteText.Contains("The Signal comes with a later version"), "the bottom line: " + window.NoteText);
+            Check(window.Current.Fx.Screen == Screens.Crt && window.CrtPanel.Visibility == Visibility.Visible, "the link's CRT screen should be on, its controls shown");
         }
 
         // The machine that's picked, clicked again, starts over as on the website; a look opened
@@ -260,6 +261,7 @@ namespace B0r3dDeRes.Tests
         {
             MainWindow window = NewMain();
             WaitForPicture(window);
+            int screensOn = 0;
             for (int seed = 1; seed <= 12; seed++)
             {
                 window.Surprise(new Random(seed));
@@ -269,7 +271,13 @@ namespace B0r3dDeRes.Tests
                 Check(d.Adjust.Brightness >= -0.1 && d.Adjust.Brightness <= 0.1 && d.Adjust.Contrast >= 0.9 && d.Adjust.Contrast <= 1.2 && d.Adjust.Saturation >= 0.85 && d.Adjust.Saturation <= 1.25 &&
                     d.CustomCount == null, "rolled adjustments out of the website's range");
                 Check(window.NoteText.StartsWith("Rolled: " + p.Name + ", "), "the bottom line: " + window.NoteText);
+                // half the time the machine's own screen, else none
+                string screen = window.Current.Fx.Screen;
+                Check(screen == Screens.Off || screen == p.Screen, "rolled the " + screen + " screen for " + p.Id);
+                Check(window.NoteText.EndsWith(screen == Screens.Off ? "no screen effect." : MainWindow.ScreenName(screen) + " screen."), "the bottom line: " + window.NoteText);
+                if (screen != Screens.Off) screensOn++;
             }
+            Check(screensOn > 0 && screensOn < 12, "twelve rolls should turn a screen on some of the time, not " + screensOn + " times");
             WaitForPicture(window);
             // the button asks first, then resets
             window.ResetButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));

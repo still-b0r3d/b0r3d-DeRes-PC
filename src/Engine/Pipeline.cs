@@ -53,7 +53,8 @@ namespace B0r3dDeRes.Engine
         // the machine's colours, r, g, b an entry
         public byte[] Palette;
         // Whether each pixel is the palette entry its index says. When it isn't (HAM, the N64,
-        // the PlayStation), the palette is only the first colours seen and exports go by Rgb.
+        // the PlayStation, the analog looks), the palette is only the first colours seen and
+        // exports go by Rgb.
         public bool Indexed;
         // the picture, r, g, b a pixel
         public byte[] Rgb;
@@ -61,7 +62,7 @@ namespace B0r3dDeRes.Engine
         public int Used;
         public Geometry Geometry;
         public Profile Profile;
-        // the palette's lightest colour (LCD screens show it between pixels, in a later version)
+        // the palette's lightest colour, or the look's paper (an LCD screen shows it between pixels)
         public byte[] Paper;
         // which pixels show (255) and which are see-through (0) when they're kept; null when all show
         public byte[] Alpha;
@@ -72,7 +73,7 @@ namespace B0r3dDeRes.Engine
     // The DeRes pipeline: the photo -> crop and area-average to the machine's resolution ->
     // pre-filters -> its colours (a dither to its palette, or its own rules). It keeps the last
     // resize, so moving a slider only redoes the cheap steps on a few thousand pixels. (The
-    // website's core/pipeline.ts, all but the analog looks, which come with a later version.)
+    // website's core/pipeline.ts.)
     // Not for two threads at once: the program renders on one thread at a time.
     //
     // Transparent parts of the photo sit on white or black, or stay see-through. Then a machine
@@ -169,6 +170,9 @@ namespace B0r3dDeRes.Engine
                     break;
                 case PaletteKind.N64:
                     N64Machine(r, rgb, blackBars);
+                    break;
+                case PaletteKind.Analog:
+                    AnalogLook(r, rgb, blackBars);
                     break;
                 default:
                     PaletteMachine(r, rgb, s, blackBars);
@@ -310,10 +314,24 @@ namespace B0r3dDeRes.Engine
 
         void N64Machine(Rendered r, float[] rgb, bool blackBars)
         {
+            N64.Filter(rgb, r.Width, r.Height, out byte[] indices, out float[] filtered);
+            OwnColours(r, indices, filtered, new byte[] { 255, 255, 255 }, blackBars);
+        }
+
+        // the early CCD camera, Deep Fry, the newspaper, the risograph and the fax
+        void AnalogLook(Rendered r, float[] rgb, bool blackBars)
+        {
+            Analog.Result look = Analog.Process(r.Profile.Mode, rgb, r.Width, r.Height);
+            OwnColours(r, look.Indices, look.Rgb, look.Paper, blackBars);
+        }
+
+        // A look that makes its own colours: the bars in black, and its first 256 colours (of the
+        // pixels that show) as its palette.
+        void OwnColours(Rendered r, byte[] indices, float[] linear, byte[] paper, bool blackBars)
+        {
             int width = r.Width, height = r.Height;
-            N64.Filter(rgb, width, height, out byte[] indices, out float[] filtered);
-            if (blackBars) ZeroBars(r.Geometry.Dst, width, height, indices, filtered);
-            byte[] output = Bytes(filtered);
+            if (blackBars) ZeroBars(r.Geometry.Dst, width, height, indices, linear);
+            byte[] output = Bytes(linear);
             var seen = new HashSet<int>();
             var palette = new List<byte>();
             for (int i = 0; i < width * height; i++)
@@ -327,7 +345,7 @@ namespace B0r3dDeRes.Engine
             r.Indexed = false;
             r.Rgb = output;
             r.Used = seen.Count;
-            r.Paper = new byte[] { 255, 255, 255 };
+            r.Paper = paper;
             r.TileFit = FitOf(r.Profile, indices, width, height, r.Alpha);
         }
 

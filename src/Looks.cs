@@ -18,9 +18,8 @@ namespace B0r3dDeRes
         public const string Site = "https://img.b0r3d.org/";
         public const string FileKind = "b0r3d DeRes";
 
-        static readonly string[] screens = { "off", "crt", "lcd", "vhs", "composite", "p1-green", "p3-amber", "p4-white" };
-        static readonly string[] screenNames = { "", "CRT", "LCD", "VHS", "composite", "green phosphor", "amber phosphor", "white phosphor" };
         static readonly string[] signals = { "off", "auto", "rf", "composite", "vhs-sp", "vhs-lp", "vhs-ep" };
+        static readonly string[] fxNames = { "screen", "mask", "scanlines", "curve", "bloom", "grid", "ghost", "vhsTracking", "vhsOsd" };
 
         // ---- share links ----
 
@@ -65,9 +64,14 @@ namespace B0r3dDeRes
             parts.Add("\"d\":" + Json.Quote(d.Dither));
             parts.Add("\"ps\":" + Json.Quote(settings.TvPixels ? "tv" : "raw"));
             parts.Add("\"m\":" + Json.Number(settings.Multiplier));
-            parts.Add("\"ef\":0");
+            parts.Add("\"ef\":" + (settings.ExportFx ? "1" : "0"));
             Adjust a = d.Adjust;
             if (!a.IsNeutral) parts.Add("\"a\":[" + string.Join(",", new[] { a.Brightness, a.Contrast, a.Saturation, a.Gamma }.Select(Json.Number)) + "]");
+            // the screen effect only while it's on
+            FxSettings fx = settings.Fx;
+            if (fx.Screen != Screens.Off)
+                parts.Add("\"fx\":[" + Json.Quote(fx.Screen) + "," + Json.Quote(fx.Mask) + "," +
+                    string.Join(",", new[] { fx.Scanlines, fx.Curve, fx.Bloom, fx.Grid, fx.Ghost, fx.VhsTracking }.Select(Json.Number)) + "," + (fx.VhsOsd ? "true" : "false") + "]");
             if (d.CustomCount.HasValue && d.CustomCount.Value != 0) parts.Add("\"cc\":" + Json.Number(d.CustomCount.Value));
             if (d.CustomPalette != null && d.CustomPalette.Length > 0) parts.Add("\"cp\":[" + string.Join(",", d.CustomPalette.Select(Json.Quote)) + "]");
             return "{" + string.Join(",", parts) + "}";
@@ -122,7 +126,13 @@ namespace B0r3dDeRes
                 for (int i = 0; i < 4 && i < a.Count; i++) adjust[names[i]] = a[i];
                 output["adjust"] = adjust;
             }
-            if (fields.TryGetValue("fx", out object fx) && fx is List<object> f && f.Count > 0) output["fx"] = new Dictionary<string, object> { { "screen", f[0] } };
+            // seven entries before the website's v0.8.3; the VHS tracking and display came after
+            if (fields.TryGetValue("fx", out object fx) && fx is List<object> f)
+            {
+                var screen = new Dictionary<string, object>();
+                for (int i = 0; i < fxNames.Length && i < f.Count; i++) screen[fxNames[i]] = f[i];
+                output["fx"] = screen;
+            }
             if (fields.TryGetValue("sg", out object sg) && sg is List<object> g && g.Count > 0) output["signal"] = new Dictionary<string, object> { { "mode", g[0] } };
             else output["signal"] = new Dictionary<string, object> { { "mode", "off" } };
             Set("customCount", "cc");
@@ -156,8 +166,16 @@ namespace B0r3dDeRes
                 "\"saturation\": " + Json.Number(a.Saturation), "\"gamma\": " + Json.Number(a.Gamma),
             }, "{", "}", "  "));
             fields.Add("\"dither\": " + Json.Quote(d.Dither));
+            FxSettings fx = settings.Fx;
+            fields.Add("\"fx\": " + Pretty(new[]
+            {
+                "\"screen\": " + Json.Quote(fx.Screen), "\"mask\": " + Json.Quote(fx.Mask), "\"scanlines\": " + Json.Number(fx.Scanlines),
+                "\"curve\": " + Json.Number(fx.Curve), "\"bloom\": " + Json.Number(fx.Bloom), "\"grid\": " + Json.Number(fx.Grid), "\"ghost\": " + Json.Number(fx.Ghost),
+                "\"vhsTracking\": " + Json.Number(fx.VhsTracking), "\"vhsOsd\": " + (fx.VhsOsd ? "true" : "false"),
+            }, "{", "}", "  "));
             fields.Add("\"pixelShape\": " + Json.Quote(settings.TvPixels ? "tv" : "raw"));
             fields.Add("\"multiplier\": " + Json.Number(settings.Multiplier));
+            fields.Add("\"exportFx\": " + (settings.ExportFx ? "true" : "false"));
             if (d.CustomCount.HasValue) fields.Add("\"customCount\": " + Json.Number(d.CustomCount.Value));
             if (d.CustomPalette != null && d.CustomPalette.Length > 0) fields.Add("\"customPalette\": " + Pretty(d.CustomPalette.Select(Json.Quote), "[", "]", "  "));
             return Pretty(fields, "{", "}", "") + "\r\n";
@@ -194,11 +212,21 @@ namespace B0r3dDeRes
         {
             Settings s = current.Copy();
             DeresSettings d = s.Deres, b = current.Deres;
-            var notes = new List<string>();
+
+            var fx = Get(loaded, "fx") as Dictionary<string, object> ?? new Dictionary<string, object>();
+            FxSettings f = s.Fx, bf = current.Fx;
+            f.Screen = OneOf(Get(fx, "screen"), Screens.All, bf.Screen);
+            f.Mask = OneOf(Get(fx, "mask"), Screens.Masks, bf.Mask);
+            f.Scanlines = Num(Get(fx, "scanlines"), 0, 1, bf.Scanlines);
+            f.Curve = Num(Get(fx, "curve"), 0, 1, bf.Curve);
+            f.Bloom = Num(Get(fx, "bloom"), 0, 1, bf.Bloom);
+            f.Grid = Num(Get(fx, "grid"), 0, 1, bf.Grid);
+            f.Ghost = Num(Get(fx, "ghost"), 0, 1, bf.Ghost);
+            f.VhsTracking = Num(Get(fx, "vhsTracking"), 0, 1, bf.VhsTracking);
+            f.VhsOsd = Get(fx, "vhsOsd") is bool osd ? osd : bf.VhsOsd;
 
             string id = loaded.TryGetValue("profileId", out object p) ? p as string : null;
             d.ProfileId = id != null && Profiles.ById(id) != null ? id : b.ProfileId;
-            if (id != null && Profiles.Later.TryGetValue(id, out string laterName)) notes.Add("the " + laterName);
             string ditherFallback = d.ProfileId == b.ProfileId ? b.Dither : Profiles.ById(d.ProfileId).Dither;
 
             if (loaded.TryGetValue("customPalette", out object cp) && cp is List<object> list)
@@ -223,14 +251,11 @@ namespace B0r3dDeRes
             d.Dither = OneOf(Get(loaded, "dither"), Dither.All.Select(x => x.Id).ToArray(), ditherFallback);
             s.TvPixels = OneOf(Get(loaded, "pixelShape"), new[] { "raw", "tv" }, current.TvPixels ? "tv" : "raw") == "tv";
             s.Multiplier = Finite(Get(loaded, "multiplier"), out double m) && Export.Multipliers.Any(x => x == m) ? (int)m : current.Multiplier;
+            s.ExportFx = Get(loaded, "exportFx") is bool ef ? ef : current.ExportFx;
             d.CustomCount = Finite(Get(loaded, "customCount"), out double cc) ? (int)JsMath.Round(Math.Min(256, Math.Max(2, cc))) : b.CustomCount;
 
-            // the screen effect and the Signal come with later versions: said, and left out
-            if (Get(loaded, "fx") is Dictionary<string, object> fx && Get(fx, "screen") is string screen && screen != "off" && screens.Contains(screen))
-                notes.Add("the " + screenNames[Array.IndexOf(screens, screen)] + " screen effect");
-            if (Get(loaded, "signal") is Dictionary<string, object> signal && Get(signal, "mode") is string mode && mode != "off" && signals.Contains(mode))
-                notes.Add("the Signal");
-            later = notes.Count == 0 ? null : Words.List(notes);
+            // the Signal comes with a later version: said, and left out
+            later = Get(loaded, "signal") is Dictionary<string, object> signal && Get(signal, "mode") is string mode && mode != "off" && signals.Contains(mode) ? "the Signal" : null;
             return s;
         }
 

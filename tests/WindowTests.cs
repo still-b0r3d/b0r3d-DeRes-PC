@@ -343,7 +343,7 @@ namespace B0r3dDeRes.Tests
             }
             List<MenuItem> top = window.MenuBar.Items.OfType<MenuItem>().ToList();
             Unique("the window", top.Select(m => Key(m.Header)).Concat(new[] { Key(window.DeresTab.Header) })
-                .Concat(new[] { window.ImageSection, window.HardwareSection, window.AdjustSection, window.DitherSection, window.ExportSection }.Select(s => Key(s.Header)))
+                .Concat(new[] { window.ImageSection, window.HardwareSection, window.AdjustSection, window.DitherSection, window.ScreenSection, window.ExportSection }.Select(s => Key(s.Header)))
                 .Concat(new ContentControl[] { window.OpenButton, window.SaveButton, window.CopyButton }.Select(b => Key(b.Content))));
             void Lists(MenuItem item)
             {

@@ -386,17 +386,26 @@ namespace B0r3dDeRes.Tests
             File.WriteAllBytes(Path.Combine(folder, "first.png"), png);
             File.WriteAllBytes(Path.Combine(folder, "second.png"), png);
             var files = new DataObject();
-            files.SetFileDropList(new StringCollection { Path.Combine(folder, "notes.txt"), Path.Combine(folder, "first.png"), Path.Combine(folder, "second.png") });
+            files.SetFileDropList(new StringCollection { Path.Combine(folder, "notes.txt"), Path.Combine(folder, "first.png") });
             window.OpenData(files, "nothing");
             Pump(() => window.PictureInfo.Text.StartsWith("first.png", StringComparison.Ordinal), 5000);
             WaitForPicture(window);
-            Check(window.PictureInfo.Text == "first.png · 40×30", "dropped files should open the first picture: " + window.PictureInfo.Text);
-            Check(window.NoteText.Contains("the first of 2 pictures"), "the bottom line should say it opened the first of the 2 pictures (not the note): " + window.NoteText);
+            Check(window.PictureInfo.Text == "first.png · 40×30", "a dropped picture (with a note beside it) should open: " + window.PictureInfo.Text);
 
+            // several pictures, or a folder: a batch, and the picture stays
+            var several = new DataObject();
+            several.SetFileDropList(new StringCollection { Path.Combine(folder, "notes.txt"), Path.Combine(folder, "second.png"), Path.Combine(folder, "first.png") });
+            window.OpenData(several, "nothing");
+            BatchWindow batch = window.BatchShown;
+            Check(batch != null && batch.Files.Select(Path.GetFileName).SequenceEqual(new[] { "second.png", "first.png" }), "two dropped pictures should go to the batch, in their order");
+            batch?.Close();
             var aFolder = new DataObject();
             aFolder.SetFileDropList(new StringCollection { folder });
             window.OpenData(aFolder, "nothing");
-            Check(window.NoteText.Contains("folder"), "a dropped folder should say so: " + window.NoteText);
+            batch = window.BatchShown;
+            Check(batch != null && batch.Files.Select(Path.GetFileName).SequenceEqual(new[] { "first.png", "second.png" }), "a dropped folder should give the batch its pictures, by name, and not the note");
+            Check(batch?.Into == Path.Combine(folder, "DeRes"), "the batch should go into a DeRes folder beside them: " + batch?.Into);
+            batch?.Close();
             Check(window.PictureInfo.Text.StartsWith("first.png", StringComparison.Ordinal), "a dropped folder changed the picture");
 
             var text = new DataObject();

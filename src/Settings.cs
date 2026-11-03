@@ -23,8 +23,10 @@ namespace B0r3dDeRes
         public bool Maximized;
 
         public DeresSettings Deres = new DeresSettings();
+        public FxSettings Fx = new FxSettings();   // Screen
         public bool TvPixels;           // Export → Pixel shape: as on a TV, not raw
         public int Multiplier = 4;      // Export → Size
+        public bool ExportFx;           // Export → With the screen effect
 
         // a fresh start, as the website's first visit
         public static Settings Defaults() => new Settings();
@@ -33,8 +35,12 @@ namespace B0r3dDeRes
         {
             var copy = (Settings)MemberwiseClone();
             copy.Deres = Deres.Clone();
+            copy.Fx = Fx.Clone();
             return copy;
         }
+
+        // the screen effect an export gets: with the box ticked and a screen on (from 3× up)
+        public FxSettings ExportScreen => ExportFx && Fx.Screen != Screens.Off ? Fx : null;
 
         public static Settings Load() => Load(System.IO.Path.Combine(DataFolder.Path, FileName));
 
@@ -115,6 +121,36 @@ namespace B0r3dDeRes
                     case "size":
                         if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int m) && Export.Multipliers.Contains(m)) s.Multiplier = m;
                         break;
+                    case "screen_in_export":
+                        if (value == "on" || value == "off") s.ExportFx = value == "on";
+                        break;
+                    case "screen":
+                        if (Screens.All.Contains(value)) s.Fx.Screen = value;
+                        break;
+                    case "mask":
+                        if (Screens.Masks.Contains(value)) s.Fx.Mask = value;
+                        break;
+                    case "scanlines":
+                        if (Number(value, out double scanlines)) s.Fx.Scanlines = Clamp(scanlines, 0, 1);
+                        break;
+                    case "curve":
+                        if (Number(value, out double curve)) s.Fx.Curve = Clamp(curve, 0, 1);
+                        break;
+                    case "bloom":
+                        if (Number(value, out double bloom)) s.Fx.Bloom = Clamp(bloom, 0, 1);
+                        break;
+                    case "pixel_grid":
+                        if (Number(value, out double grid)) s.Fx.Grid = Clamp(grid, 0, 1);
+                        break;
+                    case "ghosting":
+                        if (Number(value, out double ghost)) s.Fx.Ghost = Clamp(ghost, 0, 1);
+                        break;
+                    case "tracking":
+                        if (Number(value, out double tracking)) s.Fx.VhsTracking = Clamp(tracking, 0, 1);
+                        break;
+                    case "on_screen_display":
+                        if (value == "on" || value == "off") s.Fx.VhsOsd = value == "on";
+                        break;
                 }
             }
             // a machine's dither when the one kept isn't one there is
@@ -165,8 +201,18 @@ namespace B0r3dDeRes
             Line("dither", d.Dither);
             if (d.CustomCount.HasValue) Line("colours", d.CustomCount.Value.ToString(CultureInfo.InvariantCulture));
             if (d.CustomPalette != null && d.CustomPalette.Length > 0) Line("palette", string.Join(" ", d.CustomPalette));
+            Line("screen", Fx.Screen);
+            Line("mask", Fx.Mask);
+            Line("scanlines", N(Fx.Scanlines));
+            Line("curve", N(Fx.Curve));
+            Line("bloom", N(Fx.Bloom));
+            Line("pixel_grid", N(Fx.Grid));
+            Line("ghosting", N(Fx.Ghost));
+            Line("tracking", N(Fx.VhsTracking));
+            Line("on_screen_display", Fx.VhsOsd ? "on" : "off");
             Line("pixel_shape", TvPixels ? "tv" : "raw");
             Line("size", Multiplier.ToString(CultureInfo.InvariantCulture));
+            Line("screen_in_export", ExportFx ? "on" : "off");
             return text.ToString();
         }
 

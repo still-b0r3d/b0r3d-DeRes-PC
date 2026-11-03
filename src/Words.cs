@@ -73,8 +73,10 @@ namespace B0r3dDeRes
         public static string ShapeNote(Geometry g) =>
             "This machine's pixels are " + g.ParX + ":" + g.ParY + " (width:height). \"As on a TV\" stretches the PNG to match.";
 
-        // "640×576 px · 4-colour palette": the PNG's size and what its colours are
-        public static string SizeLine(int width, int height, Profile p, DeresSettings s) => width + "×" + height + " px · " + ColoursLabel(p, s);
+        // "640×576 px · 4-colour palette": the PNG's size and what its colours are (full colour
+        // with the screen effect)
+        public static string SizeLine(int width, int height, Profile p, DeresSettings s, bool withFx = false) =>
+            width + "×" + height + " px · " + (withFx ? "full colour" : ColoursLabel(p, s));
 
         static string ColoursLabel(Profile p, DeresSettings s)
         {
@@ -88,6 +90,12 @@ namespace B0r3dDeRes
                     if (p.Mode == "gbc-tile") return "8 palettes of 4 colours (32 max)";
                     if (p.Mode == "msx-screen2") return "2 colours per 8×1 line (15 colours)";
                     return "cell clash (" + p.Colours.Length + " colours)";
+                case PaletteKind.Analog:
+                    if (p.Mode == Analog.Fax) return "1-bit fax";
+                    if (p.Mode == Analog.Risograph) return "2-ink risograph";
+                    if (p.Mode == Analog.Newspaper) return "CMYK halftone rosette";
+                    if (p.Mode == Analog.DeepFry) return "8×8 DCT crunch";
+                    return "640×480 CCD sensor";
                 case PaletteKind.Fixed: return p.Colours.Length + "-colour palette";
                 case PaletteKind.Range: return Profiles.ColourCount(p, s.CustomCount) + "-colour palette";
                 default: return (s.CustomPalette?.Length ?? Profiles.ColourCount(p, s.CustomCount) ?? 16) + "-colour palette";

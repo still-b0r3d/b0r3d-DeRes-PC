@@ -15,6 +15,7 @@ namespace B0r3dDeRes.Engine
         Cell,       // a few colours a cell, from its list
         Ham,        // the Amiga's Hold-And-Modify
         N64,        // the Nintendo 64's filter
+        Analog,     // the analog, print and video looks: they make their own colours
     }
 
     // A machine's whole look, not just its colours: its own resolution, the shape of its pixels on
@@ -35,7 +36,8 @@ namespace B0r3dDeRes.Engine
         public int BitsPerChannel;      // range, direct and HAM: its range
         public int Count;               // range, pool and Custom: how many colours it picks
         public string[] Pool;           // pool: what it picks from
-        public string Mode;             // cell: spectrum, c64-mc, nes-attr, apple2-hires, msx-screen2 or gbc-tile; HAM: ham6
+        public string Mode;             // cell: spectrum, c64-mc, nes-attr, apple2-hires, msx-screen2 or gbc-tile; HAM: ham6;
+                                        // analog: ccd, deepfry, newspaper, risograph or fax
 
         public int? MaxTiles, MaxColours;   // what the hardware could hold (the tile meter)
         public string[] EmulatorFormats = new string[0];   // its own files: scr, koa, chr
@@ -142,8 +144,7 @@ namespace B0r3dDeRes.Engine
 
         static readonly string[] Chr = { "chr" };
 
-        // The machines, in the website's order, less the analog looks (VHS, the early CCD camera,
-        // Deep Fry, the newspaper, the risograph and the fax), which come with a later version.
+        // The machines, in the website's order.
         public static readonly Profile[] All =
         {
             new Profile { Id = "gameboy", Name = "Game Boy", Origin = "Nintendo · 1989", About = "Four shades of green on a 160×144 screen.",
@@ -209,6 +210,18 @@ namespace B0r3dDeRes.Engine
                 Width = 320, Height = 240, Kind = PaletteKind.Direct, BitsPerChannel = 5, Dither = DitherIds.Ps1, NativeDither = DitherIds.Ps1, Screen = "crt" },
             new Profile { Id = "n64", Name = "Nintendo 64", Origin = "Nintendo · 1996", About = "320×240 at 16-bit colour with RDP 3-point sample filter and VI anti-aliasing blur.",
                 Width = 320, Height = 240, Kind = PaletteKind.N64, MaxColours = 32768, Dither = DitherIds.None, Screen = "crt" },
+            new Profile { Id = "vhs", Name = "VHS Tape", Origin = "JVC · 1976", About = "Analog magnetic tape, 240 lines, horizontal chroma smear and tracking noise.",
+                Width = 320, Height = 240, ParX = 10, ParY = 11, Kind = PaletteKind.Range, BitsPerChannel = 6, Count = 256, MaxColours = 256, Dither = DitherIds.None, Screen = "vhs" },
+            new Profile { Id = "ccd-early", Name = "Early CCD Camera", Origin = "VGA Digital · 1998", About = "640×480 sensor, CCD photon noise, and burnt-orange digital date stamp.",
+                Width = 640, Height = 480, Kind = PaletteKind.Analog, Mode = Analog.Ccd, Dither = DitherIds.None, Screen = "off" },
+            new Profile { Id = "deepfry", Name = "JPEG Deep Fry", Origin = "IJG JPEG · 1992", About = "8×8 DCT block quantization crunch, high-frequency ringing, and hyper-saturated contrast.",
+                Width = 480, Height = 360, Kind = PaletteKind.Analog, Mode = Analog.DeepFry, Dither = DitherIds.None, Screen = "off" },
+            new Profile { Id = "newspaper", Name = "Newspaper Halftone", Origin = "Rotary Press · 1890", About = "CMYK angled screen rosettes (15°, 75°, 0°, 45°) on unbleached newsprint.",
+                Width = 400, Height = 500, Kind = PaletteKind.Analog, Mode = Analog.Newspaper, Dither = DitherIds.None, Screen = "off" },
+            new Profile { Id = "risograph", Name = "Two-Ink Risograph", Origin = "Riso Kagaku · 1980", About = "Dual spot-color ink layering (Fluo Pink & Teal) with mechanical drum misregistration.",
+                Width = 400, Height = 500, Kind = PaletteKind.Analog, Mode = Analog.Risograph, Dither = DitherIds.None, Screen = "off" },
+            new Profile { Id = "fax", Name = "1-Bit Fax Machine", Origin = "ITU-T Group 3 · 1980", About = "High-contrast 1-bit thermal print with paper feed streaks and transmission header.",
+                Width = 408, Height = 392, Kind = PaletteKind.Analog, Mode = Analog.Fax, Dither = DitherIds.Floyd, Screen = "off" },
             new Profile { Id = "nokia-3310", Name = "Nokia 3310", Origin = "Nokia · 2000", About = "84×48 monochrome graphics on a green reflective backlight LCD.",
                 Width = 84, Height = 48, Colours = new[] { "#1c281a", "#879b6f" }, Mono = true, Dither = DitherIds.Bayer4, Screen = "lcd" },
             new Profile { Id = "gbc", Name = "Game Boy Color", Origin = "Nintendo · 1998", About = "160×144 with 8 background palettes of 4 colours (32 max) from 32,768.",
@@ -229,14 +242,6 @@ namespace B0r3dDeRes.Engine
                 Width = 320, Height = 200, ParX = 5, ParY = 6, Colours = CgaCompositePalette, MaxColours = 16, Dither = DitherIds.Floyd, Screen = "crt" },
             new Profile { Id = "custom", Name = "Custom palette", Origin = "User custom", About = "Quantized to N colours or loaded from a palette file.",
                 Width = 320, Height = 240, Kind = PaletteKind.Custom, Count = 16, Dither = DitherIds.Floyd, Screen = "crt" },
-        };
-
-        // The website's machines that come with a later version (their names, for saying so when a
-        // share link or a look file picks one).
-        public static readonly Dictionary<string, string> Later = new Dictionary<string, string>
-        {
-            { "vhs", "VHS Tape" }, { "ccd-early", "Early CCD Camera" }, { "deepfry", "JPEG Deep Fry" },
-            { "newspaper", "Newspaper Halftone" }, { "risograph", "Two-Ink Risograph" }, { "fax", "1-Bit Fax Machine" },
         };
 
         public const string DefaultId = "gameboy";
@@ -285,6 +290,15 @@ namespace B0r3dDeRes.Engine
                 }
                 case PaletteKind.Direct:
                     return Enumerable.Range(0, 32).Select(i => Snapped(HslToRgb(i * (360.0 / 32), 0.8, 0.5), p.BitsPerChannel)).ToArray();
+                case PaletteKind.Analog:
+                    switch (p.Mode)
+                    {
+                        case Analog.Fax: return new[] { "#ffffff", "#000000" };
+                        case Analog.Risograph: return new[] { "#fbf9f4", "#ff48b0", "#00838a", "#20124d" };
+                        case Analog.Newspaper: return new[] { "#f2ede4", "#009ee0", "#e5007d", "#ffe600", "#1a171b" };
+                        case Analog.DeepFry: return new[] { "#000000", "#ff0000", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff", "#ffffff" };
+                        default: return Enumerable.Range(0, 32).Select(i => HslToRgb(i * (360.0 / 32), 0.8, 0.5)).Select(c => Colour.RgbToHex(c[0], c[1], c[2])).ToArray();
+                    }
                 case PaletteKind.Pool:
                 {
                     double step = (double)p.Pool.Length / p.Count;
@@ -330,17 +344,17 @@ namespace B0r3dDeRes.Engine
 
         // The "of N" in "N of M colours used" (null for machines with no list: they make their own).
         public static int? ColourTotal(Profile p, byte[] palette) =>
-            p.Kind == PaletteKind.Direct || p.Kind == PaletteKind.Ham || p.Kind == PaletteKind.N64 ? (int?)null : palette.Length / 3;
+            p.Kind == PaletteKind.Direct || p.Kind == PaletteKind.Ham || p.Kind == PaletteKind.N64 || p.Kind == PaletteKind.Analog ? (int?)null : palette.Length / 3;
 
         // Whether each pixel is one of the palette's entries (not for the machines that make their own colours).
         public static bool PixelsArePalette(Profile p) =>
             p.Kind == PaletteKind.Fixed || p.Kind == PaletteKind.Range || p.Kind == PaletteKind.Pool || p.Kind == PaletteKind.Custom || p.Kind == PaletteKind.Cell;
 
-        // Whether a dither changes anything on a machine: the cell machines, HAM and the N64 make
-        // their own colours, and the PlayStation has only its own dither.
+        // Whether a dither changes anything on a machine: the cell machines, HAM, the N64 and the
+        // analog looks make their own colours, and the PlayStation has only its own dither.
         public static bool DitherApplies(Profile p, string id)
         {
-            if (p.Kind == PaletteKind.Cell || p.Kind == PaletteKind.Ham || p.Kind == PaletteKind.N64) return false;
+            if (p.Kind == PaletteKind.Cell || p.Kind == PaletteKind.Ham || p.Kind == PaletteKind.N64 || p.Kind == PaletteKind.Analog) return false;
             if (p.Kind == PaletteKind.Direct) return id == DitherIds.None || id == DitherIds.Ps1;
             return true;
         }
@@ -349,7 +363,7 @@ namespace B0r3dDeRes.Engine
         public static string DitherNote(Profile p)
         {
             if (p.Kind == PaletteKind.Cell) return "This machine picks its colours cell by cell, so dithering doesn’t apply.";
-            if (p.Kind == PaletteKind.Ham || p.Kind == PaletteKind.N64) return "This look makes its own colours, so dithering doesn’t apply.";
+            if (p.Kind == PaletteKind.Ham || p.Kind == PaletteKind.N64 || p.Kind == PaletteKind.Analog) return "This look makes its own colours, so dithering doesn’t apply.";
             if (p.Kind == PaletteKind.Direct) return "The PlayStation has only its own hardware dither (or none).";
             return null;
         }

@@ -7,17 +7,41 @@ using System.Text.RegularExpressions;
 
 namespace B0r3dDeRes.Engine
 {
+    // A wallpaper: a size the picture is enlarged into (by the biggest whole number that fits),
+    // centred on its backdrop colour.
+    sealed class Wallpaper
+    {
+        public string Id, Name;
+        public int Width, Height;
+    }
+
     // Exports: the picture enlarged by a whole number, nearest neighbour, so every pixel stays a
-    // crisp block. It's an indexed PNG holding the machine's exact palette (open it in a pixel-art
-    // editor and the palette is there); a look that makes its own colours (the PlayStation, HAM,
-    // the N64 filter) holds exactly the colours it uses instead, or goes full colour past 256 of
-    // them. Pixels kept see-through stay so: the indexed PNG gets one more palette entry that's
+    // crisp block. Without the screen effect it's an indexed PNG holding the machine's exact
+    // palette (open it in a pixel-art editor and the palette is there); a look that makes its own
+    // colours (the PlayStation, HAM, the N64 filter, the analog looks) holds exactly the colours it
+    // uses instead, or goes full colour past 256 of them. With the screen effect it's a full-colour
+    // PNG. Pixels kept see-through stay so: the indexed PNG gets one more palette entry that's
     // see-through (or goes full colour with alpha when the palette already has 256), the
-    // full-colour PNG gets alpha. (The website's core/export.ts and core/filename.ts.)
+    // full-colour PNG gets alpha. A wallpaper stays solid: its see-through pixels take its
+    // backdrop colour. (The website's core/export.ts and core/filename.ts.)
     static class Export
     {
         // the export sizes offered (× the machine's resolution)
         public static readonly int[] Multipliers = { 1, 2, 3, 4, 6, 8, 12, 16 };
+
+        // screen effects only make it into exports from this size up
+        public const int FxMinMultiplier = 3;
+
+        // whether an export at `multiplier` has the screen effect (null or off: none)
+        public static bool WithFx(FxSettings fx, int multiplier) => fx != null && fx.Screen != Screens.Off && multiplier >= FxMinMultiplier;
+
+        // the website's three (by its ids, which go in the file names)
+        public static readonly Wallpaper[] Wallpapers =
+        {
+            new Wallpaper { Id = "phone", Name = "Phone", Width = 1080, Height = 2400 },
+            new Wallpaper { Id = "win95", Name = "b0r3d 95", Width = 1024, Height = 768 },
+            new Wallpaper { Id = "desktop-1080p", Name = "Full HD", Width = 1920, Height = 1080 },
+        };
 
         // the size of an export at `multiplier`, stretched to the machine's pixel shape when `tv`
         public static void Size(int width, int height, int parX, int parY, int multiplier, bool tv, out int w, out int h)
@@ -26,13 +50,20 @@ namespace B0r3dDeRes.Engine
             h = height * multiplier;
         }
 
-        // The PNG, written to `output`. TV pixels only stretch when the pixels aren't square.
-        public static void WritePng(Stream output, Rendered r, int multiplier, bool tv, out int width, out int height)
+        // The PNG, written to `output`, with the screen effect `fx` from 3× up (null: none). TV
+        // pixels only stretch when the pixels aren't square.
+        public static void WritePng(Stream output, Rendered r, int multiplier, bool tv, FxSettings fx, out int width, out int height)
         {
             int m = Math.Max(1, multiplier);
             Size(r.Width, r.Height, r.Geometry.ParX, r.Geometry.ParY, m, tv, out width, out height);
             int w = width;
             byte[] alpha = r.Alpha;
+            if (WithFx(fx, m))
+            {
+                var screen = new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, alpha, width, height, fx);
+                Engine.Png.WriteTruecolour(output, width, height, alpha != null, Bands(screen, alpha != null, null));
+                return;
+            }
             // which picture column each output column shows
             var column = new int[w];
             for (int x = 0; x < w; x++) column[x] = (int)Math.Min(r.Width - 1, Math.Floor((double)x * r.Width / w));
@@ -74,14 +105,96 @@ namespace B0r3dDeRes.Engine
             }, alpha != null ? colours : (int?)null);
         }
 
-        public static byte[] PngBytes(Rendered r, int multiplier, bool tv)
+        public static byte[] PngBytes(Rendered r, int multiplier, bool tv, FxSettings fx = null)
         {
             using (var bytes = new MemoryStream())
             {
-                WritePng(bytes, r, multiplier, tv, out _, out _);
+                WritePng(bytes, r, multiplier, tv, fx, out _, out _);
                 return bytes.ToArray();
             }
         }
+
+        // A screen effect's rows for the PNG writer, made a band at a time on every core: r, g, b
+        // (and a) a pixel, or with `backdrop`, solid, its hidden pixels in that colour.
+        static Action<int, byte[]> Bands(FxRenderer screen, bool withAlpha, byte[] backdrop)
+        {
+            const int band = 64;
+            byte[][] rows = null;
+            int first = 0;
+            return (y, row) =>
+            {
+                if (rows == null || y < first || y >= first + rows.Length)
+                {
+                    first = y;
+                    rows = screen.Rows(y, Math.Min(band, screen.Height - y), withAlpha, backdrop);
+                }
+                Buffer.BlockCopy(rows[y - first], 0, row, 0, row.Length);
+            };
+        }
+
+        // A wallpaper of `width` × `height`: the picture enlarged by the biggest whole number that
+        // fits (as on a TV when `tv`), with the screen effect from 3× up, centred on the backdrop
+        // (its palette's first colour); a picture too big even at 1× shows its middle.
+        public static void WriteWallpaper(Stream output, Rendered r, int width, int height, bool tv, FxSettings fx)
+        {
+            int best = 1;
+            for (int m = 1; m <= 32; m++)
+            {
+                Size(r.Width, r.Height, r.Geometry.ParX, r.Geometry.ParY, m, tv, out int sw, out int sh);
+                if (sw <= width && sh <= height) best = m;
+                else break;
+            }
+            Size(r.Width, r.Height, r.Geometry.ParX, r.Geometry.ParY, best, tv, out int scaledW, out int scaledH);
+            int offsetX = (int)Math.Floor((width - scaledW) / 2.0), offsetY = (int)Math.Floor((height - scaledH) / 2.0);
+            byte[] back = r.Palette.Length >= 3 ? new[] { r.Palette[0], r.Palette[1], r.Palette[2] } : new byte[3];
+            int w = width;
+
+            // where each wallpaper column falls in the picture as enlarged (-1: the backdrop)
+            var at = new int[w];
+            for (int x = 0; x < w; x++) at[x] = x < offsetX || x >= offsetX + scaledW ? -1 : x - offsetX;
+
+            if (WithFx(fx, best))
+            {
+                var screen = new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, scaledW, scaledH, fx);
+                Action<int, byte[]> rows = Bands(screen, false, back);
+                var shown = new byte[scaledW * 3];
+                Engine.Png.WriteTruecolour(output, width, height, false, (y, row) =>
+                {
+                    int sy = y - offsetY;
+                    if (sy >= 0 && sy < scaledH) rows(sy, shown);
+                    for (int x = 0; x < w; x++)
+                    {
+                        int s = sy >= 0 && sy < scaledH ? at[x] : -1;
+                        byte[] from = s < 0 ? back : shown;
+                        int o = s < 0 ? 0 : s * 3;
+                        row[x * 3] = from[o];
+                        row[x * 3 + 1] = from[o + 1];
+                        row[x * 3 + 2] = from[o + 2];
+                    }
+                });
+                return;
+            }
+
+            var column = new int[Math.Max(0, scaledW)];
+            for (int x = 0; x < scaledW; x++) column[x] = (int)Math.Min(r.Width - 1, Math.Floor((double)x * r.Width / scaledW));
+            byte[] alpha = r.Alpha;
+            Engine.Png.WriteTruecolour(output, width, height, false, (y, row) =>
+            {
+                bool inside = y >= offsetY && y < offsetY + scaledH;
+                int sy = inside ? (y - offsetY) / best * r.Width : 0;
+                for (int x = 0; x < w; x++)
+                {
+                    int s = inside && at[x] >= 0 ? sy + column[at[x]] : -1;
+                    bool hidden = s < 0 || alpha != null && alpha[s] == 0;
+                    row[x * 3] = hidden ? back[0] : r.Rgb[s * 3];
+                    row[x * 3 + 1] = hidden ? back[1] : r.Rgb[s * 3 + 1];
+                    row[x * 3 + 2] = hidden ? back[2] : r.Rgb[s * 3 + 2];
+                }
+            });
+        }
+
+        // what's inside, in the name: photo-nes-phone-wallpaper.png
+        public static string WallpaperName(string baseName, string profileId, string wallpaperId) => baseName + "-" + profileId + "-" + wallpaperId + "-wallpaper.png";
 
         // A file name's stem, safe for a file name ("IMG_2041.HEIC" -> "img-2041").
         public static string BaseName(string fileName)
@@ -101,10 +214,10 @@ namespace B0r3dDeRes.Engine
             return clean.Length > 0 ? clean : "photo";
         }
 
-        // what's inside, in the name: photo-nes-256x240-4x.png
-        public static string FileName(string baseName, string profileId, int width, int height, int multiplier, bool tv) =>
+        // what's inside, in the name: photo-nes-256x240-4x.png, photo-nes-256x240-4x-tv-fx.png
+        public static string FileName(string baseName, string profileId, int width, int height, int multiplier, bool tv, bool fx = false) =>
             baseName + "-" + profileId + "-" + width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture) + "-" +
-            multiplier.ToString(CultureInfo.InvariantCulture) + "x" + (tv ? "-tv" : "") + ".png";
+            multiplier.ToString(CultureInfo.InvariantCulture) + "x" + (tv ? "-tv" : "") + (fx ? "-fx" : "") + ".png";
 
         // a machine's own file: photo-zx-spectrum.scr
         public static string EmulatorFileName(string baseName, string profileId, string format) => baseName + "-" + profileId + "." + format;

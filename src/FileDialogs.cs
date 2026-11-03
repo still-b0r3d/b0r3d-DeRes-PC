@@ -12,7 +12,7 @@ namespace B0r3dDeRes
     // b0r3d DeRes; that memory is Windows' own.
     static class FileDialogs
     {
-        const uint OverwritePrompt = 0x2, StrictFileTypes = 0x4, ForceFileSystem = 0x40,
+        const uint OverwritePrompt = 0x2, StrictFileTypes = 0x4, PickFolders = 0x20, ForceFileSystem = 0x40, AllowMultiSelect = 0x200,
             PathMustExist = 0x800, FileMustExist = 0x1000, NoReadOnlyReturn = 0x8000, DontAddToRecent = 0x2000000;
 
         // asked of every Save dialog: Windows' own "replace it?" question, the file type's
@@ -21,6 +21,8 @@ namespace B0r3dDeRes
         // Open: one picture that's there, not added to Recent items
         internal const uint OpenOptions = ForceFileSystem | PathMustExist | FileMustExist | DontAddToRecent;
         internal const uint NotRecent = DontAddToRecent;
+        // a folder that's there, not added to Recent items
+        internal const uint FolderOptions = PickFolders | ForceFileSystem | PathMustExist | DontAddToRecent;
 
         const int Cancelled = unchecked((int)0x800704C7);  // the user clicked Cancel
         const uint FileSystemPath = 0x80058000;
@@ -86,6 +88,54 @@ namespace B0r3dDeRes
         public static string OpenLook(Window owner) => Open(owner, PrepareOpen("Open a look",
             new FilterSpec { Name = "Looks (.json)", Spec = "*.json" },
             new FilterSpec { Name = "All files", Spec = "*.*" }));
+
+        // several pictures for a batch, or null when cancelled
+        public static string[] OpenPictures(Window owner)
+        {
+            IFileOpenDialog dialog = PrepareOpen("Pictures to DeRes",
+                new FilterSpec { Name = "Pictures", Spec = Pictures.DialogPattern },
+                new FilterSpec { Name = "All files", Spec = "*.*" });
+            dialog.GetOptions(out uint options);
+            dialog.SetOptions(options | AllowMultiSelect);
+            try
+            {
+                int result = dialog.Show(Handle(owner));
+                if (result == Cancelled) return null;
+                if (result < 0) Marshal.ThrowExceptionForHR(result);
+                dialog.GetResults(out IShellItemArray items);
+                try
+                {
+                    items.GetCount(out uint count);
+                    var paths = new List<string>();
+                    for (uint i = 0; i < count; i++)
+                    {
+                        items.GetItemAt(i, out IShellItem item);
+                        paths.Add(PathOf(item));
+                    }
+                    return paths.ToArray();
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(items);
+                }
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(dialog);
+            }
+        }
+
+        // a folder, or null when cancelled
+        public static string PickFolder(Window owner, string title) => Open(owner, PrepareFolder(title));
+
+        internal static IFileOpenDialog PrepareFolder(string title)
+        {
+            var dialog = (IFileOpenDialog)new FileOpenDialogObject();
+            dialog.GetOptions(out uint options);
+            dialog.SetOptions(options | FolderOptions);
+            dialog.SetTitle(title);
+            return dialog;
+        }
 
         static string Open(Window owner, IFileOpenDialog dialog)
         {

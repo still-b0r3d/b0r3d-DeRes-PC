@@ -7,6 +7,8 @@ namespace B0r3dDeRes
     static class Commands
     {
         public static readonly RoutedUICommand OpenPicture = Make("Open picture…", nameof(OpenPicture), new KeyGesture(Key.O, ModifierKeys.Control));
+        public static readonly RoutedUICommand DeresScreen = Make("DeRes the screen…", nameof(DeresScreen), new KeyGesture(Key.D, ModifierKeys.Control | ModifierKeys.Shift));
+        public static readonly RoutedUICommand Batch = Make("Batch…", nameof(Batch), new KeyGesture(Key.B, ModifierKeys.Control));
         public static readonly RoutedUICommand PastePicture = Make("Paste picture", nameof(PastePicture), new KeyGesture(Key.V, ModifierKeys.Control | ModifierKeys.Shift));
         public static readonly RoutedUICommand SavePng = Make("Save PNG…", nameof(SavePng), new KeyGesture(Key.S, ModifierKeys.Control));
         public static readonly RoutedUICommand CopyPicture = Make("Copy picture", nameof(CopyPicture), new KeyGesture(Key.C, ModifierKeys.Control | ModifierKeys.Shift));

@@ -86,6 +86,21 @@ namespace B0r3dDeRes
             return picture;
         }
 
+        // a PNG made with the screen effect, as a plain picture (its see-through parts white)
+        public static BitmapSource FromPng(byte[] png)
+        {
+            var decoder = new PngBitmapDecoder(new System.IO.MemoryStream(png, false), BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.IgnoreColorProfile, BitmapCacheOption.OnLoad);
+            var converted = new FormatConvertedBitmap(decoder.Frames[0], PixelFormats.Bgra32, null, 0);
+            int w = converted.PixelWidth, h = converted.PixelHeight;
+            var bgr = new byte[(long)w * h * 4];
+            converted.CopyPixels(bgr, w * 4, 0);
+            for (long i = 0; i < bgr.Length; i += 4)
+                if (bgr[i + 3] == 0) bgr[i] = bgr[i + 1] = bgr[i + 2] = 255;
+            BitmapSource picture = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgr32, null, bgr, w * 4);
+            picture.Freeze();
+            return picture;
+        }
+
         // the picture at its own size, see-through parts and all (the small picture to drag out)
         public static BitmapSource Small(Rendered r)
         {

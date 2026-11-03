@@ -21,6 +21,10 @@ namespace B0r3dDeRes
         bool checker;       // a checkerboard behind (kept see-through parts), not the background colour
         // the original photo framed the same way, for comparing (shown smooth)
         BitmapSource original;
+        // the screen effect, when it's on: the picture as its screen showed it, made bigger than
+        // the picture (r, g, b, a a pixel) and drawn in its place
+        byte[] screenRgba;
+        int sw, sh;
 
         // zoom: screen pixels a machine pixel (down), and whether it follows the size (Fit)
         double zoom = 1;
@@ -92,7 +96,11 @@ namespace B0r3dDeRes
             pw = width;
             ph = height;
             ratio = pixelRatio;
-            if (pixels == null) original = null;
+            if (pixels == null)
+            {
+                original = null;
+                screenRgba = null;
+            }
             if (!sameSize) Place(fit ? FitZoom() : zoom, null);
             InvalidateVisual();
         }
@@ -103,15 +111,34 @@ namespace B0r3dDeRes
             InvalidateVisual();
         }
 
+        // The picture through the screen effect (null: none), shown where the picture is.
+        public void ShowScreen(byte[] rgba, int width, int height)
+        {
+            screenRgba = rgba;
+            sw = width;
+            sh = height;
+            InvalidateVisual();
+        }
+
+        internal bool HasScreen => screenRgba != null;
+        internal byte[] ScreenPixels => screenRgba;
+        internal int ScreenWidth => sw;
+        internal int ScreenHeight => sh;
+
         // ---- zoom ----
 
         // the biggest whole zoom that shows all of it, or less than 1 when even 1× is too big
-        public double FitZoom()
+        public double FitZoom() => rgb == null ? 1 : FitZoomFor(pw, ph, ratio);
+
+        double FitZoomFor(int width, int height, double pixelRatio)
         {
-            if (rgb == null || ViewW == 0 || ViewH == 0) return 1;
-            double room = Math.Min(ViewW / (pw * ratio), (double)ViewH / ph);
+            if (ViewW == 0 || ViewH == 0) return 1;
+            double room = Math.Min(ViewW / (width * pixelRatio), (double)ViewH / height);
             return room >= 1 ? Math.Floor(room) : room;
         }
+
+        // the zoom a picture of this size gets when it's shown (Fit's, or the one there is)
+        public double ZoomFor(int width, int height, double pixelRatio) => fit ? FitZoomFor(width, height, pixelRatio) : zoom;
 
         static readonly double[] Steps = { 1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64 };
 
@@ -301,6 +328,11 @@ namespace B0r3dDeRes
             // under a see-through original the checkerboard, not the picture
             if (checker && ShowingOriginal) fromX = Math.Max(fromX, holding ? toX : (int)Math.Round(left + DrawnW * split));
             if (toX <= fromX || toY <= fromY) return;
+            if (screenRgba != null)
+            {
+                PaintScreen(into, vw, x0, y0, dw, dh, fromX, toX, fromY, toY);
+                return;
+            }
             if (zoom < 1)
             {
                 PaintSmall(into, vw, x0, y0, dw, dh, fromX, toX, fromY, toY);
@@ -355,6 +387,50 @@ namespace B0r3dDeRes
                             r += rgb[s];
                             g += rgb[s + 1];
                             b += rgb[s + 2];
+                            n++;
+                        }
+                    if (n > 0) into[y * vw + x] = ((r / n) << 16) | ((g / n) << 8) | (b / n);
+                }
+            }
+        }
+
+        // The screen effect's picture where the picture goes: pixel for pixel when it's made at
+        // the zoom shown, whole blocks when it's smaller, each screen pixel the average of what it
+        // covers when it's bigger (of what shows of it).
+        void PaintScreen(int[] into, int vw, int x0, int y0, int dw, int dh, int fromX, int toX, int fromY, int toY)
+        {
+            byte[] s = screenRgba;
+            if (sw <= dw && sh <= dh)
+            {
+                var column = new int[toX - fromX];
+                for (int x = fromX; x < toX; x++) column[x - fromX] = Math.Min(sw - 1, (int)Math.Floor((x - x0) * (double)sw / dw));
+                for (int y = fromY; y < toY; y++)
+                {
+                    int row = Math.Min(sh - 1, (int)Math.Floor((y - y0) * (double)sh / dh)) * sw, o = y * vw + fromX;
+                    for (int i = 0; i < column.Length; i++)
+                    {
+                        int p = (row + column[i]) * 4;
+                        if (s[p + 3] != 0) into[o + i] = (s[p] << 16) | (s[p + 1] << 8) | s[p + 2];
+                    }
+                }
+                return;
+            }
+            double fx = (double)sw / dw, fy = (double)sh / dh;
+            for (int y = fromY; y < toY; y++)
+            {
+                int ya = (int)((y - y0) * fy), yb = Math.Min(sh, Math.Max(ya + 1, (int)((y - y0 + 1) * fy)));
+                for (int x = fromX; x < toX; x++)
+                {
+                    int xa = (int)((x - x0) * fx), xb = Math.Min(sw, Math.Max(xa + 1, (int)((x - x0 + 1) * fx)));
+                    int r = 0, g = 0, b = 0, n = 0;
+                    for (int yy = ya; yy < yb; yy++)
+                        for (int xx = xa; xx < xb; xx++)
+                        {
+                            int p = (yy * sw + xx) * 4;
+                            if (s[p + 3] == 0) continue;
+                            r += s[p];
+                            g += s[p + 1];
+                            b += s[p + 2];
                             n++;
                         }
                     if (n > 0) into[y * vw + x] = ((r / n) << 16) | ((g / n) << 8) | (b / n);

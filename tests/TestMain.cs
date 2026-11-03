@@ -75,8 +75,9 @@ namespace B0r3dDeRes.Tests
                 Run("icon check: tells static from a picture", StaticIsCaught);
                 Run("build.cmd: plain ASCII with CRLF line endings", BuildCmdIsPlain);
 
-                Run("maths: cube roots and powers as the browser works them out", MathsLikeTheBrowser);
-                Run("maths: the colour tables are the website's, bit for bit", TablesLikeTheWebsite);
+                Run("maths: cube roots and powers as the website's engine works them out in Node", MathsLikeTheBrowser);
+                Run("maths: the colour tables, the beam and the deep fry's cosines are the website's, bit for bit", TablesLikeTheWebsite);
+                Run("maths: sin, cos and exp as the website's engine works them out in Node, number for number", TrigLikeTheBrowser);
                 Run("maths: the gamma table for every stop of the Gamma slider is the website's", GammaTablesLikeTheWebsite);
                 Run("machines: the same " + Website.Profiles.Length + " machines as the website, word for word, colour for colour, limit for limit", MachinesLikeTheWebsite);
                 Run("dithers: the same nine as the website, in its order and words, the machines' own marked", DithersLikeTheWebsite);
@@ -91,7 +92,9 @@ namespace B0r3dDeRes.Tests
                 Run("odd text: nesting deeper than a stack and megabyte numbers in links and look files do no harm", OddTextDoesNoHarm);
                 Run("geometry: crop, fit, stretch and custom widths frame the picture as the website does", GeometryLikeTheWebsite);
                 Run("resolution line: the website's words for every picture above", ResolutionWordsLikeTheWebsite);
-                Run("PNG: " + Website.Exports.Length + " exports with the website's header, palette and pixel rows", PngsLikeTheWebsite);
+                Run("PNG: " + Website.Exports.Length + " exports with the website's header, palette and pixel rows, screen effects too", PngsLikeTheWebsite);
+                Run("screens: " + Website.Screens.Length + " screen effects at many sizes come out as the website's, pixel for pixel", ScreensLikeTheWebsite);
+                Run("wallpapers: " + Website.Wallpapers.Length + " wallpapers, with and without the screen effect, as the website's", WallpapersLikeTheWebsite);
                 Run("PNG: sizes, raw and as on a TV, for every machine and Size", SizesLikeTheWebsite);
                 Run("file names: the website's names, photo-nes-256x240-4x.png", NamesLikeTheWebsite);
                 Run("engine: the same pictures on one core as on all of them", SameOnEveryCore);
@@ -103,7 +106,7 @@ namespace B0r3dDeRes.Tests
                 Run("pictures: other colour profiles are applied, sRGB ones leave the pixels as browsers do", AppliesColourProfiles);
                 Run("pictures: Windows' JPEG reader is close to Chromium's on the sample photos", JpegsLikeTheBrowser);
                 Run("pictures: a GIF opens at its first picture, on its own screen, with its frame count", GifsOpenAtTheirFirstPicture);
-                Run("pictures: pasted PNGs and bitmaps, dropped files; folders, text and broken files refused", OpensCopiedAndDropped);
+                Run("pictures: pasted PNGs and bitmaps, a dropped picture opens, several or a folder go to the batch, broken files said", OpensCopiedAndDropped);
 
                 Run("data folder: next to the exe, or where --data says; nothing kept in Temp or AppData", DataFolderPlaces);
                 Run("data folder: --data into a folder of other things touches only b0r3d DeRes's own files", OtherFilesUntouched);
@@ -130,7 +133,12 @@ namespace B0r3dDeRes.Tests
                 Run("window: palettes loaded, grabbed and saved in every kind", PalettesInAndOut);
                 Run("window: looks saved, pasted as a link, dropped as a file, and what comes later said", LooksInAndOut);
                 Run("window: a machine clicked again starts over, a look keeps its width, a .txt palette loads", SmallBehaviours);
-                Run("window: Surprise me rolls as the website does, and Reset settings asks first", SurpriseAndReset);
+                Run("window: Surprise me rolls as the website does (the screen too), and Reset settings asks first", SurpriseAndReset);
+                Run("screen: each screen's controls, and the preview's screen effect is the engine's, made at the zoom shown, pixel for pixel at 100 % and 150 %", ScreenSectionAndPreview);
+                Run("screen: PNGs and copies with the screen effect from 3× up, named -fx, and the wallpapers, the PC's screens too", PngsAndWallpapersWithTheScreen);
+                Run("analog looks: their words, no dithers, their own colours, in the window", AnalogLooksInTheWindow);
+                Run("batch: a folder through a look, every file read back, the broken one said, files numbered (a picture's together), skipped or replaced, .scr on black for kept parts, and closing waits for it", BatchMakesFiles);
+                Run("DeRes the screen: the screens in real pixels, a box, a screen or all of them as the picture", DeresTheScreen);
                 Run("keyboard: no two things share an access key, and every menu line has one", AccessKeysAreUnique);
                 Run("look: the text boxes' right-click menu is b0r3d DeRes's own, so it's themed", TextMenusAreThemed);
                 Run("about: the version, the build, the settings folder and every licence", AboutShowsItAll);

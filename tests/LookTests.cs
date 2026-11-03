@@ -22,9 +22,15 @@ namespace B0r3dDeRes.Tests
             Multiplier = multiplier; Brightness = brightness; Contrast = contrast; Saturation = saturation; Gamma = gamma; CustomCount = customCount; CustomPalette = customPalette;
         }
 
+        // the screen effect and the export's box
+        public FxSettings Fx = new FxSettings();
+        public bool ExportFx;
+
         public Settings Settings()
         {
             var s = B0r3dDeRes.Settings.Defaults();
+            s.Fx = Fx.Clone();
+            s.ExportFx = ExportFx;
             DeresSettings d = s.Deres;
             d.ProfileId = Profile;
             d.Fit = Fit;
@@ -63,6 +69,10 @@ namespace B0r3dDeRes.Tests
                 d.Adjust.Brightness.ToString("R") + "/" + d.Adjust.Contrast.ToString("R") + "/" + d.Adjust.Saturation.ToString("R") + "/" + d.Adjust.Gamma.ToString("R"));
             Same((d.CustomCount ?? -1) == CustomCount, "colours", d.CustomCount);
             Same((d.CustomPalette == null ? null : string.Join(",", d.CustomPalette)) == CustomPalette, "palette", d.CustomPalette == null ? "none" : d.CustomPalette.Length + " colours");
+            FxSettings f = s.Fx;
+            Same(f.SameAs(Fx), "screen", f.Screen + "/" + f.Mask + "/" + f.Scanlines.ToString("R") + "/" + f.Curve.ToString("R") + "/" + f.Bloom.ToString("R") + "/" +
+                f.Grid.ToString("R") + "/" + f.Ghost.ToString("R") + "/" + f.VhsTracking.ToString("R") + "/" + f.VhsOsd);
+            Same(s.ExportFx == ExportFx, "screen in the export", s.ExportFx);
             return wrong.Count == 0 ? null : string.Join(", ", wrong);
         }
     }
@@ -101,20 +111,15 @@ namespace B0r3dDeRes.Tests
                 }
                 Check(loaded != null, Short(d.Hash) + " should open, as on the website");
                 Settings s = Looks.Apply(loaded, Settings.Defaults(), out string later);
-                // a machine of a later version (the analog looks): the machine stays, the rest is read
-                bool laterMachine = Profiles.Later.ContainsKey(d.Settings.Profile);
-                if (laterMachine) s.Deres.ProfileId = d.Settings.Profile;
                 string wrong = d.Settings.Against(s);
                 Check(wrong == null, Short(d.Hash) + " reads differently: " + wrong);
-                bool shouldSay = d.Screen != "off" || d.Signal != "off" || laterMachine;
-                Check((later != null) == shouldSay, Short(d.Hash) + (shouldSay ? " has a screen effect or the Signal, which should be said" : " says something comes later: " + later));
+                Check(s.Fx.Screen == d.Screen, Short(d.Hash) + " has the " + s.Fx.Screen + " screen, not " + d.Screen);
+                bool shouldSay = d.Signal != "off";
+                Check((later != null) == shouldSay, Short(d.Hash) + (shouldSay ? " has the Signal, which should be said" : " says something comes later: " + later));
             }
             // the website's own whole link, pasted
             Check(Looks.FromLink("https://img.b0r3d.org/" + Website.Links[1].Hash) != null && Looks.FromLink("  " + Looks.Site + Website.Links[1].Hash + "\r\n") != null, "a whole link should read");
             Check(Looks.FromLink("hello") == null && Looks.FromLink("") == null && Looks.FromLink("https://img.b0r3d.org/") == null, "text that isn't a link should be refused");
-            // a machine of a later version is said
-            Looks.Apply(Looks.FromLink("#s=" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"p\":\"vhs\"}"))), Settings.Defaults(), out string vhs);
-            Check(vhs != null && vhs.Contains("VHS Tape"), "a link to the VHS look should say it comes later, says " + vhs);
         }
 
         static void NumbersLikeJavaScript()
@@ -194,9 +199,9 @@ namespace B0r3dDeRes.Tests
             // the website's own settings (as it keeps them in the browser) read as a look
             string website = "{\"profileId\":\"pico8\",\"fit\":\"fit\",\"resolution\":\"native\",\"detail\":0.25,\"background\":\"white\",\"adjust\":{\"brightness\":0.1,\"contrast\":1.2," +
                 "\"saturation\":1,\"gamma\":1},\"dither\":\"atkinson\",\"fx\":{\"screen\":\"crt\"},\"pixelShape\":\"raw\",\"multiplier\":8,\"exportFx\":false}";
-            Settings w = Looks.Apply(Looks.FromFile(website), Settings.Defaults(), out string fx);
-            Check(w.Deres.ProfileId == "pico8" && w.Deres.Fit == "fit" && w.Deres.Detail == 0.25 && w.Deres.Adjust.Contrast == 1.2 && w.Deres.Dither == "atkinson" && w.Multiplier == 8 && fx != null,
-                "the website's own settings should read as a look, its CRT said");
+            Settings w = Looks.Apply(Looks.FromFile(website), Settings.Defaults(), out string said);
+            Check(w.Deres.ProfileId == "pico8" && w.Deres.Fit == "fit" && w.Deres.Detail == 0.25 && w.Deres.Adjust.Contrast == 1.2 && w.Deres.Dither == "atkinson" && w.Multiplier == 8 &&
+                w.Fx.Screen == Screens.Crt && w.Fx.Mask == "grille" && !w.ExportFx && said == null, "the website's own settings should read as a look, its CRT and all");
             Check(Looks.FromFile("{\"hello\":1}") == null && Looks.FromFile("[1]") == null && Looks.FromFile("not json") == null && Looks.FromFile("") == null, "what isn't a look should be refused");
         }
 

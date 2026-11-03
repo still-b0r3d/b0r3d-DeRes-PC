@@ -81,6 +81,7 @@ namespace B0r3dDeRes
                 if (Application.Current != null) Application.Current.SessionEnding -= OnSessionEnding;
             };
             View.ZoomChanged += ShowZoom;
+            View.ZoomChanged += FxSoon;
 
             Exports.ClearDragFolder();
             BuildLists();
@@ -177,6 +178,7 @@ namespace B0r3dDeRes
                 item.Click += (s, e) => OpenSample((string)((MenuItem)s).Tag);
                 SamplesMenu.Items.Add(item);
             }
+            BuildScreens();
         }
 
         static TextBlock Dim(TextBlock text)
@@ -284,9 +286,10 @@ namespace B0r3dDeRes
                 if (g != null)
                 {
                     Export.Size(g.Width, g.Height, g.ParX, g.ParY, settings.Multiplier, tv, out int ew, out int eh);
-                    SizeLine.Text = Words.SizeLine(ew, eh, p, d);
+                    SizeLine.Text = Words.SizeLine(ew, eh, p, d, Export.WithFx(settings.ExportScreen, settings.Multiplier));
                 }
                 else SizeLine.Text = "";
+                SyncScreen();
 
                 // the machine's own file (.scr, .koa or .chr), and why there's none where that needs saying
                 string format = p.EmulatorFormats.FirstOrDefault();
@@ -322,6 +325,15 @@ namespace B0r3dDeRes
             saveTimer.Start();
         }
 
+        // A setting that changes no picture (the export's Size, its screen box): the controls
+        // follow, and the settings are kept a moment later.
+        void Kept()
+        {
+            Sync();
+            saveTimer.Stop();
+            saveTimer.Start();
+        }
+
         // ---------- the controls' events ----------
 
         void OnMachine(object sender, RoutedEventArgs e)
@@ -329,11 +341,13 @@ namespace B0r3dDeRes
             if (Quiet) return;
             Profile p = Profiles.ById((string)((RadioButton)sender).Tag);
             if (p == null || p.Id == settings.Deres.ProfileId) return;
-            // each machine starts with the dither that suits it, and the Colours slider at its own
-            // count, as on the website
+            // each machine starts with the dither and the screen that suit it (while a screen is
+            // on; the VHS tape always brings its own), and the Colours slider at its own count, as
+            // on the website
             settings.Deres.ProfileId = p.Id;
             settings.Deres.Dither = p.Dither;
             settings.Deres.CustomCount = null;
+            settings.Fx.Screen = p.Id == "vhs" ? Screens.Vhs : settings.Fx.Screen == Screens.Off ? Screens.Off : p.Screen;
             Changed();
         }
 
@@ -443,7 +457,7 @@ namespace B0r3dDeRes
         {
             if (Quiet) return;
             settings.Multiplier = (int)((RadioButton)sender).Tag;
-            Changed();
+            Kept();
         }
 
         // ---- the custom width: a box for an exact number, and a slider in even ratios (20 -> 40
@@ -613,9 +627,10 @@ namespace B0r3dDeRes
             if (files != null)
             {
                 string[] existing = files.Where(f => File.Exists(f)).ToArray();
-                if (existing.Length == 0)
+                string[] folders = files.Where(Directory.Exists).ToArray();
+                if (existing.Length == 0 && folders.Length == 0)
                 {
-                    Problem(files.Any(Directory.Exists) ? "That's a folder: drop a picture. (Folders of pictures come in a later version.)" : nothing);
+                    Problem(nothing);
                     return;
                 }
                 // a look file or a palette file sets the look (with a picture beside it, before it opens)
@@ -624,10 +639,14 @@ namespace B0r3dDeRes
                 if (look != null) OpenLook(look);
                 if (palette != null) LoadPalette(palette);
                 string[] pictures = existing.Where(Pictures.LooksLikePicture).ToArray();
+                // a folder or several pictures: a batch
+                if (folders.Length > 0 || pictures.Length > 1)
+                {
+                    OpenBatch(folders.Concat(pictures).ToArray());
+                    return;
+                }
                 if (pictures.Length == 0 && (look != null || palette != null)) return;
-                string first = pictures.FirstOrDefault() ?? existing[0];
-                OpenFile(first);
-                if (pictures.Length > 1) Flash("Opened " + Pictures.NameOf(first) + ", the first of " + pictures.Length + " pictures.", "Dim");
+                OpenFile(pictures.FirstOrDefault() ?? existing[0]);
                 return;
             }
             Problem(nothing);
@@ -775,6 +794,7 @@ namespace B0r3dDeRes
             View.SetChecker(s.Background == Backgrounds.Transparent && from.Source.HasAlpha);
             View.Show(r.Rgb, r.Width, r.Height, PixelRatio(r), r.Alpha);
             View.SetOriginal(original);
+            FxSoon();
             DragThumb.Source = Sharing.Small(r);
             ShowTileFit(r.TileFit);
             ShowStage();
@@ -958,8 +978,9 @@ namespace B0r3dDeRes
             return shown;
         }
 
-        string FileName(Rendered r) =>
-            Export.FileName(Export.BaseName(shownFrom?.Name ?? "photo"), r.Profile.Id, r.Width, r.Height, settings.Multiplier, settings.TvPixels && !r.Geometry.SquarePixels);
+        string FileName(Rendered r, int multiplier) =>
+            Export.FileName(Export.BaseName(shownFrom?.Name ?? "photo"), r.Profile.Id, r.Width, r.Height, multiplier, settings.TvPixels && !r.Geometry.SquarePixels,
+                Export.WithFx(settings.ExportScreen, multiplier));
 
         async void OnSavePng(object sender, ExecutedRoutedEventArgs e)
         {
@@ -967,7 +988,7 @@ namespace B0r3dDeRes
             if (r == null) return;
             int m = settings.Multiplier;
             bool tv = settings.TvPixels && !r.Geometry.SquarePixels;
-            string name = FileName(r);
+            string name = FileName(r, m);
             string path;
             try
             {
@@ -979,7 +1000,7 @@ namespace B0r3dDeRes
                 return;
             }
             if (path == null) return;
-            CouldntSave(path, await SavePng(path, r, m, tv));
+            CouldntSave(path, await SavePng(path, r, m, tv, settings.ExportScreen?.Clone()));
         }
 
         internal bool Saving { get; private set; }
@@ -991,8 +1012,8 @@ namespace B0r3dDeRes
             if (problem != null) MessageBox.Show(this, "Couldn't save " + Path.GetFileName(path) + ":\n\n" + problem, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        // the PNG at `path`; what went wrong, or null
-        internal async Task<string> SavePng(string path, Rendered r, int m, bool tv)
+        // the PNG at `path` (with the screen effect `fx` from 3× up, null for none); what went wrong, or null
+        internal async Task<string> SavePng(string path, Rendered r, int m, bool tv, FxSettings fx = null)
         {
             Saving = true;
             Flash("Saving " + Path.GetFileName(path) + "…", "Dim");
@@ -1000,7 +1021,7 @@ namespace B0r3dDeRes
             string problem = null;
             try
             {
-                await Task.Run(() => Exports.Write(path, stream => Export.WritePng(stream, r, m, tv, out width, out height)));
+                await Task.Run(() => Exports.Write(path, stream => Export.WritePng(stream, r, m, tv, fx, out width, out height)));
             }
             catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is NotSupportedException || x is System.Security.SecurityException)
             {
@@ -1010,7 +1031,10 @@ namespace B0r3dDeRes
             {
                 problem = "there isn't enough memory free for a picture that big";
             }
-            Saving = false;
+            finally
+            {
+                Saving = false;
+            }
             if (problem == null) Flash("Saved " + Path.GetFileName(path) + " (" + width + "×" + height + ").", "Good");
             return problem;
         }
@@ -1026,6 +1050,7 @@ namespace B0r3dDeRes
         {
             public int Multiplier, Width, Height;
             public bool Tv;
+            public FxSettings Fx;   // the screen effect, or null
             public string Name;
             public byte[] Png;
             public BitmapSource Picture;
@@ -1033,14 +1058,14 @@ namespace B0r3dDeRes
             // the PNG and the picture; safe on any thread
             public void Make(Rendered r)
             {
-                Png = Export.PngBytes(r, Multiplier, Tv);
-                Picture = Sharing.Picture(r, Multiplier, Tv);
+                Png = Export.PngBytes(r, Multiplier, Tv, Fx);
+                Picture = Export.WithFx(Fx, Multiplier) ? Sharing.FromPng(Png) : Sharing.Picture(r, Multiplier, Tv);
             }
         }
 
         internal Shared ToShare(Rendered r)
         {
-            var s = new Shared { Tv = settings.TvPixels && !r.Geometry.SquarePixels, Multiplier = 1 };
+            var s = new Shared { Tv = settings.TvPixels && !r.Geometry.SquarePixels, Multiplier = 1, Fx = settings.ExportScreen?.Clone() };
             foreach (int m in Export.Multipliers)
             {
                 if (m > settings.Multiplier) break;
@@ -1048,7 +1073,7 @@ namespace B0r3dDeRes
                 if ((long)w * h <= MaxShared) s.Multiplier = m;
             }
             Export.Size(r.Width, r.Height, r.Geometry.ParX, r.Geometry.ParY, s.Multiplier, s.Tv, out s.Width, out s.Height);
-            s.Name = Export.FileName(Export.BaseName(shownFrom?.Name ?? "photo"), r.Profile.Id, r.Width, r.Height, s.Multiplier, s.Tv);
+            s.Name = FileName(r, s.Multiplier);
             return s;
         }
 
@@ -1086,12 +1111,22 @@ namespace B0r3dDeRes
 
         Point dragStart;
         bool dragArmed, draggingOut;
+        Task<Shared> dragReady;   // what a drag hands over, made from the moment the mouse goes down
 
         void OnDragOutDown(object sender, MouseButtonEventArgs e)
         {
             if (shown == null) return;
             dragStart = e.GetPosition(this);
             dragArmed = true;
+            // the picture on screen, as the small picture shows it (a drag can't wait for one being
+            // made), made off this thread: with the screen effect a big one takes a moment
+            Rendered r = shown;
+            Shared share = ToShare(r);
+            dragReady = Task.Run(() =>
+            {
+                share.Make(r);
+                return share;
+            });
         }
 
         void OnDragOutMove(object sender, MouseEventArgs e)
@@ -1100,18 +1135,26 @@ namespace B0r3dDeRes
             if (e.LeftButton != MouseButtonState.Pressed || shown == null)
             {
                 dragArmed = false;
+                DragOut.Cursor = Cursors.Hand;
                 return;
             }
             Point now = e.GetPosition(this);
             if (Math.Abs(now.X - dragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
                 Math.Abs(now.Y - dragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+            // not made yet: the drag starts with a move once it is
+            if (!dragReady.IsCompleted)
+            {
+                DragOut.Cursor = Cursors.Wait;
+                return;
+            }
             dragArmed = false;
-            // the picture on screen, as the small picture shows it (a drag can't wait for one being made)
-            Shared share = ToShare(shown);
+            DragOut.Cursor = Cursors.Hand;
+            Shared share;
             DataObject data;
             try
             {
-                data = DataToShare(shown, share, true);
+                share = dragReady.GetAwaiter().GetResult();
+                data = Exports.DataFor(share.Picture, share.Png, share.Name, true);
             }
             catch (OutOfMemoryException)
             {
@@ -1412,8 +1455,10 @@ namespace B0r3dDeRes
         {
             Settings next = Looks.Apply(loaded, settings, out string later);
             settings.Deres = next.Deres;
+            settings.Fx = next.Fx;
             settings.TvPixels = next.TvPixels;
             settings.Multiplier = next.Multiplier;
+            settings.ExportFx = next.ExportFx;
             Changed();
             Flash(later == null ? "Opened " + what + "." : "Opened " + what + ". " + char.ToUpperInvariant(later[0]) + later.Substring(1) +
                 (later.Contains(" and ") ? " come" : " comes") + " with a later version of b0r3d DeRes.", later == null ? "Good" : "Warn");
@@ -1498,8 +1543,8 @@ namespace B0r3dDeRes
 
         void OnSurprise(object sender, RoutedEventArgs e) => Surprise(dice);
 
-        // A random machine (not Custom), dither (its own one too) and adjustments, as the website's
-        // button rolls them. (It rolls a screen effect too, which comes with a later version.)
+        // A random machine (not Custom), dither (its own one too), adjustments, and half the time
+        // the machine's own screen, as the website's button rolls them.
         internal void Surprise(Random random)
         {
             Profile[] eligible = Profiles.All.Where(x => x.Id != Profiles.CustomId).ToArray();
@@ -1518,8 +1563,10 @@ namespace B0r3dDeRes
                 Saturation = JsMath.Round((0.85 + random.NextDouble() * 0.4) * 100) / 100,
                 Gamma = d.Adjust.Gamma,
             };
+            settings.Fx.Screen = random.NextDouble() > 0.5 ? p.Screen : Screens.Off;
             Changed();
-            Flash("Rolled: " + p.Name + ", " + Dither.ById(dither).Name + " dither.", "Dim");
+            Flash("Rolled: " + p.Name + ", " + Dither.ById(dither).Name + " dither, " +
+                (settings.Fx.Screen == Screens.Off ? "no screen effect." : ScreenName(settings.Fx.Screen) + " screen."), "Dim");
         }
 
         DispatcherTimer resetTimer;
@@ -1562,8 +1609,10 @@ namespace B0r3dDeRes
         {
             Settings fresh = Settings.Defaults();
             settings.Deres = fresh.Deres;
+            settings.Fx = fresh.Fx;
             settings.TvPixels = fresh.TvPixels;
             settings.Multiplier = fresh.Multiplier;
+            settings.ExportFx = fresh.ExportFx;
             Changed();
             saveTimer.Stop();
             SaveSettings();
@@ -1650,6 +1699,15 @@ namespace B0r3dDeRes
 
         void OnClosing(object sender, CancelEventArgs e)
         {
+            // a batch under way finishes the pictures it has started (never half a file), then
+            // the window closes
+            if (batch != null && batch.Busy)
+            {
+                e.Cancel = true;
+                batch.StopThenCloseOwner();
+                Flash("Stopping the batch: the pictures under way finish, then b0r3d DeRes closes.", "Warn");
+                return;
+            }
             if (fullScreen) SetFullScreen(false);
             saveTimer.Stop();
             SaveSettings();

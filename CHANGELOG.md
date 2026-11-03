@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3 (not released yet)
+
+The third stage: the screens, the analog looks, wallpapers and batches.
+
+- The screen effects, the same pixels as the website's: the CRT (no mask, a shadow mask or an
+  aperture grille; scanlines, curve and bloom), the LCD (its pixel grid and ghosting), the VHS
+  tape (tracking jitter and noise, and the PLAY ▶ on-screen display), composite, and the P1
+  green, P3 amber and P4 white phosphors. In the preview they're made at the zoom shown, every
+  screen pixel its own, on every core; full screen on a 4K TV too.
+- Picking a machine while a screen is on brings that machine's screen; the VHS tape always
+  brings its own. Surprise me rolls a screen half the time, as the website's does.
+- Export → With the screen effect: PNGs from 3× up keep it (full colour, named `-fx`), and so do
+  copies and dragged-out pictures.
+- The analog looks: the VHS tape, the early CCD camera (sensor noise and the date stamp), JPEG
+  deep fry, newspaper halftone, the two-ink risograph and the 1-bit fax. 42 machines in all.
+- Wallpapers (Export, and File → Save wallpaper): the website's phone, b0r3d 95 and Full HD,
+  and one for each of your screens at its real size. They keep the screen effect from 3× up.
+- Batch (File → Batch, Ctrl+B, or a folder or several pictures dropped on the window): a folder
+  or a pile of pictures through the look into a folder, a PNG or a wallpaper each and the
+  machine's own file if asked, several at once on every core. A folder gives its own pictures
+  (not those in folders inside it, nor ones kept only online by OneDrive). A file that's already
+  there is numbered, replaced or skipped, as you choose once (a picture's files are numbered
+  together); every file is written whole and read back from the disk; a picture that won't open
+  is listed; Stop, or closing b0r3d DeRes, finishes the ones under way first.
+- DeRes the screen (File, Ctrl+Shift+D): b0r3d DeRes steps aside, and a box you drag, a whole
+  screen (a click) or all of them (Enter) becomes the picture.
+- Share links and look files carry the screen effect and the export's box, as the website's
+  do; only the Signal still comes later.
+- Sines, cosines and exponentials are fdlibm's, as V8 works them out in Node, where the
+  website's engine makes the test files.
+- 73 tests: 746 pictures, 313 PNGs, 359 screen effects and 16 wallpapers against the website's
+  own engine, and 41,146 sines, cosines and exponentials against Node's.
+
 ## 0.2 (not released yet)
 
 The second stage: every machine of the website but its analog looks, and looks that travel.

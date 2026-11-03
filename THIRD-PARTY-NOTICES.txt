@@ -1,11 +1,12 @@
 b0r3d DeRes includes the following third-party software.
 
-fdlibm's cube root and power routines
+fdlibm's cube root, power, sine, cosine and exponential routines
 http://www.netlib.org/fdlibm
-b0r3d DeRes works out cube roots and powers the way the browser does, so its pictures come
-out the same as img.b0r3d.org's to the last bit. Its copies of these two routines were
-translated into C# from the V8 JavaScript engine's versions of them (src/base/ieee754.cc,
-https://github.com/v8/v8), which are adapted from fdlibm and FreeBSD's msun.
+b0r3d DeRes works out cube roots, powers, sines, cosines and exponentials the way the
+website's engine does in Node, so its pictures come out the same as img.b0r3d.org's. Its
+copies of these routines were translated into C# from the V8 JavaScript engine's versions
+of them (src/base/ieee754.cc, https://github.com/v8/v8), which are adapted from fdlibm and
+FreeBSD's msun.
 
 -------------------------------------------------------------------------------
 

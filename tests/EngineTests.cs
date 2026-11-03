@@ -61,6 +61,10 @@ namespace B0r3dDeRes.Tests
         public readonly bool Tv;
         public readonly string Name, Chunks, Palette, Rows;
         public string Trns = "";    // the see-through entries, hex ("" for none)
+        public FxSettings Fx;       // the screen effect asked for (null: none)
+        // a wallpaper: its id and size ("" for a plain export)
+        public string Wallpaper = "";
+        public int TargetW, TargetH;
 
         public ExportCase(int render, int multiplier, bool tv, string name, string chunks, int width, int height, int depth, int colourType, string palette, string rows, int rowBytes)
         {
@@ -110,28 +114,43 @@ namespace B0r3dDeRes.Tests
         // a picture the website's engine started from, decoded exactly (they're plain PNGs)
         static PictureSource Input(string name)
         {
-            if (!inputs.TryGetValue(name, out PictureSource source))
+            lock (inputs)
             {
-                string file = Path.Combine(TestsFolder, "website", name + ".png");
-                if (!File.Exists(file)) throw new SkipException(file + " isn't there (build the tests first)");
-                source = Pictures.FromBytes(File.ReadAllBytes(file), name + ".png").Source;
-                inputs[name] = source;
+                if (!inputs.TryGetValue(name, out PictureSource source))
+                {
+                    string file = Path.Combine(TestsFolder, "website", name + ".png");
+                    if (!File.Exists(file)) throw new SkipException(file + " isn't there (build the tests first)");
+                    source = Pictures.FromBytes(File.ReadAllBytes(file), name + ".png").Source;
+                    inputs[name] = source;
+                }
+                return source;
             }
-            return source;
         }
 
+        // An engine for each test picture (or for each run of its cases, so they go on every
+        // core: an engine is for one thread at a time, and two never share anything).
         static readonly Dictionary<string, Deres> engines = new Dictionary<string, Deres>();
 
-        static Rendered Render(RenderCase c)
+        static Rendered Render(RenderCase c, string engine = null)
         {
-            if (!engines.TryGetValue(c.Input, out Deres d))
+            Deres d;
+            lock (engines)
             {
-                d = new Deres();
-                d.SetSource(Input(c.Input));
-                engines[c.Input] = d;
+                string key = engine ?? c.Input;
+                if (!engines.TryGetValue(key, out d))
+                {
+                    d = new Deres();
+                    d.SetSource(Input(c.Input));
+                    engines[key] = d;
+                }
             }
-            return d.Render(c.Settings());
+            lock (d) return d.Render(c.Settings());
         }
+
+        // the website's pictures made here, kept for the export, screen and wallpaper checks
+        static readonly System.Collections.Concurrent.ConcurrentDictionary<int, Rendered> made = new System.Collections.Concurrent.ConcurrentDictionary<int, Rendered>();
+
+        static Rendered Made(int k) => made.GetOrAdd(k, i => Render(Website.Renders[i]));
 
         static void MathsLikeTheBrowser()
         {
@@ -143,9 +162,9 @@ namespace B0r3dDeRes.Tests
                 double x = BitConverter.ToDouble(pairs, i * 16), want = BitConverter.ToDouble(pairs, i * 16 + 8), got = JsMath.Cbrt(x);
                 if (BitConverter.DoubleToInt64Bits(want) == BitConverter.DoubleToInt64Bits(got)) continue;
                 wrong++;
-                first = first ?? "cbrt(" + x.ToString("R") + ") = " + got.ToString("R") + ", the browser says " + want.ToString("R");
+                first = first ?? "cbrt(" + x.ToString("R") + ") = " + got.ToString("R") + ", Node says " + want.ToString("R");
             }
-            Check(count > 5000 && wrong == 0, wrong + " of " + count + " cube roots differ from the browser's, e.g. " + first);
+            Check(count > 5000 && wrong == 0, wrong + " of " + count + " cube roots differ from Node's, e.g. " + first);
 
             // powers: exact where they should be, and within a last bit of .NET's anywhere else
             Check(JsMath.Pow(2, 10) == 1024 && JsMath.Pow(10, 2) == 100 && JsMath.Pow(0.5, 2) == 0.25 && JsMath.Pow(9, 0.5) == 3, "whole powers aren't exact");
@@ -170,6 +189,95 @@ namespace B0r3dDeRes.Tests
             Check(FloatsSha(Colour.SrgbCurveTable) == Website.SrgbCurve, "the linear-to-sRGB curve differs from the website's");
             Check(FloatsSha(Colour.LinearCurveTable) == Website.LinearCurve, "the sRGB-to-linear curve differs from the website's");
             Check(FloatsSha(YliluomaPlanner.LinToSrgbTable) == Website.LinToSrgb, "Yliluoma's table differs from the website's");
+            Check(FloatsSha(FxRenderer.BeamTable) == Website.Beam, "the screen effect's beam differs from the website's");
+            Check(FloatsSha(Analog.CosTable) == Website.DctCosines, "the deep fry's cosines differ from the website's");
+        }
+
+        // sin, cos and exp, number for number, as V8 works them out in Node (fdlibm's)
+        static void TrigLikeTheBrowser()
+        {
+            foreach (var (name, pairs, fn) in new (string, string, Func<double, double>)[] { ("sin", Website.Sines, JsMath.Sin), ("cos", Website.Cosines, JsMath.Cos), ("exp", Website.Exps, JsMath.Exp) })
+            {
+                byte[] bytes = Convert.FromBase64String(pairs);
+                int count = bytes.Length / 16, wrong = 0;
+                string first = null;
+                for (int i = 0; i < count; i++)
+                {
+                    double x = BitConverter.ToDouble(bytes, i * 16), want = BitConverter.ToDouble(bytes, i * 16 + 8), got = fn(x);
+                    if (BitConverter.DoubleToInt64Bits(want) == BitConverter.DoubleToInt64Bits(got)) continue;
+                    wrong++;
+                    first = first ?? name + "(" + x.ToString("R") + ") = " + got.ToString("R") + ", Node says " + want.ToString("R");
+                }
+                Check(count > 5000 && wrong == 0, wrong + " of " + count + " differ from Node's, e.g. " + first);
+            }
+        }
+
+        // the screen effect, made by the website at many sizes: the same pixels, a row at a time
+        // and on every core
+        static void ScreensLikeTheWebsite()
+        {
+            var pictures = Website.Screens.Select(s => s.Render).Distinct().ToDictionary(k => k, Made);
+            var found = new System.Collections.Concurrent.ConcurrentBag<(int At, string Why)>();
+            System.Threading.Tasks.Parallel.For(0, Website.Screens.Length, at =>
+            {
+                var s = Website.Screens[at];
+                Rendered r = pictures[s.Render];
+                var screen = new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, s.Width, s.Height, s.Fx, s.Phase);
+                var rgb = new byte[s.Width * s.Height * 3];
+                var alpha = new byte[s.Width * s.Height];
+                var row = new byte[s.Width * 3];
+                var shows = new byte[s.Width];
+                for (int y = 0; y < s.Height; y++)
+                {
+                    screen.Row(y, row, shows);
+                    Buffer.BlockCopy(row, 0, rgb, y * s.Width * 3, row.Length);
+                    Buffer.BlockCopy(shows, 0, alpha, y * s.Width, shows.Length);
+                }
+                if (Sha(rgb) != s.Rgb || Sha(alpha) != s.Alpha)
+                    found.Add((at, Website.Renders[s.Render] + " on " + s.Fx.Screen + " (" + s.Fx.Mask + ") at " + s.Width + "×" + s.Height + (s.Phase != 0 ? " phase " + s.Phase : "") +
+                        (Sha(rgb) != s.Rgb ? ": colours" : ": which show")));
+                // the rows on every core at once come out the same
+                if (at % 40 == 0)
+                {
+                    byte[] rgba = screen.Rgba();
+                    for (int i = 0; i < alpha.Length; i++)
+                        if (rgba[i * 4] != rgb[i * 3] || rgba[i * 4 + 1] != rgb[i * 3 + 1] || rgba[i * 4 + 2] != rgb[i * 3 + 2] || rgba[i * 4 + 3] != alpha[i])
+                        {
+                            found.Add((at, "case " + at + " differs made on every core"));
+                            break;
+                        }
+                }
+            });
+            List<string> wrong = found.OrderBy(f => f.At).Select(f => f.Why).ToList();
+            Check(wrong.Count == 0, wrong.Count + " of " + Website.Screens.Length + " differ: " + string.Join("; ", wrong.Take(6)));
+        }
+
+        static void WallpapersLikeTheWebsite()
+        {
+            var found = new System.Collections.Concurrent.ConcurrentBag<string>();
+            System.Threading.Tasks.Parallel.ForEach(Website.Wallpapers, e =>
+            {
+                RenderCase c = Website.Renders[e.Render];
+                Rendered r = Made(e.Render);
+                byte[] png;
+                using (var bytes = new MemoryStream())
+                {
+                    Export.WriteWallpaper(bytes, r, e.TargetW, e.TargetH, e.Tv && !r.Geometry.SquarePixels, e.Fx);
+                    png = bytes.ToArray();
+                }
+                PngParts(png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows, out byte[] trns);
+                var why = new List<string>();
+                if (chunks != e.Chunks) why.Add("chunks " + chunks);
+                if (width != e.Width || height != e.Height) why.Add(width + "×" + height);
+                if (depth != e.Depth || colourType != e.ColourType) why.Add("depth " + depth + " type " + colourType);
+                if (rows.Length != e.RowBytes || Sha(rows) != e.Rows) why.Add("rows");
+                string name = Export.WallpaperName(Export.BaseName(c.Input + ".jpg"), c.Profile, e.Wallpaper);
+                if (name != e.Name) why.Add("named " + name);
+                if (why.Count > 0) found.Add(e.Name + (e.Fx != null ? " with " + e.Fx.Screen : "") + ": " + string.Join(", ", why));
+            });
+            List<string> wrong = found.OrderBy(w => w, StringComparer.Ordinal).ToList();
+            Check(wrong.Count == 0, wrong.Count + " of " + Website.Wallpapers.Length + " differ: " + string.Join("; ", wrong.Take(6)));
+            Check(Export.Wallpapers.Select(w => w.Id + " " + w.Width + "x" + w.Height).SequenceEqual(new[] { "phone 1080x2400", "win95 1024x768", "desktop-1080p 1920x1080" }), "the website's three wallpapers");
         }
 
         static void GammaTablesLikeTheWebsite()
@@ -182,7 +290,7 @@ namespace B0r3dDeRes.Tests
         static readonly Dictionary<PaletteKind, string> kinds = new Dictionary<PaletteKind, string>
         {
             { PaletteKind.Fixed, "fixed" }, { PaletteKind.Range, "range" }, { PaletteKind.Direct, "direct" }, { PaletteKind.Custom, "custom" },
-            { PaletteKind.Pool, "pool" }, { PaletteKind.Cell, "cell" }, { PaletteKind.Ham, "ham" }, { PaletteKind.N64, "n64" },
+            { PaletteKind.Pool, "pool" }, { PaletteKind.Cell, "cell" }, { PaletteKind.Ham, "ham" }, { PaletteKind.N64, "n64" }, { PaletteKind.Analog, "analog" },
         };
 
         static void MachinesLikeTheWebsite()
@@ -221,31 +329,47 @@ namespace B0r3dDeRes.Tests
 
         static void PicturesLikeTheWebsite()
         {
-            var wrong = new List<string>();
-            foreach (RenderCase c in Website.Renders)
+            // runs of 40 cases on every core, each run on its engine; the pictures the later
+            // checks need are kept
+            var keep = new HashSet<int>(Website.Exports.Select(e => e.Render).Concat(Website.Screens.Select(s => s.Render)).Concat(Website.Wallpapers.Select(w => w.Render)));
+            var found = new System.Collections.Concurrent.ConcurrentBag<(int At, string Why)>();
+            var runs = Website.Renders.Select((c, i) => (Case: c, At: i)).GroupBy(x => x.Case.Input + "#" + x.At / 40).ToList();
+            System.Threading.Tasks.Parallel.ForEach(runs, run =>
             {
-                Rendered r = Render(c);
-                var why = new List<string>();
-                if (r.Width != c.Width || r.Height != c.Height) why.Add("size " + r.Width + "×" + r.Height + ", not " + c.Width + "×" + c.Height);
-                else
+                foreach (var (c, at) in run)
                 {
-                    if (Hex(r.Palette) != c.Palette) why.Add("palette");
-                    if (Sha(r.Indices) != c.Indices) why.Add("pixels (" + Differences(c, r) + ")");
-                    if (Sha(r.Rgb) != c.Rgb) why.Add("colours");
-                    if (r.Used != c.Used) why.Add(r.Used + " colours used, not " + c.Used);
-                    if (r.Indexed != c.Indexed) why.Add(r.Indexed ? "indexed" : "not indexed");
-                    if ((r.Alpha == null ? "" : Sha(r.Alpha)) != c.Alpha) why.Add(r.Alpha == null ? "nothing see-through" : "see-through pixels");
-                    if (Hex(r.Paper) != c.Paper) why.Add("paper " + Hex(r.Paper));
-                    HardwareFitReport t = r.TileFit;
-                    if ((t?.Summary ?? "") != c.Tiles || (t?.UniqueTiles ?? -1) != c.UniqueTiles || (t?.UniqueColours ?? -1) != c.UniqueColours ||
-                        (t?.TilesFit ?? true) != c.TilesFit || (t?.ColoursFit ?? true) != c.ColoursFit) why.Add("tile meter \"" + t?.Summary + "\"");
-                    EmulatorFile e = r.EmulatorFile;
-                    if ((e?.Format ?? "") != c.EmuFormat || (e?.DefaultName ?? "") != c.EmuName || (e == null ? -1 : e.Data.Length) != c.EmuLength || (e == null ? "" : Sha(e.Data)) != c.EmuSha)
-                        why.Add("machine file " + e?.DefaultName + " (" + (e?.Data.Length ?? 0) + " bytes)");
+                    Rendered r = Render(c, run.Key);
+                    if (keep.Contains(at)) made[at] = r;
+                    string problem = Compare(c, r);
+                    if (problem != null) found.Add((at, problem));
                 }
-                if (why.Count > 0) wrong.Add(c + ": " + string.Join(", ", why));
-            }
+            });
+            List<string> wrong = found.OrderBy(f => f.At).Select(f => f.Why).ToList();
             Check(wrong.Count == 0, wrong.Count + " of " + Website.Renders.Length + " differ: " + string.Join("; ", wrong.Take(8)));
+        }
+
+        // what differs between a picture made here and the website's, or null
+        static string Compare(RenderCase c, Rendered r)
+        {
+            var why = new List<string>();
+            if (r.Width != c.Width || r.Height != c.Height) why.Add("size " + r.Width + "×" + r.Height + ", not " + c.Width + "×" + c.Height);
+            else
+            {
+                if (Hex(r.Palette) != c.Palette) why.Add("palette");
+                if (Sha(r.Indices) != c.Indices) why.Add("pixels (" + Differences(c, r) + ")");
+                if (Sha(r.Rgb) != c.Rgb) why.Add("colours");
+                if (r.Used != c.Used) why.Add(r.Used + " colours used, not " + c.Used);
+                if (r.Indexed != c.Indexed) why.Add(r.Indexed ? "indexed" : "not indexed");
+                if ((r.Alpha == null ? "" : Sha(r.Alpha)) != c.Alpha) why.Add(r.Alpha == null ? "nothing see-through" : "see-through pixels");
+                if (Hex(r.Paper) != c.Paper) why.Add("paper " + Hex(r.Paper));
+                HardwareFitReport t = r.TileFit;
+                if ((t?.Summary ?? "") != c.Tiles || (t?.UniqueTiles ?? -1) != c.UniqueTiles || (t?.UniqueColours ?? -1) != c.UniqueColours ||
+                    (t?.TilesFit ?? true) != c.TilesFit || (t?.ColoursFit ?? true) != c.ColoursFit) why.Add("tile meter \"" + t?.Summary + "\"");
+                EmulatorFile e = r.EmulatorFile;
+                if ((e?.Format ?? "") != c.EmuFormat || (e?.DefaultName ?? "") != c.EmuName || (e == null ? -1 : e.Data.Length) != c.EmuLength || (e == null ? "" : Sha(e.Data)) != c.EmuSha)
+                    why.Add("machine file " + e?.DefaultName + " (" + (e?.Data.Length ?? 0) + " bytes)");
+            }
+            return why.Count > 0 ? c + ": " + string.Join(", ", why) : null;
         }
 
         // with the website's pixels dumped (make-test-files.mjs --dump), how many and where; else nothing
@@ -339,15 +463,15 @@ namespace B0r3dDeRes.Tests
 
         static void PngsLikeTheWebsite()
         {
-            // the pictures one at a time (the engine is for one thread), then their PNGs on every core
-            var pictures = Website.Exports.Select(e => e.Render).Distinct().ToDictionary(k => k, k => Render(Website.Renders[k]));
+            // the pictures (kept from above), then their PNGs on every core
+            var pictures = Website.Exports.Select(e => e.Render).Distinct().ToDictionary(k => k, Made);
             var wrong = new System.Collections.Concurrent.ConcurrentBag<string>();
             System.Threading.Tasks.Parallel.ForEach(Website.Exports, e =>
             {
                 RenderCase c = Website.Renders[e.Render];
                 Rendered r = pictures[e.Render];
                 bool tv = e.Tv && !r.Geometry.SquarePixels;
-                byte[] png = Export.PngBytes(r, e.Multiplier, tv);
+                byte[] png = Export.PngBytes(r, e.Multiplier, tv, e.Fx);
                 PngParts(png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows, out byte[] trns);
                 var why = new List<string>();
                 if (chunks != e.Chunks) why.Add("chunks " + chunks);
@@ -356,7 +480,7 @@ namespace B0r3dDeRes.Tests
                 if ((palette == null ? "" : Hex(palette)) != e.Palette) why.Add("palette");
                 if ((trns == null ? "" : Hex(trns)) != e.Trns) why.Add("see-through entries");
                 if (rows.Length != e.RowBytes || Sha(rows) != e.Rows) why.Add("rows");
-                string name = Export.FileName(Export.BaseName(c.Input + ".jpg"), c.Profile, r.Width, r.Height, e.Multiplier, tv);
+                string name = Export.FileName(Export.BaseName(c.Input + ".jpg"), c.Profile, r.Width, r.Height, e.Multiplier, tv, Export.WithFx(e.Fx, e.Multiplier));
                 if (name != e.Name) why.Add("named " + name);
                 if (why.Count > 0) wrong.Add(e.Name + ": " + string.Join(", ", why));
             });

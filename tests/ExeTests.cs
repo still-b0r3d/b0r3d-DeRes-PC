@@ -67,6 +67,7 @@ namespace B0r3dDeRes.Tests
                 Check(found.TryGetValue("windows", out string windows) && windows == "ok", "the windows didn't build from inside the exe: " + all);
                 Check(found.TryGetValue("machines", out string machines) && machines == "ok" && found.TryGetValue("link", out string link) && link == "ok",
                     "every machine and a share link should work inside the exe: " + all);
+                Check(found.TryGetValue("screens", out string screens) && screens == "ok", "every screen effect should work inside the exe: " + all);
                 Check(found["bits"] == "64", "the exe ran as a " + found["bits"] + "-bit program; only 64-bit does the website's sums to the last bit");
                 Check(found["dpi"] == "per-monitor-v2", "the exe follows the screens' scaling as \"" + found["dpi"] + "\", not per-monitor-v2 (is the manifest in?)");
                 Check(found["version"] == Program.FullVersion, "the exe says " + found["version"]);
@@ -84,8 +85,11 @@ namespace B0r3dDeRes.Tests
         static readonly string[] BannedTypes = { "WebBrowser", "WebClient", "HttpClient", "Socket", "TcpClient", "UdpClient", "BitmapImage", "MediaElement", "MediaPlayer", "XamlReader", "XmlReader", "XmlDocument", "XmlUrlResolver" };
         static readonly Dictionary<string, string[]> AllowedNative = new Dictionary<string, string[]>
         {
-            { "user32.dll", new[] { "GetThreadDpiAwarenessContext", "AreDpiAwarenessContextsEqual", "GetAwarenessFromDpiAwarenessContext" } },   // screen scaling
-            { "dwmapi.dll", new[] { "DwmSetWindowAttribute" } },                                                                                // title bars
+            { "user32.dll", new[] { "GetThreadDpiAwarenessContext", "AreDpiAwarenessContextsEqual", "GetAwarenessFromDpiAwarenessContext",     // screen scaling
+                "EnumDisplayMonitors", "GetMonitorInfo", "GetCursorPos", "SetWindowPos", "GetDC", "ReleaseDC" } },                                  // the screens, and pictures of them
+            { "shcore.dll", new[] { "GetDpiForMonitor" } },                                                                                     // each screen's scaling
+            { "gdi32.dll", new[] { "CreateCompatibleDC", "CreateCompatibleBitmap", "SelectObject", "BitBlt", "DeleteObject", "DeleteDC" } },  // a picture of the screen
+            { "dwmapi.dll", new[] { "DwmSetWindowAttribute" } },                                                                                // title bars, no fade while stepping aside
         };
         static readonly string[] AllowedCom =
         {

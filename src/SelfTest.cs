@@ -11,10 +11,10 @@ namespace B0r3dDeRes
 {
     // b0r3dDeRes.exe --selftest <file>: no window shown. Opens a sample from inside the exe, makes
     // the picture, saves it as a PNG the way File → Save PNG does and reads that back through
-    // Windows, makes it on every machine, reads back a share link, builds the windows in both
-    // looks with the picture in them, and writes what it found to <file> as key=value lines; the
-    // exit code is 0 when it all worked. The tests run it on the finished exe, on its own in a
-    // folder, to prove it works with nothing beside it.
+    // Windows, makes it on every machine and through every screen effect, reads back a share
+    // link, builds the windows in both looks with the picture in them, and writes what it found
+    // to <file> as key=value lines; the exit code is 0 when it all worked. The tests run it on the
+    // finished exe, on its own in a folder, to prove it works with nothing beside it.
     static class SelfTest
     {
         public static int Run(string reportPath)
@@ -25,6 +25,8 @@ namespace B0r3dDeRes
             {
                 lines.Add("version=" + Program.FullVersion);
                 lines.Add("dpi=" + Native.DpiAwareness());
+                // the screens, in real pixels (one wallpaper each)
+                lines.Add("screens_seen=" + string.Join(" ", Monitors.All().Select(m => m.Bounds.Width + "x" + m.Bounds.Height)));
                 lines.Add("bits=" + (Environment.Is64BitProcess ? "64" : "32"));
                 ok &= Environment.Is64BitProcess;
 
@@ -62,6 +64,22 @@ namespace B0r3dDeRes
                 }));
                 lines.Add("machines=" + (machines ? "ok" : "failed"));
                 ok &= machines;
+
+                // every screen effect in a 3× PNG (full colour, read back by Windows), and a wallpaper with one
+                bool screens = Screens.All.Where(s => s != Screens.Off).All(s =>
+                {
+                    byte[] withFx = Export.PngBytes(r, 3, false, new FxSettings { Screen = s });
+                    BitmapFrame f = BitmapDecoder.Create(new MemoryStream(withFx), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0];
+                    return f.PixelWidth == 480 && f.PixelHeight == 432 && f.Format.BitsPerPixel >= 24;
+                });
+                using (var paper = new MemoryStream())
+                {
+                    Export.WriteWallpaper(paper, r, 1920, 1080, false, new FxSettings { Screen = Screens.Crt });
+                    BitmapFrame f = BitmapDecoder.Create(new MemoryStream(paper.ToArray()), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0];
+                    screens &= f.PixelWidth == 1920 && f.PixelHeight == 1080;
+                }
+                lines.Add("screens=" + (screens ? "ok" : "failed"));
+                ok &= screens;
 
                 // a share link, made and read back
                 Settings shared = Settings.Defaults();
@@ -102,6 +120,10 @@ namespace B0r3dDeRes
                     about.Root.Measure(new Size(640, double.PositiveInfinity));
                     about.Root.Arrange(new Rect(about.Root.DesiredSize));
                     about.Root.UpdateLayout();
+                    var batch = new BatchWindow(window);
+                    batch.Root.Measure(new Size(640, 760));
+                    batch.Root.Arrange(new Rect(0, 0, 640, 760));
+                    batch.Root.UpdateLayout();
                     if (window.Shown == null || !window.View.HasPicture) throw new InvalidOperationException("the main window made no picture in the " + look + " look");
                 }
                 lines.Add("windows=ok");

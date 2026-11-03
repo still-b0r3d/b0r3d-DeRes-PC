@@ -13,6 +13,9 @@ namespace B0r3dDeRes
     sealed class PictureException : Exception
     {
         public PictureException(string message) : base(message) { }
+
+        // the PC hadn't the memory free for it (a batch tries it again on its own)
+        public bool OutOfMemory;
     }
 
     // An opened picture: the whole photo for the engine, and what the window says about it.
@@ -44,6 +47,22 @@ namespace B0r3dDeRes
         public static string DialogPattern => string.Join(";", Extensions.Select(e => "*" + e));
 
         public static bool LooksLikePicture(string path) => Extensions.Contains(Path.GetExtension(path).ToLowerInvariant());
+
+        // Online-only files (OneDrive and the like keep just a placeholder until one is opened):
+        // a folder given to a batch leaves them alone rather than downloading every one.
+        // (b0r3d QR's.)
+        public static bool OnlyOnline(string path)
+        {
+            const int Offline = 0x1000, RecallOnOpen = 0x40000, RecallOnDataAccess = 0x400000;
+            try
+            {
+                return ((int)File.GetAttributes(path) & (Offline | RecallOnOpen | RecallOnDataAccess)) != 0;
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException || e is NotSupportedException)
+            {
+                return false;  // reading it will say what's wrong
+            }
+        }
 
         // the samples, by the website's ids, with their file names
         public static readonly (string Id, string Label, string File, string Menu)[] Samples =
@@ -81,13 +100,24 @@ namespace B0r3dDeRes
         // A picture file. Safe on any thread.
         public static LoadedPicture Load(string path) => FromBytes(ReadFile(path), NameOf(path));
 
+        // A picture of the screen (or a box of it), named for what it is ("screen.png").
+        public static LoadedPicture FromScreen(BitmapSource shot, string name)
+        {
+            var converted = new FormatConvertedBitmap(shot, PixelFormats.Bgr32, null, 0);
+            int width = shot.PixelWidth, height = shot.PixelHeight;
+            var bgra = new byte[(long)width * height * 4];
+            converted.CopyPixels(bgra, width * 4, 0);
+            for (long i = 3; i < bgra.Length; i += 4) bgra[i] = 255;
+            return new LoadedPicture { Source = new PictureSource(bgra, width, height), Name = name };
+        }
+
         // A file's bytes, or a PictureException saying why not. Safe on any thread.
         public static byte[] ReadFile(string path)
         {
             byte[] bytes;
             try
             {
-                if (Directory.Exists(path)) throw new PictureException("it's a folder (folders of pictures come in a later version)");
+                if (Directory.Exists(path)) throw new PictureException("it's a folder (File → Batch takes a folder of pictures)");
                 using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
                 {
                     if (stream.Length > int.MaxValue) throw new PictureException("it's too big to open");
@@ -128,7 +158,7 @@ namespace B0r3dDeRes
                 return PaletteFile.FromPixels(bgra, width, height);
             }
             catch (PictureException) { throw; }
-            catch (OutOfMemoryException) { throw new PictureException("it's too big to open with the memory this PC has free"); }
+            catch (OutOfMemoryException) { throw new PictureException("it's too big to open with the memory this PC has free") { OutOfMemory = true }; }
             catch (Exception e) when (e is NotSupportedException || e is FileFormatException || e is ArgumentException || e is IOException || e is ExternalException ||
                 e is InvalidOperationException || e is OverflowException)
             {
@@ -172,7 +202,7 @@ namespace B0r3dDeRes
             catch (FileFormatException) { throw new PictureException("it isn't a picture, or it's damaged"); }
             catch (ArgumentException) { throw new PictureException("it isn't a picture, or it's damaged"); }
             catch (IOException e) { throw new PictureException(e.Message.TrimEnd('.')); }
-            catch (OutOfMemoryException) { throw new PictureException("it's too big to open with the memory this PC has free"); }
+            catch (OutOfMemoryException) { throw new PictureException("it's too big to open with the memory this PC has free") { OutOfMemory = true }; }
             // Windows' picture readers can fail in other ways too (a HEIC photo without the HEVC
             // extension, a broken TIFF): still just this picture's problem
             catch (Exception e) when (e is ExternalException || e is InvalidOperationException || e is OverflowException)

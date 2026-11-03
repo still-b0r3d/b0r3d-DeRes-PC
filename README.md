@@ -8,11 +8,11 @@ stay on your PC: it never goes online, and it never keeps them.
 
 It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install.
 
-**Being built.** This is version 0.2, the second of nine stages: the program itself, opening
-pictures, every machine of the website but its analog looks, Resolution, Adjust, the dithers,
-the preview, saving, copying and dragging out PNGs, the machines' own files for emulators,
-palette files, look files and share links. The analog looks and the screen effects come next,
-then the Signal, GIFs, video, the ASCII / ANSI studio and the EXIF tools.
+**Being built.** This is version 0.3, the third of nine stages: the program itself, opening
+pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
+screen effects, the preview, saving, copying and dragging out PNGs, wallpapers, batches, DeRes
+the screen, the machines' own files for emulators, palette files, look files and share links.
+The Signal comes next, then GIFs, video, the ASCII / ANSI studio and the EXIF tools.
 
 ## Make a picture
 
@@ -23,7 +23,9 @@ picture…** (Ctrl+O), drop one anywhere on the window, paste one (Ctrl+V), or d
 BMP and TIFF always open, and WebP, HEIC, AVIF,
 JPEG XL and camera RAW photos where Windows has Microsoft's free extensions for them. Photos
 come out the right way up, and in their own colours when they carry a colour profile. The
-whole photo is used, however big (up to 150 megapixels).
+whole photo is used, however big (up to 150 megapixels). **DeRes the screen** (Ctrl+Shift+D)
+steps aside and lets you drag a box on the screen, click for a whole screen, or press Enter for
+all of them: that becomes the picture.
 
 The settings on the left fold out like the website's:
 
@@ -33,7 +35,8 @@ The settings on the left fold out like the website's:
   picture with see-through parts, what they sit on: white, black, or **Keep** (they stay
   see-through, over a checkerboard in the preview and in the PNG). A line under Resolution says
   what the machine's size means for your photo.
-- **Hardware:** 36 machines, each with its colours, and **Surprise me** for a random one.
+- **Hardware:** 42 machines and looks, each with its colours, and **Surprise me** for a random
+  one.
   - Fixed colours: Game Boy, Game Boy Pocket, the Game Boy Camera (its own sharpening and
     dither), CGA palettes 1 and 0, EGA, C64 hi-res, NES, PICO-8, Atari 2600, Apple II lo-res,
     Mac 1-bit, Web-safe 216, the receipt printer, b0r3d, Nokia 3310, Virtual Boy and CGA
@@ -47,6 +50,8 @@ The settings on the left fold out like the website's:
     multicolour, NES attributes, Apple II hi-res, MSX Screen 2 and the Game Boy Color.
   - Colours of their own: Amiga HAM6, the PlayStation's 15-bit colour (with its GPU's dither)
     and the Nintendo 64's filter.
+  - The analog looks: the VHS tape, the early CCD camera (its sensor noise and date stamp), JPEG
+    deep fry, newspaper halftone, the two-ink risograph and the 1-bit fax.
 
   Under them, the **tile meter**: how many different 8×8 tiles the picture has, against what
   the machine could hold.
@@ -54,8 +59,14 @@ The settings on the left fold out like the website's:
 - **Dither:** none, Bayer 2×2, 4×4 and 8×8, Floyd–Steinberg, Atkinson and Yliluoma, plus the
   Game Boy Camera's and the PlayStation's own on those machines. The ones that change nothing
   on a machine are greyed out, and a line says why.
-- **Export:** the size (1× to 16×), and for machines whose pixels weren't square, raw pixels
-  or as on a TV.
+- **Screen:** what the machine's screen made of it: a CRT (no mask, a shadow mask or an aperture
+  grille, with scanlines, curve and bloom), an LCD (its pixel grid and ghosting), a VHS tape
+  (tracking jitter and noise, and the on-screen display), composite, and the green, amber and
+  white phosphors. The preview makes it at the zoom shown, every screen pixel its own, on every
+  core. Picking a machine while a screen is on brings that machine's own.
+- **Export:** the size (1× to 16×), for machines whose pixels weren't square raw pixels or as
+  on a TV, **With the screen effect** (from 3× up), and the **wallpapers**: the website's phone,
+  b0r3d 95 and Full HD, and one for each of your screens at its real size.
 
 **Reset settings** at the bottom puts everything back as a first start has it (the picture
 stays).
@@ -73,7 +84,8 @@ line: how many colours it uses, its size, the shape of its pixels and the tile m
 website names it (`photo-nes-256x240-4x.png`), as an indexed PNG holding the machine's palette,
 and nothing else: no metadata, no program name, at any size. The looks that make their own
 colours (HAM, the PlayStation, the N64) hold exactly the colours they use, or go full colour
-past 256 of them. Parts kept see-through stay see-through. **Edit → Copy picture** (Ctrl+C)
+past 256 of them. With the screen effect it's full colour, named `-fx`. Parts kept see-through
+stay see-through. **Edit → Copy picture** (Ctrl+C)
 copies it, and the small picture under the preview drags it into a folder or another program,
 as a PNG and as a plain picture; those two go at most 16 megapixels, the website's own limit,
 so a bigger Size goes at the biggest one within it, and the bottom line says so.
@@ -83,6 +95,20 @@ emulators and the old paint programs: the ZX Spectrum's `.scr`, the C64 multicol
 `.koa`, and the tiles (`.chr`) of the Game Boys and the NES with attributes. **File → Save
 palette…** keeps the picture's colours as a `.hex`, `.pal`, `.gpl` or palette picture.
 
+A wallpaper (Export, or **File → Save wallpaper**) is the picture enlarged by the biggest whole
+step that fits, centred on its first colour, with the screen effect from 3× up.
+
+## Batches
+
+**File → Batch** (Ctrl+B), or a folder or several pictures dropped on the window, runs them all
+through the look you have into a folder: a PNG each (at the Size, Pixel shape and screen effect
+set under Export) or a wallpaper each, and the machine's own file if you ask. A folder gives its
+own pictures, not those in the folders inside it, nor the ones OneDrive keeps only online. You
+choose once what happens to a file that's already there: numbered, replaced or skipped. Several
+pictures are made at once, on every core; every file is written whole and then read back from
+the disk; a picture that won't open is listed with why. **Stop**, or closing b0r3d DeRes,
+finishes the pictures under way first.
+
 ## Looks and share links
 
 A look is every setting that makes the picture, without the picture. **File → Save look…**
@@ -90,8 +116,8 @@ keeps it in a small `.json` file (the website's own names for its settings); **F
 look…**, or dropping the file on the window, brings it back. **Copy share link** (in Export and
 the Edit menu) copies a link that opens the same look on img.b0r3d.org; a share link made on the
 website, pasted here with Ctrl+V, opens its look on the PC. The links are the website's very
-own, letter for letter. A link with a screen effect, the Signal or an analog look says so: those
-come with later versions.
+own, letter for letter, screen effect and all. A link with the Signal says so: it comes with a
+later version.
 
 **View → Look** follows Windows' light or dark setting, or stays light or dark.
 
@@ -117,13 +143,17 @@ download folder inside AppData), it still works and says settings won't be kept.
 ## The same pictures as the website
 
 The engine is the website's own, translated from its TypeScript into C# file by file, and the
-tests check it against the website's engine itself: 645 pictures (every machine with every
-dither that changes it, the framings, custom widths, Detail, the adjustments, see-through parts
-kept and laid on white and black, the Colours slider and loaded palettes) come out the same,
-pixel for pixel, with the same tile meter and the same machine files, and 243 PNGs hold the same
-palette, see-through entries and pixel rows. Where .NET and browsers work out a sum differently
-in its last bit, the engine has copies of the routines: cube roots are the browser's own
-(fdlibm's), and powers fdlibm's, which give every value the website keeps (as floats) exactly.
+tests check it against the website's engine itself: 746 pictures (every machine and analog look
+with every dither that changes it, the framings, custom widths, Detail, the adjustments,
+see-through parts kept and laid on white and black, the Colours slider and loaded palettes) come
+out the same, pixel for pixel, with the same tile meter and the same machine files; 313 PNGs
+hold the same palette, see-through entries and pixel rows; 359 screen effects at many sizes and
+16 wallpapers come out the same pixel for pixel. Where .NET and JavaScript work out a sum
+differently in its last bit, the engine has copies of the routines: cube roots, sines, cosines,
+exponentials and powers are fdlibm's, as V8 has them in Node (where the test files are made),
+which give every value the website keeps (as floats) exactly. Today's Chrome rounds some sines,
+cosines, exponentials and cube roots differently in a double's last bit; once kept as floats,
+that hasn't changed a pixel in any case checked.
 Share links and look files write and read numbers exactly as JavaScript does. The test files
 are made from the website at the version named at the top of `tests/WebsiteCases.cs`.
 
@@ -147,6 +177,7 @@ and 11. Double-click
 ## Licence
 
 MIT with the Commons Clause, licensor b0r3d.org: free to use, change and share, not to sell.
-See [LICENSE](LICENSE). The cube root and power routines come from fdlibm, through the V8
-JavaScript engine; their notices are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) and
-in Help → About. The licence covers the code, not the b0r3d name or the cup.
+See [LICENSE](LICENSE). The cube root, power, sine, cosine and exponential routines come from
+fdlibm, through the V8 JavaScript engine; their notices are in
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) and in Help → About. The licence covers the
+code, not the b0r3d name or the cup.
