@@ -180,6 +180,8 @@ namespace B0r3dDeRes
             Profile p = Profiles.ById(s.Deres.ProfileId) ?? Profiles.Default;
             var look = new List<string> { p.Name };
             if (Profiles.DitherApplies(p, s.Deres.Dither)) look.Add(Dither.ById(s.Deres.Dither)?.Name + " dither");
+            string connection = Signal.Connection(s.Signal.Mode, Signal.Machine(p.Id, p.Width));
+            if (connection != null) look.Add("through " + Signal.ConnectionNames[connection]);
             LookLine.Text = "Each picture goes through the look the main window has now: " + string.Join(", ", look) + ".";
 
             PicturesLine.Text = files.Count == 0 ? "No pictures yet." :
@@ -362,10 +364,14 @@ namespace B0r3dDeRes
                 var engine = new Deres();
                 engine.SetSource(picture.Source);
                 DeresSettings s = job.Settings.Deres;
-                Rendered r = engine.Render(s);
+                SignalSettings signal = job.Settings.SignalOn;
+                Rendered r = engine.Render(Signal.ForRender(s, signal));
                 string stem = Export.BaseName(picture.Name);
                 bool tv = job.Settings.TvPixels && !r.Geometry.SquarePixels;
                 FxSettings fx = job.Settings.ExportScreen;
+                // through the signal when it's on (always kept), its connection in the name
+                SignalImage through = signal != null ? Signal.Run(r, r.Profile.Id, signal, 0) : null;
+                string connection = through != null ? Signal.Connection(signal.Mode, Signal.Machine(r.Profile.Id, r.Width)) : null;
                 var outputs = new List<Output>();
                 using (var bytes = new MemoryStream())
                 {
@@ -373,12 +379,12 @@ namespace B0r3dDeRes
                     if (job.Wallpaper == null)
                     {
                         int m = job.Settings.Multiplier;
-                        Export.WritePng(bytes, r, m, tv, fx, out png.Width, out png.Height);
-                        png.Name = Export.FileName(stem, r.Profile.Id, r.Width, r.Height, m, tv, Export.WithFx(fx, m));
+                        Export.WritePng(bytes, r, m, tv, fx, out png.Width, out png.Height, through);
+                        png.Name = Export.FileName(stem, r.Profile.Id, r.Width, r.Height, m, tv, Export.WithFx(fx, m), connection);
                     }
                     else
                     {
-                        Export.WriteWallpaper(bytes, r, job.Wallpaper.Width, job.Wallpaper.Height, tv, fx);
+                        Export.WriteWallpaper(bytes, r, job.Wallpaper.Width, job.Wallpaper.Height, tv, fx, through);
                         png.Width = job.Wallpaper.Width;
                         png.Height = job.Wallpaper.Height;
                         png.Name = Export.WallpaperName(stem, r.Profile.Id, job.Wallpaper.Id);

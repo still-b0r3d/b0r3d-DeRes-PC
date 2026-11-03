@@ -18,7 +18,7 @@ namespace B0r3dDeRes
         public const string Site = "https://img.b0r3d.org/";
         public const string FileKind = "b0r3d DeRes";
 
-        static readonly string[] signals = { "off", "auto", "rf", "composite", "vhs-sp", "vhs-lp", "vhs-ep" };
+        static readonly string[] signalNames = { "mode", "wear", "colour", "sharpen", "decoder" };
         static readonly string[] fxNames = { "screen", "mask", "scanlines", "curve", "bloom", "grid", "ghost", "vhsTracking", "vhsOsd" };
 
         // ---- share links ----
@@ -72,6 +72,13 @@ namespace B0r3dDeRes
             if (fx.Screen != Screens.Off)
                 parts.Add("\"fx\":[" + Json.Quote(fx.Screen) + "," + Json.Quote(fx.Mask) + "," +
                     string.Join(",", new[] { fx.Scanlines, fx.Curve, fx.Bloom, fx.Grid, fx.Ghost, fx.VhsTracking }.Select(Json.Number)) + "," + (fx.VhsOsd ? "true" : "false") + "]");
+            // the signal only while it's on, with the loop's frames and speed
+            SignalSettings sig = settings.Signal;
+            if (sig.Mode != SignalModes.Off)
+            {
+                parts.Add("\"sg\":[" + Json.Quote(sig.Mode) + "," + string.Join(",", new[] { sig.Wear, sig.Colour, sig.Sharpen }.Select(Json.Number)) + "," + Json.Quote(sig.Decoder) + "]");
+                parts.Add("\"lp\":[" + Json.Number(settings.LoopFrames) + "," + Json.Number(settings.LoopFps) + "]");
+            }
             if (d.CustomCount.HasValue && d.CustomCount.Value != 0) parts.Add("\"cc\":" + Json.Number(d.CustomCount.Value));
             if (d.CustomPalette != null && d.CustomPalette.Length > 0) parts.Add("\"cp\":[" + string.Join(",", d.CustomPalette.Select(Json.Quote)) + "]");
             return "{" + string.Join(",", parts) + "}";
@@ -133,8 +140,19 @@ namespace B0r3dDeRes
                 for (int i = 0; i < fxNames.Length && i < f.Count; i++) screen[fxNames[i]] = f[i];
                 output["fx"] = screen;
             }
-            if (fields.TryGetValue("sg", out object sg) && sg is List<object> g && g.Count > 0) output["signal"] = new Dictionary<string, object> { { "mode", g[0] } };
-            else output["signal"] = new Dictionary<string, object> { { "mode", "off" } };
+            // a link without the signal means none, whatever was on before
+            if (fields.TryGetValue("sg", out object sg) && sg is List<object> g)
+            {
+                var signal = new Dictionary<string, object>();
+                for (int i = 0; i < signalNames.Length && i < g.Count; i++) signal[signalNames[i]] = g[i];
+                output["signal"] = signal;
+            }
+            else output["signal"] = new Dictionary<string, object> { { "mode", SignalModes.Off } };
+            if (fields.TryGetValue("lp", out object lp) && lp is List<object> loop)
+            {
+                if (loop.Count > 0) output["loopFrames"] = loop[0];
+                if (loop.Count > 1) output["loopFps"] = loop[1];
+            }
             Set("customCount", "cc");
             Set("customPalette", "cp");
             return output;
@@ -176,6 +194,14 @@ namespace B0r3dDeRes
             fields.Add("\"pixelShape\": " + Json.Quote(settings.TvPixels ? "tv" : "raw"));
             fields.Add("\"multiplier\": " + Json.Number(settings.Multiplier));
             fields.Add("\"exportFx\": " + (settings.ExportFx ? "true" : "false"));
+            SignalSettings sig = settings.Signal;
+            fields.Add("\"signal\": " + Pretty(new[]
+            {
+                "\"mode\": " + Json.Quote(sig.Mode), "\"wear\": " + Json.Number(sig.Wear), "\"colour\": " + Json.Number(sig.Colour),
+                "\"sharpen\": " + Json.Number(sig.Sharpen), "\"decoder\": " + Json.Quote(sig.Decoder),
+            }, "{", "}", "  "));
+            fields.Add("\"loopFrames\": " + Json.Number(settings.LoopFrames));
+            fields.Add("\"loopFps\": " + Json.Number(settings.LoopFps));
             if (d.CustomCount.HasValue) fields.Add("\"customCount\": " + Json.Number(d.CustomCount.Value));
             if (d.CustomPalette != null && d.CustomPalette.Length > 0) fields.Add("\"customPalette\": " + Pretty(d.CustomPalette.Select(Json.Quote), "[", "]", "  "));
             return Pretty(fields, "{", "}", "") + "\r\n";
@@ -206,9 +232,8 @@ namespace B0r3dDeRes
 
         static string OneOf(object v, string[] options, string fallback) => v is string s && options.Contains(s) ? s : fallback;
 
-        // What came in, checked field by field on top of `current` (the website's checkSettings):
-        // the new settings, and a line for what it holds that comes with a later version (or null).
-        public static Settings Apply(Dictionary<string, object> loaded, Settings current, out string later)
+        // What came in, checked field by field on top of `current` (the website's checkSettings).
+        public static Settings Apply(Dictionary<string, object> loaded, Settings current)
         {
             Settings s = current.Copy();
             DeresSettings d = s.Deres, b = current.Deres;
@@ -253,9 +278,9 @@ namespace B0r3dDeRes
             s.Multiplier = Finite(Get(loaded, "multiplier"), out double m) && Export.Multipliers.Any(x => x == m) ? (int)m : current.Multiplier;
             s.ExportFx = Get(loaded, "exportFx") is bool ef ? ef : current.ExportFx;
             d.CustomCount = Finite(Get(loaded, "customCount"), out double cc) ? (int)JsMath.Round(Math.Min(256, Math.Max(2, cc))) : b.CustomCount;
-
-            // the Signal comes with a later version: said, and left out
-            later = Get(loaded, "signal") is Dictionary<string, object> signal && Get(signal, "mode") is string mode && mode != "off" && signals.Contains(mode) ? "the Signal" : null;
+            s.Signal = Signal.Check(Get(loaded, "signal"), current.Signal);
+            s.LoopFrames = Get(loaded, "loopFrames") is double lf && Settings.LoopFrameCounts.Any(x => x == lf) ? (int)lf : current.LoopFrames;
+            s.LoopFps = Get(loaded, "loopFps") is double lfps && Settings.LoopSpeeds.Any(x => x == lfps) ? (int)lfps : current.LoopFps;
             return s;
         }
 

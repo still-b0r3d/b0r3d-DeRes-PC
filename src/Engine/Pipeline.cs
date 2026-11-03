@@ -26,12 +26,17 @@ namespace B0r3dDeRes.Engine
         public string Dither = DitherIds.Bayer4;
         public int? CustomCount;        // the Colours slider (missing: the machine's own count)
         public string[] CustomPalette;  // Custom's palette, loaded from a file or grabbed from a picture
+        // Replaces a fixed palette, entry for entry: the colours the signal really makes from CGA
+        // composite's bit patterns, so the dither aims at what the TV will show (set by the
+        // program while the signal is on, never kept).
+        public string[] FixedPalette;
 
         public DeresSettings Clone()
         {
             var copy = (DeresSettings)MemberwiseClone();
             copy.Adjust = Adjust.Clone();
             copy.CustomPalette = (string[])CustomPalette?.Clone();
+            copy.FixedPalette = (string[])FixedPalette?.Clone();
             return copy;
         }
     }
@@ -369,7 +374,7 @@ namespace B0r3dDeRes.Engine
             byte[] alpha = r.Alpha;
             RectI dst = r.Geometry.Dst;
             PaletteState pal;
-            if (p.Kind == PaletteKind.Fixed) pal = Palette(p);
+            if (p.Kind == PaletteKind.Fixed) pal = s.FixedPalette != null && s.FixedPalette.Length == p.Colours.Length ? PaletteFrom(p, s.FixedPalette) : Palette(p);
             else
             {
                 // the colours are picked from the pixels that show
@@ -611,6 +616,17 @@ namespace B0r3dDeRes.Engine
             if (palettes.TryGetValue(profile.Id, out PaletteState hit)) return hit;
             PaletteState state = CreatePaletteState(Profiles.PaletteBytes(profile), profile.Mono);
             palettes[profile.Id] = state;
+            return state;
+        }
+
+        // a fixed palette with its colours replaced (same order), kept like the machine's own
+        PaletteState PaletteFrom(Profile profile, string[] colours)
+        {
+            string key = profile.Id + ":" + string.Concat(colours);
+            if (palettes.TryGetValue(key, out PaletteState hit)) return hit;
+            if (palettes.Count > 64) palettes.Clear();
+            PaletteState state = CreatePaletteState(colours.SelectMany(Colour.HexToRgb).ToArray(), profile.Mono);
+            palettes[key] = state;
             return state;
         }
 

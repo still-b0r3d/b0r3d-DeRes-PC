@@ -29,8 +29,8 @@
     </Window.CommandBindings>
 
     <DockPanel x:Name="Root" Background="{DynamicResource Back}">
-        <!-- Access keys: F E V H on the bar, D for the tab; I W A T X for the sections, O S C on
-             their buttons; each menu list has its own. -->
+        <!-- Access keys: F E V H on the bar, D for the tab; I W A T G N X for the sections; O, S, C,
+             B, L, U, K and R on buttons; each menu list has its own. -->
         <Menu x:Name="MenuBar" DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open picture…" Command="{x:Static local:Commands.OpenPicture}" />
@@ -186,7 +186,7 @@
                                                 </StackPanel>
                                                 <WrapPanel Margin="0,8,0,0">
                                                     <Button x:Name="LoadPaletteButton" Content="_Load palette…" Click="OnLoadPalette" Margin="0,0,8,6" ToolTip=".hex, .pal, .gpl or a palette .png" />
-                                                    <Button x:Name="GrabPaletteButton" Content="_Grab palette" Click="OnGrabPalette" Margin="0,0,0,6" ToolTip="Pick the colours from the picture" />
+                                                    <Button x:Name="GrabPaletteButton" Content="Gra_b palette" Click="OnGrabPalette" Margin="0,0,0,6" ToolTip="Pick the colours from the picture" />
                                                 </WrapPanel>
                                             </StackPanel>
                                         </StackPanel>
@@ -222,6 +222,57 @@
                                         <StackPanel>
                                             <TextBlock x:Name="DitherNote" Style="{StaticResource Hint}" Margin="0,0,0,8" Visibility="Collapsed" />
                                             <StackPanel x:Name="Dithers" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="SignalSection" Style="{StaticResource Section}" Header="Si_gnal">
+                                        <StackPanel>
+                                            <!-- the buttons, in two rows of four columns: Machine's own takes two -->
+                                            <Grid x:Name="SignalButtons" Margin="0,0,-6,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                            </Grid>
+                                            <TextBlock x:Name="SignalNote" Style="{StaticResource Hint}" Margin="0,2,0,0" />
+                                            <!-- while it's on -->
+                                            <StackPanel x:Name="SignalPanel">
+                                                <DockPanel Margin="0,12,0,0">
+                                                    <TextBlock x:Name="WearValue" DockPanel.Dock="Right" />
+                                                    <TextBlock Text="Wear" Foreground="{DynamicResource Dim}" />
+                                                </DockPanel>
+                                                <Slider x:Name="WearSlider" Minimum="0" Maximum="100" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5" ValueChanged="OnSignalSlider" AutomationProperties.Name="Wear" />
+                                                <Expander x:Name="SignalAdvanced" Style="{StaticResource SubSection}" Header="Advanced" Margin="0,10,0,0">
+                                                    <StackPanel>
+                                                        <DockPanel>
+                                                            <TextBlock x:Name="SignalColourValue" DockPanel.Dock="Right" />
+                                                            <TextBlock Text="Colour" Foreground="{DynamicResource Dim}" />
+                                                        </DockPanel>
+                                                        <Slider x:Name="SignalColourSlider" Minimum="0" Maximum="150" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5" ValueChanged="OnSignalSlider" AutomationProperties.Name="Signal colour" />
+                                                        <DockPanel Margin="0,8,0,0">
+                                                            <TextBlock x:Name="SharpenValue" DockPanel.Dock="Right" />
+                                                            <TextBlock Text="Sharpen" Foreground="{DynamicResource Dim}" />
+                                                        </DockPanel>
+                                                        <Slider x:Name="SharpenSlider" Minimum="0" Maximum="100" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5" ValueChanged="OnSignalSlider" AutomationProperties.Name="Sharpen" />
+                                                        <TextBlock Style="{StaticResource Label}" Text="TV decoder" />
+                                                        <UniformGrid Rows="1">
+                                                            <RadioButton x:Name="DecoderNotch" Style="{StaticResource Segment}" GroupName="Decoder" Content="Simple" Tag="notch" Checked="OnDecoder" AutomationProperties.Name="Simple TV decoder" />
+                                                            <RadioButton x:Name="DecoderComb" Style="{StaticResource Segment}" GroupName="Decoder" Content="Comb filter" Tag="comb" Margin="0" Checked="OnDecoder" AutomationProperties.Name="Comb filter TV decoder" />
+                                                        </UniformGrid>
+                                                        <TextBlock Style="{StaticResource Hint}"
+                                                                   Text="A comb filter cleans up the colour fringes, and with them the colours that only exist in the signal (CGA, Apple II)." />
+                                                    </StackPanel>
+                                                </Expander>
+                                            </StackPanel>
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0">
+                                                <Run Text="Signal engine: " /><Hyperlink Click="OnSignalEngine" ToolTip="github.com/valadaptive/ntsc-rs (opens your browser)">ntsc-rs</Hyperlink><Run Text=" by valadaptive (MIT) · " /><Hyperlink Click="OnSignalNotices" ToolTip="Help → About">notices</Hyperlink>
+                                            </TextBlock>
                                         </StackPanel>
                                     </Expander>
 

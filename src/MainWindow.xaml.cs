@@ -178,6 +178,7 @@ namespace B0r3dDeRes
                 item.Click += (s, e) => OpenSample((string)((MenuItem)s).Tag);
                 SamplesMenu.Items.Add(item);
             }
+            BuildSignals();
             BuildScreens();
         }
 
@@ -286,9 +287,10 @@ namespace B0r3dDeRes
                 if (g != null)
                 {
                     Export.Size(g.Width, g.Height, g.ParX, g.ParY, settings.Multiplier, tv, out int ew, out int eh);
-                    SizeLine.Text = Words.SizeLine(ew, eh, p, d, Export.WithFx(settings.ExportScreen, settings.Multiplier));
+                    SizeLine.Text = Words.SizeLine(ew, eh, p, d, Export.WithFx(settings.ExportScreen, settings.Multiplier), Signal.Connection(settings.Signal.Mode, Signal.Machine(p.Id, g.Width)));
                 }
                 else SizeLine.Text = "";
+                SyncSignal(p, g);
                 SyncScreen();
 
                 // the machine's own file (.scr, .koa or .chr), and why there's none where that needs saying
@@ -703,6 +705,7 @@ namespace B0r3dDeRes
         // ---------- making the picture ----------
 
         DeresSettings wanted;
+        string[] wantedColours;   // CGA composite's colours from the signal, when the picture wanted has them
         LoadedPicture wantedPicture;
         bool rendering;
         int renders;   // for the tests: how many have been shown
@@ -715,7 +718,9 @@ namespace B0r3dDeRes
         void RenderSoon()
         {
             if (picture == null) return;
-            wanted = settings.Deres.Clone();
+            // (with the signal on, CGA composite is dithered to the colours the signal makes)
+            wanted = Signal.ForRender(settings.Deres.Clone(), settings.SignalOn);
+            wantedColours = wanted.FixedPalette;
             wantedPicture = picture;
             if (!rendering) RenderLoop();
         }
@@ -980,7 +985,7 @@ namespace B0r3dDeRes
 
         string FileName(Rendered r, int multiplier) =>
             Export.FileName(Export.BaseName(shownFrom?.Name ?? "photo"), r.Profile.Id, r.Width, r.Height, multiplier, settings.TvPixels && !r.Geometry.SquarePixels,
-                Export.WithFx(settings.ExportScreen, multiplier));
+                Export.WithFx(settings.ExportScreen, multiplier), SignalConnection(r));
 
         async void OnSavePng(object sender, ExecutedRoutedEventArgs e)
         {
@@ -1000,7 +1005,7 @@ namespace B0r3dDeRes
                 return;
             }
             if (path == null) return;
-            CouldntSave(path, await SavePng(path, r, m, tv, settings.ExportScreen?.Clone()));
+            CouldntSave(path, await SavePng(path, r, m, tv, settings.ExportScreen?.Clone(), settings.SignalOn?.Clone()));
         }
 
         internal bool Saving { get; private set; }
@@ -1012,8 +1017,9 @@ namespace B0r3dDeRes
             if (problem != null) MessageBox.Show(this, "Couldn't save " + Path.GetFileName(path) + ":\n\n" + problem, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        // the PNG at `path` (with the screen effect `fx` from 3× up, null for none); what went wrong, or null
-        internal async Task<string> SavePng(string path, Rendered r, int m, bool tv, FxSettings fx = null)
+        // the PNG at `path` (with the screen effect `fx` from 3× up, null for none, and through the
+        // signal when one's given); what went wrong, or null
+        internal async Task<string> SavePng(string path, Rendered r, int m, bool tv, FxSettings fx = null, SignalSettings signal = null)
         {
             Saving = true;
             Flash("Saving " + Path.GetFileName(path) + "…", "Dim");
@@ -1021,7 +1027,7 @@ namespace B0r3dDeRes
             string problem = null;
             try
             {
-                await Task.Run(() => Exports.Write(path, stream => Export.WritePng(stream, r, m, tv, fx, out width, out height)));
+                await Task.Run(() => Exports.Write(path, stream => Export.WritePng(stream, r, m, tv, fx, out width, out height, SignalFor(r, signal))));
             }
             catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is NotSupportedException || x is System.Security.SecurityException)
             {
@@ -1051,6 +1057,7 @@ namespace B0r3dDeRes
             public int Multiplier, Width, Height;
             public bool Tv;
             public FxSettings Fx;   // the screen effect, or null
+            public Func<SignalImage> Signal;    // the picture through the signal, when it's on
             public string Name;
             public byte[] Png;
             public BitmapSource Picture;
@@ -1058,14 +1065,17 @@ namespace B0r3dDeRes
             // the PNG and the picture; safe on any thread
             public void Make(Rendered r)
             {
-                Png = Export.PngBytes(r, Multiplier, Tv, Fx);
-                Picture = Export.WithFx(Fx, Multiplier) ? Sharing.FromPng(Png) : Sharing.Picture(r, Multiplier, Tv);
+                SignalImage signal = Signal?.Invoke();
+                Png = Export.PngBytes(r, Multiplier, Tv, Fx, signal);
+                Picture = Export.WithFx(Fx, Multiplier) || signal != null ? Sharing.FromPng(Png) : Sharing.Picture(r, Multiplier, Tv);
             }
         }
 
         internal Shared ToShare(Rendered r)
         {
+            SignalSettings signal = settings.SignalOn?.Clone();
             var s = new Shared { Tv = settings.TvPixels && !r.Geometry.SquarePixels, Multiplier = 1, Fx = settings.ExportScreen?.Clone() };
+            if (signal != null) s.Signal = () => SignalFor(r, signal);
             foreach (int m in Export.Multipliers)
             {
                 if (m > settings.Multiplier) break;
@@ -1450,18 +1460,20 @@ namespace B0r3dDeRes
         }
 
         // The look in a share link or a look file, checked as the website checks a link, over the
-        // settings there are. Whatever it holds that comes with a later version is said.
+        // settings there are.
         internal void UseLook(Dictionary<string, object> loaded, string what)
         {
-            Settings next = Looks.Apply(loaded, settings, out string later);
+            Settings next = Looks.Apply(loaded, settings);
             settings.Deres = next.Deres;
+            settings.Signal = next.Signal;
             settings.Fx = next.Fx;
             settings.TvPixels = next.TvPixels;
             settings.Multiplier = next.Multiplier;
             settings.ExportFx = next.ExportFx;
+            settings.LoopFrames = next.LoopFrames;
+            settings.LoopFps = next.LoopFps;
             Changed();
-            Flash(later == null ? "Opened " + what + "." : "Opened " + what + ". " + char.ToUpperInvariant(later[0]) + later.Substring(1) +
-                (later.Contains(" and ") ? " come" : " comes") + " with a later version of b0r3d DeRes.", later == null ? "Good" : "Warn");
+            Flash("Opened " + what + ".", "Good");
         }
 
         void OnOpenLook(object sender, RoutedEventArgs e)
@@ -1609,10 +1621,13 @@ namespace B0r3dDeRes
         {
             Settings fresh = Settings.Defaults();
             settings.Deres = fresh.Deres;
+            settings.Signal = fresh.Signal;
             settings.Fx = fresh.Fx;
             settings.TvPixels = fresh.TvPixels;
             settings.Multiplier = fresh.Multiplier;
             settings.ExportFx = fresh.ExportFx;
+            settings.LoopFrames = fresh.LoopFrames;
+            settings.LoopFps = fresh.LoopFps;
             Changed();
             saveTimer.Stop();
             SaveSettings();

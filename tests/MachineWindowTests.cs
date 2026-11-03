@@ -206,10 +206,11 @@ namespace B0r3dDeRes.Tests
             WaitForPicture(window);
             Check(Looks.Link(window.Current) == link, "the dropped look file should bring the look back");
 
-            // a link's screen effect is used; the Signal, which comes later, is said
+            // a link's screen effect and signal are used
             window.UseLook(Looks.FromLink("#s=" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"p\":\"nes\",\"fx\":[\"crt\"],\"sg\":[\"rf\"]}"))), "the share link");
-            Check(window.NoteText.Contains("The Signal comes with a later version"), "the bottom line: " + window.NoteText);
+            Check(window.NoteText == "Opened the share link.", "the bottom line: " + window.NoteText);
             Check(window.Current.Fx.Screen == Screens.Crt && window.CrtPanel.Visibility == Visibility.Visible, "the link's CRT screen should be on, its controls shown");
+            Check(window.Current.Signal.Mode == SignalModes.Rf && window.SignalPanel.Visibility == Visibility.Visible, "the link's signal (RF) should be on, its controls shown");
         }
 
         // The machine that's picked, clicked again, starts over as on the website; a look opened

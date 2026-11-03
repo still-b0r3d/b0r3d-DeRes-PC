@@ -22,15 +22,20 @@ namespace B0r3dDeRes.Tests
             Multiplier = multiplier; Brightness = brightness; Contrast = contrast; Saturation = saturation; Gamma = gamma; CustomCount = customCount; CustomPalette = customPalette;
         }
 
-        // the screen effect and the export's box
+        // the screen effect and the export's box; the signal, and its loop's frames and speed
         public FxSettings Fx = new FxSettings();
         public bool ExportFx;
+        public SignalSettings Signal = new SignalSettings();
+        public int LoopFrames = 16, LoopFps = 15;
 
         public Settings Settings()
         {
             var s = B0r3dDeRes.Settings.Defaults();
             s.Fx = Fx.Clone();
             s.ExportFx = ExportFx;
+            s.Signal = Signal.Clone();
+            s.LoopFrames = LoopFrames;
+            s.LoopFps = LoopFps;
             DeresSettings d = s.Deres;
             d.ProfileId = Profile;
             d.Fit = Fit;
@@ -73,6 +78,9 @@ namespace B0r3dDeRes.Tests
             Same(f.SameAs(Fx), "screen", f.Screen + "/" + f.Mask + "/" + f.Scanlines.ToString("R") + "/" + f.Curve.ToString("R") + "/" + f.Bloom.ToString("R") + "/" +
                 f.Grid.ToString("R") + "/" + f.Ghost.ToString("R") + "/" + f.VhsTracking.ToString("R") + "/" + f.VhsOsd);
             Same(s.ExportFx == ExportFx, "screen in the export", s.ExportFx);
+            SignalSettings g = s.Signal;
+            Same(g.SameAs(Signal), "signal", g.Mode + "/" + g.Wear.ToString("R") + "/" + g.Colour.ToString("R") + "/" + g.Sharpen.ToString("R") + "/" + g.Decoder);
+            Same(s.LoopFrames == LoopFrames && s.LoopFps == LoopFps, "loop", s.LoopFrames + " frames at " + s.LoopFps);
             return wrong.Count == 0 ? null : string.Join(", ", wrong);
         }
     }
@@ -110,12 +118,11 @@ namespace B0r3dDeRes.Tests
                     continue;
                 }
                 Check(loaded != null, Short(d.Hash) + " should open, as on the website");
-                Settings s = Looks.Apply(loaded, Settings.Defaults(), out string later);
+                Settings s = Looks.Apply(loaded, Settings.Defaults());
                 string wrong = d.Settings.Against(s);
                 Check(wrong == null, Short(d.Hash) + " reads differently: " + wrong);
                 Check(s.Fx.Screen == d.Screen, Short(d.Hash) + " has the " + s.Fx.Screen + " screen, not " + d.Screen);
-                bool shouldSay = d.Signal != "off";
-                Check((later != null) == shouldSay, Short(d.Hash) + (shouldSay ? " has the Signal, which should be said" : " says something comes later: " + later));
+                Check(s.Signal.Mode == d.Signal, Short(d.Hash) + " has the signal " + s.Signal.Mode + ", not " + d.Signal);
             }
             // the website's own whole link, pasted
             Check(Looks.FromLink("https://img.b0r3d.org/" + Website.Links[1].Hash) != null && Looks.FromLink("  " + Looks.Site + Website.Links[1].Hash + "\r\n") != null, "a whole link should read");
@@ -193,15 +200,15 @@ namespace B0r3dDeRes.Tests
                 Settings s = l.Settings.Settings();
                 Dictionary<string, object> loaded = Looks.FromFile(Looks.FileText(s));
                 Check(loaded != null, "a look file isn't read back");
-                string wrong = l.Settings.Against(Looks.Apply(loaded, Settings.Defaults(), out string later));
-                Check(wrong == null && later == null, "a look file reads back differently: " + wrong);
+                string wrong = l.Settings.Against(Looks.Apply(loaded, Settings.Defaults()));
+                Check(wrong == null, "a look file reads back differently: " + wrong);
             }
             // the website's own settings (as it keeps them in the browser) read as a look
             string website = "{\"profileId\":\"pico8\",\"fit\":\"fit\",\"resolution\":\"native\",\"detail\":0.25,\"background\":\"white\",\"adjust\":{\"brightness\":0.1,\"contrast\":1.2," +
                 "\"saturation\":1,\"gamma\":1},\"dither\":\"atkinson\",\"fx\":{\"screen\":\"crt\"},\"pixelShape\":\"raw\",\"multiplier\":8,\"exportFx\":false}";
-            Settings w = Looks.Apply(Looks.FromFile(website), Settings.Defaults(), out string said);
+            Settings w = Looks.Apply(Looks.FromFile(website), Settings.Defaults());
             Check(w.Deres.ProfileId == "pico8" && w.Deres.Fit == "fit" && w.Deres.Detail == 0.25 && w.Deres.Adjust.Contrast == 1.2 && w.Deres.Dither == "atkinson" && w.Multiplier == 8 &&
-                w.Fx.Screen == Screens.Crt && w.Fx.Mask == "grille" && !w.ExportFx && said == null, "the website's own settings should read as a look, its CRT and all");
+                w.Fx.Screen == Screens.Crt && w.Fx.Mask == "grille" && !w.ExportFx, "the website's own settings should read as a look, its CRT and all");
             Check(Looks.FromFile("{\"hello\":1}") == null && Looks.FromFile("[1]") == null && Looks.FromFile("not json") == null && Looks.FromFile("") == null, "what isn't a look should be refused");
         }
 
@@ -213,7 +220,7 @@ namespace B0r3dDeRes.Tests
             string Link(string json) => "#s=" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
             string deep = new string('[', 200000) + new string(']', 200000);
             Dictionary<string, object> loaded = Looks.FromLink(Link(deep));
-            Check(loaded != null && Looks.Link(Looks.Apply(loaded, Settings.Defaults(), out _)) == Looks.Link(Settings.Defaults()),
+            Check(loaded != null && Looks.Link(Looks.Apply(loaded, Settings.Defaults())) == Looks.Link(Settings.Defaults()),
                 "a link of 200,000 nested arrays should read as no fields, as JSON.parse reads it");
             loaded = Looks.FromLink(Link("{\"p\":\"nes\",\"x\":{\"y\":" + deep + "},\"m\":8}"));
             Check(loaded != null && (string)loaded["profileId"] == "nes" && (double)loaded["multiplier"] == 8, "the fields round a deep part should still be read");

@@ -19,7 +19,7 @@ namespace B0r3dDeRes
         // the Screen section's buttons, in the website's order and words
         static readonly (string Id, string Text, string Name)[] screenChoices =
         {
-            (Screens.Off, "Off", "No screen effect"), (Screens.Crt, "CRT", "CRT"), (Screens.Lcd, "LCD", "LCD"), (Screens.Vhs, "VHS", "VHS"),
+            (Screens.Off, "Off", "Off, no screen effect"), (Screens.Crt, "CRT", "CRT"), (Screens.Lcd, "LCD", "LCD"), (Screens.Vhs, "VHS", "VHS"),
             (Screens.Composite, "Composite", "Composite"), (Screens.P1Green, "P1 Green", "P1 green phosphor"), (Screens.P3Amber, "P3 Amber", "P3 amber phosphor"),
             (Screens.P4White, "P4 White", "P4 white phosphor"),
         };
@@ -182,10 +182,13 @@ namespace B0r3dDeRes
         sealed class ScreenJob
         {
             public Rendered Picture;
-            public FxSettings Fx;
+            public LoadedPicture From;      // the photo the picture was made from
+            public FxSettings Fx;           // the screen effect, or null
+            public SignalSettings Signal;   // the signal, or null
             public int Width, Height;
 
-            public bool Same(ScreenJob o) => o != null && o.Picture == Picture && o.Fx.SameAs(Fx) && o.Width == Width && o.Height == Height;
+            public bool Same(ScreenJob o) => o != null && o.Picture == Picture && (o.Fx == null ? Fx == null : Fx != null && o.Fx.SameAs(Fx)) &&
+                (o.Signal == null ? Signal == null : Signal != null && o.Signal.SameAs(Signal)) && o.Width == Width && o.Height == Height;
         }
 
         ScreenJob screenWanted, screenShown;
@@ -202,10 +205,11 @@ namespace B0r3dDeRes
             return s;
         }
 
+        // the preview's screen effect and signal, made again for the picture shown, its zoom and settings
         void FxSoon()
         {
             Rendered r = shown;
-            if (r == null || settings.Fx.Screen == Screens.Off)
+            if (r == null || settings.Fx.Screen == Screens.Off && settings.SignalOn == null)
             {
                 screenWanted = screenShown = null;
                 View.ShowScreen(null, 0, 0);
@@ -215,7 +219,15 @@ namespace B0r3dDeRes
             bool tv = settings.TvPixels && !r.Geometry.SquarePixels;
             int scale = ScreenScale(r.Width, r.Height, ratio, View.ZoomFor(r.Width, r.Height, ratio));
             Export.Size(r.Width, r.Height, r.Geometry.ParX, r.Geometry.ParY, scale, tv, out int w, out int h);
-            var job = new ScreenJob { Picture = r, Fx = settings.Fx.Clone(), Width = w, Height = h };
+            var job = new ScreenJob
+            {
+                Picture = r,
+                From = shownFrom,
+                Fx = settings.Fx.Screen != Screens.Off ? settings.Fx.Clone() : null,
+                Signal = settings.SignalOn?.Clone(),
+                Width = w,
+                Height = h,
+            };
             if (job.Same(screenShown) && !screenRendering || job.Same(screenWanted)) return;
             screenWanted = job;
             if (!screenRendering) ScreenLoop();
@@ -231,24 +243,36 @@ namespace B0r3dDeRes
                     ScreenJob job = screenWanted;
                     screenWanted = null;
                     byte[] rgba;
+                    string what = job.Signal != null ? "the signal" : "the screen effect";
                     try
                     {
                         Rendered r = job.Picture;
-                        rgba = await Task.Run(() => new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, job.Width, job.Height, job.Fx).Rgba());
+                        rgba = await Task.Run(() =>
+                        {
+                            SignalImage sig = SignalFor(r, job.Signal);
+                            RowRenderer render = sig != null ? Signal.Renderer(sig, job.Width, job.Height, job.Fx, 0, r.Paper)
+                                : new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, job.Width, job.Height, job.Fx);
+                            return render.Rgba();
+                        });
                     }
                     catch (Exception x)
                     {
-                        // no screen effect then: the picture itself shows, and the bottom line says why
+                        // none then: the picture itself shows, and the bottom line says why
                         if (job.Picture == shown)
                         {
                             screenShown = null;
                             View.ShowScreen(null, 0, 0);
                         }
-                        if (screenWanted == null) Problem(x is OutOfMemoryException ? "There isn't enough memory free to show the screen effect." : "Couldn't show the screen effect: " + x.Message);
+                        if (screenWanted == null) Problem(x is OutOfMemoryException ? "There isn't enough memory free to show " + what + "." : "Couldn't show " + what + ": " + x.Message);
                         continue;
                     }
-                    // a newer picture or the screen turned off meanwhile: this one's no longer wanted
-                    if (job.Picture != shown || settings.Fx.Screen == Screens.Off) continue;
+                    // the screen and the signal turned off meanwhile: this one's no longer wanted
+                    if (settings.Fx.Screen == Screens.Off && settings.SignalOn == null) continue;
+                    // A newer picture meanwhile: this one still shows while the newer one's is made,
+                    // when it's of the same photo at the same size (a slider moving), so the preview
+                    // follows a slider that makes the picture again; else it's no longer wanted.
+                    if (job.Picture != shown && (screenWanted == null || job.From != shownFrom || shown == null ||
+                        job.Picture.Width != shown.Width || job.Picture.Height != shown.Height)) continue;
                     screenShown = job;
                     View.ShowScreen(rgba, job.Width, job.Height);
                 }
@@ -281,17 +305,18 @@ namespace B0r3dDeRes
 
         internal string WallpaperName(Rendered r, Wallpaper w) => Export.WallpaperName(Export.BaseName(shownFrom?.Name ?? "photo"), r.Profile.Id, w.Id);
 
-        // the wallpaper at `path`; what went wrong, or null
+        // the wallpaper at `path`, through the signal when it's on; what went wrong, or null
         internal async Task<string> SaveWallpaper(string path, Rendered r, Wallpaper w)
         {
             Saving = true;
             Flash("Saving " + Path.GetFileName(path) + "…", "Dim");
             bool tv = settings.TvPixels && !r.Geometry.SquarePixels;
             FxSettings fx = settings.ExportScreen?.Clone();
+            SignalSettings signal = settings.SignalOn?.Clone();
             string problem = null;
             try
             {
-                await Task.Run(() => Exports.Write(path, stream => Export.WriteWallpaper(stream, r, w.Width, w.Height, tv, fx)));
+                await Task.Run(() => Exports.Write(path, stream => Export.WriteWallpaper(stream, r, w.Width, w.Height, tv, fx, SignalFor(r, signal))));
             }
             catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is NotSupportedException || x is System.Security.SecurityException)
             {

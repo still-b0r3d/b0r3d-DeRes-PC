@@ -208,6 +208,54 @@ namespace B0r3dDeRes.Tests
                 Shoot(snipRoot, 1280, 800, 1, Path.Combine(folder, "snip-" + name + ".png"));
                 snip.Close();
 
+                // stage 4: the Signal
+                foreach (var (machine, sample, mode, shot) in new[]
+                {
+                    ("nes", "cat-nap", SignalModes.Rf, "signal-nes-rf"), ("nes", "cat-nap", SignalModes.VhsEp, "signal-nes-vhs-ep"),
+                    ("cga-composite", "forest", SignalModes.Auto, "signal-cga-composite"), ("genesis", "rukus", SignalModes.Composite, "signal-genesis-comb"),
+                    ("vhs", "cat-nap", SignalModes.Auto, "signal-vhs-look"),
+                })
+                {
+                    MainWindow w = NewMain();
+                    WaitForPicture(w);
+                    w.OpenSample(sample);
+                    WaitForPicture(w);
+                    Pick(w, machine);
+                    PickSignal(w, mode);
+                    if (shot == "signal-genesis-comb")
+                    {
+                        w.SignalAdvanced.IsExpanded = true;
+                        w.DecoderComb.IsChecked = true;
+                        WaitForScreen(w);
+                    }
+                    w.ImageSection.IsExpanded = false;
+                    w.SignalSection.IsExpanded = true;
+                    Settle(w);
+                    ScrollTo(w, w.SignalSection);
+                    Shoot(w.Root, MainWidth, MainHeight, 1, Path.Combine(folder, shot + "-" + name + ".png"));
+                }
+
+                // the signal and a CRT together, close up at 150 %, and the export's line with the signal
+                MainWindow both = NewMain(1.5);
+                WaitForPicture(both);
+                both.OpenSample("cat-nap");
+                WaitForPicture(both);
+                Pick(both, "nes");
+                PickSignal(both, SignalModes.Rf);
+                PickScreen(both, Screens.Crt);
+                both.View.ZoomTo(6);
+                Settle(both);
+                Shoot(both.Root, MainWidth, MainHeight, 1.5, Path.Combine(folder, "signal-crt-close-" + name + "-150.png"));
+                MainWindow line = NewMain();
+                WaitForPicture(line);
+                Pick(line, "nes");
+                PickSignal(line, SignalModes.VhsSp);
+                line.ImageSection.IsExpanded = false;
+                line.ExportSection.IsExpanded = true;
+                Settle(line);
+                ScrollTo(line, line.SizeLine);
+                Shoot(line.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "signal-export-" + name + ".png"));
+
                 // nothing opened yet (a picture that won't open)
                 MainWindow empty = NewMain(1, false);
                 Settle(empty);

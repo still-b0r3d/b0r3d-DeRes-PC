@@ -377,7 +377,7 @@ namespace B0r3dDeRes.Tests
             Check(about.VersionText.Text == "v" + Program.Version + " · Build: " + Program.Build, "the version line: " + about.VersionText.Text);
             Check(NewMain(1, false).VersionRun.Text == "b0r3d DeRes v" + Program.Version + " · Build: " + Program.Build, "the window's corner should show the version and the build apart");
             string licences = about.Licences.Text;
-            foreach (string part in new[] { "Commons Clause", "MIT License", "Licensor: b0r3d.org", "Software: b0r3d DeRes", "fdlibm", "Sun Microsystems", "V8 project authors" })
+            foreach (string part in new[] { "Commons Clause", "MIT License", "Licensor: b0r3d.org", "Software: b0r3d DeRes", "fdlibm", "Sun Microsystems", "V8 project authors", "ntsc-rs", "Copyright © valadaptive", "Jorge Aparicio", "Rich Felker", "David Schultz" })
                 Check(licences.Contains(part), "the licences don't mention " + part);
             Check(!licences.Contains("is missing from this build"), "a licence file is missing from the build");
             Check(about.FolderText.Text.StartsWith(DataFolder.Path), "the settings folder line: " + about.FolderText.Text);

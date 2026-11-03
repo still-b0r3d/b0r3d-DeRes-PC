@@ -75,8 +75,17 @@ namespace B0r3dDeRes
 
         // "640×576 px · 4-colour palette": the PNG's size and what its colours are (full colour
         // with the screen effect)
-        public static string SizeLine(int width, int height, Profile p, DeresSettings s, bool withFx = false) =>
-            width + "×" + height + " px · " + (withFx ? "full colour" : ColoursLabel(p, s));
+        // `connection`: the signal's ("rf"…), when it's on
+        public static string SizeLine(int width, int height, Profile p, DeresSettings s, bool withFx = false, string connection = null) =>
+            width + "×" + height + " px · " + (connection != null ? "full colour, through " + Signal.ConnectionNames[connection] : withFx ? "full colour" : ColoursLabel(p, s));
+
+        // the line under the Signal's buttons
+        public static string SignalNote(Profile p, SignalMachine machine, string connection) =>
+            connection == null
+                ? "Off. The real thing: the picture goes out as an analog TV signal and comes back with the colour bleed, fringes and noise a TV showed."
+                : "The " + p.Name + " over " + Signal.ConnectionNames[connection] + "." +
+                    (machine.CgaArtifact ? " Its colours are made by the signal itself: each one is a pattern of black and white dots."
+                        : machine.LineLocked ? " Its colour fringes stand still, as they did on the real thing." : "");
 
         static string ColoursLabel(Profile p, DeresSettings s)
         {

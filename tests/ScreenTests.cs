@@ -28,6 +28,14 @@ namespace B0r3dDeRes.Tests
             WaitForScreen(window);
         }
 
+        // a Signal button clicked, then the picture (CGA composite's colours follow the signal) and the preview made
+        static void PickSignal(MainWindow window, string mode)
+        {
+            window.SignalButtons.Children.OfType<RadioButton>().First(b => (string)b.Tag == mode).IsChecked = true;
+            WaitForPicture(window);
+            WaitForScreen(window);
+        }
+
         // The Screen section's controls follow the screen, and the preview shows the engine's own
         // screen effect, made at the zoom shown: whole screen pixels a machine pixel, 3 at least.
         static void ScreenSectionAndPreview()

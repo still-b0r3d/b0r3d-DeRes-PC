@@ -33,7 +33,7 @@ namespace B0r3dDeRes.Engine
     // row at a time, in any order and on any thread. Nothing here moves or flickers (but for the
     // phase of an animation's frame). (The website's core/fx.ts, to the last bit: its sums in
     // double, what it keeps in floats rounded to floats, its sin and exp fdlibm's, as V8 has them.)
-    sealed class FxRenderer
+    sealed class FxRenderer : RowRenderer
     {
         // the electron beam across one pixel row
         const int BeamLevels = 16, BeamSteps = 64;
@@ -157,15 +157,15 @@ namespace B0r3dDeRes.Engine
             osdScale = Math.Max(1, Math.Min(4, (int)Math.Floor(outH / 160.0)));
         }
 
-        public int Width => outW;
-        public int Height => outH;
+        public override int Width => outW;
+        public override int Height => outH;
 
         // a picture float as the website reads it: past the start of the array, NaN (JavaScript's
         // undefined), which comes out black
         double Lin(int i) => i >= 0 && i < lin.Length ? lin[i] : double.NaN;
 
         // One output row: r, g, b a pixel into `row`, and which pixels show into `alpha` (if given).
-        public void Row(int oy, byte[] row, byte[] alpha)
+        public override void Row(int oy, byte[] row, byte[] alpha)
         {
             var c = new float[3];
             var chroma = new float[3];
@@ -392,50 +392,6 @@ namespace B0r3dDeRes.Engine
                 c[1] = (float)(lum * 0.96);
                 c[2] = (float)(lum * 1.0);
             }
-        }
-
-        // Rows from..from + count - 1, on every core: r, g, b (and a) a pixel; with a backdrop,
-        // solid, the hidden pixels in its colour.
-        public byte[][] Rows(int from, int count, bool withAlpha, byte[] backdrop)
-        {
-            var rows = new byte[count][];
-            EveryCore.For(0, count, () => (new byte[outW * 3], new byte[outW]), (i, state, buffers) =>
-            {
-                byte[] rgb = buffers.Item1, shows = buffers.Item2;
-                Row(from + i, rgb, shows);
-                var output = new byte[outW * (withAlpha ? 4 : 3)];
-                for (int x = 0, o = 0; x < outW; x++)
-                {
-                    bool hidden = backdrop != null && shows[x] == 0;
-                    output[o++] = hidden ? backdrop[0] : rgb[x * 3];
-                    output[o++] = hidden ? backdrop[1] : rgb[x * 3 + 1];
-                    output[o++] = hidden ? backdrop[2] : rgb[x * 3 + 2];
-                    if (withAlpha) output[o++] = shows[x];
-                }
-                rows[i] = output;
-                return buffers;
-            });
-            return rows;
-        }
-
-        // the whole effect as rows of r, g, b, a, on every core
-        public byte[] Rgba()
-        {
-            var output = new byte[(long)outW * outH * 4];
-            EveryCore.For(0, outH, () => (new byte[outW * 3], new byte[outW]), (y, state, buffers) =>
-            {
-                Row(y, buffers.Item1, buffers.Item2);
-                long o = (long)y * outW * 4;
-                for (int x = 0; x < outW; x++, o += 4)
-                {
-                    output[o] = buffers.Item1[x * 3];
-                    output[o + 1] = buffers.Item1[x * 3 + 1];
-                    output[o + 2] = buffers.Item1[x * 3 + 2];
-                    output[o + 3] = buffers.Item2[x];
-                }
-                return buffers;
-            });
-            return output;
         }
 
         // a soft blur of the picture at its own size (a 3-tap box, twice each way), for the bloom

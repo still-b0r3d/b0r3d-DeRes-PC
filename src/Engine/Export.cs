@@ -50,14 +50,21 @@ namespace B0r3dDeRes.Engine
             h = height * multiplier;
         }
 
-        // The PNG, written to `output`, with the screen effect `fx` from 3× up (null: none). TV
+        // The PNG, written to `output`, with the screen effect `fx` from 3× up (null: none), and
+        // through the analog signal when there is one (`signal`, always kept: full colour). TV
         // pixels only stretch when the pixels aren't square.
-        public static void WritePng(Stream output, Rendered r, int multiplier, bool tv, FxSettings fx, out int width, out int height)
+        public static void WritePng(Stream output, Rendered r, int multiplier, bool tv, FxSettings fx, out int width, out int height, SignalImage signal = null)
         {
             int m = Math.Max(1, multiplier);
             Size(r.Width, r.Height, r.Geometry.ParX, r.Geometry.ParY, m, tv, out width, out height);
             int w = width;
             byte[] alpha = r.Alpha;
+            if (signal != null)
+            {
+                RowRenderer render = Signal.Renderer(signal, width, height, WithFx(fx, m) ? fx : null, 0, r.Paper);
+                Engine.Png.WriteTruecolour(output, width, height, signal.Alpha != null, Bands(render, signal.Alpha != null, null));
+                return;
+            }
             if (WithFx(fx, m))
             {
                 var screen = new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, alpha, width, height, fx);
@@ -105,18 +112,18 @@ namespace B0r3dDeRes.Engine
             }, alpha != null ? colours : (int?)null);
         }
 
-        public static byte[] PngBytes(Rendered r, int multiplier, bool tv, FxSettings fx = null)
+        public static byte[] PngBytes(Rendered r, int multiplier, bool tv, FxSettings fx = null, SignalImage signal = null)
         {
             using (var bytes = new MemoryStream())
             {
-                WritePng(bytes, r, multiplier, tv, fx, out _, out _);
+                WritePng(bytes, r, multiplier, tv, fx, out _, out _, signal);
                 return bytes.ToArray();
             }
         }
 
-        // A screen effect's rows for the PNG writer, made a band at a time on every core: r, g, b
-        // (and a) a pixel, or with `backdrop`, solid, its hidden pixels in that colour.
-        static Action<int, byte[]> Bands(FxRenderer screen, bool withAlpha, byte[] backdrop)
+        // A screen effect's (or the signal's) rows for the PNG writer, made a band at a time on
+        // every core: r, g, b (and a) a pixel, or with `backdrop`, solid, its hidden pixels in that colour.
+        static Action<int, byte[]> Bands(RowRenderer screen, bool withAlpha, byte[] backdrop)
         {
             const int band = 64;
             byte[][] rows = null;
@@ -133,9 +140,10 @@ namespace B0r3dDeRes.Engine
         }
 
         // A wallpaper of `width` × `height`: the picture enlarged by the biggest whole number that
-        // fits (as on a TV when `tv`), with the screen effect from 3× up, centred on the backdrop
-        // (its palette's first colour); a picture too big even at 1× shows its middle.
-        public static void WriteWallpaper(Stream output, Rendered r, int width, int height, bool tv, FxSettings fx)
+        // fits (as on a TV when `tv`), with the screen effect from 3× up and through the signal
+        // when there is one, centred on the backdrop (its palette's first colour); a picture too
+        // big even at 1× shows its middle.
+        public static void WriteWallpaper(Stream output, Rendered r, int width, int height, bool tv, FxSettings fx, SignalImage signal = null)
         {
             int best = 1;
             for (int m = 1; m <= 32; m++)
@@ -153,9 +161,10 @@ namespace B0r3dDeRes.Engine
             var at = new int[w];
             for (int x = 0; x < w; x++) at[x] = x < offsetX || x >= offsetX + scaledW ? -1 : x - offsetX;
 
-            if (WithFx(fx, best))
+            if (WithFx(fx, best) || signal != null)
             {
-                var screen = new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, scaledW, scaledH, fx);
+                RowRenderer screen = signal != null ? Signal.Renderer(signal, scaledW, scaledH, WithFx(fx, best) ? fx : null, 0, r.Paper)
+                    : new FxRenderer(r.Rgb, r.Width, r.Height, r.Paper, r.Alpha, scaledW, scaledH, fx);
                 Action<int, byte[]> rows = Bands(screen, false, back);
                 var shown = new byte[scaledW * 3];
                 Engine.Png.WriteTruecolour(output, width, height, false, (y, row) =>
@@ -214,10 +223,11 @@ namespace B0r3dDeRes.Engine
             return clean.Length > 0 ? clean : "photo";
         }
 
-        // what's inside, in the name: photo-nes-256x240-4x.png, photo-nes-256x240-4x-tv-fx.png
-        public static string FileName(string baseName, string profileId, int width, int height, int multiplier, bool tv, bool fx = false) =>
+        // what's inside, in the name: photo-nes-256x240-4x.png, photo-nes-256x240-4x-tv-rf-fx.png
+        // (`signal`: the connection the signal went over, "rf", "composite", "vhs-sp"…)
+        public static string FileName(string baseName, string profileId, int width, int height, int multiplier, bool tv, bool fx = false, string signal = null) =>
             baseName + "-" + profileId + "-" + width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture) + "-" +
-            multiplier.ToString(CultureInfo.InvariantCulture) + "x" + (tv ? "-tv" : "") + (fx ? "-fx" : "") + ".png";
+            multiplier.ToString(CultureInfo.InvariantCulture) + "x" + (tv ? "-tv" : "") + (signal != null ? "-" + signal : "") + (fx ? "-fx" : "") + ".png";
 
         // a machine's own file: photo-zx-spectrum.scr
         public static string EmulatorFileName(string baseName, string profileId, string format) => baseName + "-" + profileId + "." + format;

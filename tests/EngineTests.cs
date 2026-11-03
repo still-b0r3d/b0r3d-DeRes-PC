@@ -34,8 +34,10 @@ namespace B0r3dDeRes.Tests
         public bool Indexed, TilesFit, ColoursFit;
         public string Alpha, Paper, Tiles, EmuFormat, EmuName, EmuSha;
         public int UniqueTiles, UniqueColours, EmuLength;
+        // made with the signal on (CGA composite dithers to its colours), or null
+        public SignalSettings Signal;
 
-        public DeresSettings Settings() => new DeresSettings
+        public DeresSettings Settings() => Engine.Signal.ForRender(new DeresSettings
         {
             ProfileId = Profile,
             Fit = Fit,
@@ -47,7 +49,7 @@ namespace B0r3dDeRes.Tests
             Dither = Dither,
             CustomCount = Count >= 0 ? Count : (int?)null,
             CustomPalette = CustomPalette.Length > 0 ? CustomPalette.Split(',') : null,
-        };
+        }, Signal);
 
         public override string ToString() => Input + " " + Profile + " " + Dither + (CustomWidth >= 0 ? " width " + CustomWidth : " " + Fit) + " detail " + Detail + " " + Background +
             (Brightness != 0 || Contrast != 1 || Saturation != 1 || Gamma != 1 ? " adjust " + Brightness + "/" + Contrast + "/" + Saturation + "/" + Gamma : "") +
@@ -344,7 +346,8 @@ namespace B0r3dDeRes.Tests
         {
             // runs of 40 cases on every core, each run on its engine; the pictures the later
             // checks need are kept
-            var keep = new HashSet<int>(Website.Exports.Select(e => e.Render).Concat(Website.Screens.Select(s => s.Render)).Concat(Website.Wallpapers.Select(w => w.Render)));
+            var keep = new HashSet<int>(Website.Exports.Select(e => e.Render).Concat(Website.Screens.Select(s => s.Render)).Concat(Website.Wallpapers.Select(w => w.Render))
+                .Concat(Website.Signals.Select(s => s.Render)));
             var found = new System.Collections.Concurrent.ConcurrentBag<(int At, string Why)>();
             var took = new System.Collections.Concurrent.ConcurrentBag<(long Ms, string Case)>();
             var runs = Website.Renders.Select((c, i) => (Case: c, At: i)).GroupBy(x => x.Case.Input + "#" + x.At / 40).ToList();

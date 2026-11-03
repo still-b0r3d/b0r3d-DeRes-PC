@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.4 (not released yet)
+
+The fourth stage: the Signal.
+
+- The Signal: the picture goes out of the machine as an analog TV signal and comes back the
+  way a TV decoded it, with the colour bleed, fringes and noise. Off, the machine's own
+  connection, RF, composite, or a VHS tape at SP, LP or EP; Wear (none of the noise to twice
+  the connection's own), and under Advanced the colour, the sharpening and the TV's decoder
+  (simple, or a comb filter).
+- It's ntsc-rs, the engine the website runs as WebAssembly, translated into C# with the maths
+  routines it uses (Rust's libm): every frame comes out the same as the website's, byte for
+  byte, on any PC (no processor's shortcuts change a sum).
+- Each machine as it went out: its pixel clock (how many samples of the colour carrier a pixel
+  lasts), and for the machines with 228 colour cycles a line, fringes that stand still. CGA
+  composite's colours come from the signal itself: its picture is dithered to the colours the
+  signal makes of its patterns.
+- Pictures over 288 lines are interlaced, as the website's are.
+- The preview shows it at the zoom shown, with the screen effect over it when one is on, and
+  follows a slider while it moves (it used to wait for the slider to stop when the slider made
+  the picture again: the screen effect's too). PNGs, copies, dragged-out pictures, wallpapers
+  and batches keep it, full colour; a PNG's name says the connection
+  (`photo-nes-256x240-4x-rf.png`), and a wallpaper's doesn't, as on the website.
+- The Signal's and the Screen's Off buttons are named for Voice Access with the words on them.
+- Share links and look files carry the signal, and the loop's length and speed, as the
+  website's do; the settings file keeps them.
+- The self-test makes the website's very frame of the Rukus sample over RF.
+- 79 tests: 104 signal frames, 13 PNGs and wallpapers through it, 40 of the website's engine
+  settings files and CGA composite's colours against the website's own engine, as well as
+  761 pictures, 253 PNGs, 215 screen effects and 16 wallpapers.
+
 ## 0.3 (not released yet)
 
 The third stage: the screens, the analog looks, wallpapers and batches.

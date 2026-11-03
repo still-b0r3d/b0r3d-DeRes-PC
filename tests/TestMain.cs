@@ -100,6 +100,10 @@ namespace B0r3dDeRes.Tests
                 Run("resolution line: the website's words for every picture above", ResolutionWordsLikeTheWebsite);
                 Run("PNG: " + Website.Exports.Length + " exports with the website's header, palette and pixel rows, screen effects too", PngsLikeTheWebsite);
                 Run("screens: " + Website.Screens.Length + " screen effects at many sizes come out as the website's, pixel for pixel", ScreensLikeTheWebsite);
+                Run("signal: " + Website.Signals.Length + " frames through ntsc-rs come out as the website's, byte for byte: every machine's clock and timing, every connection, the wear, colour, sharpening, decoder, frames, interlaced and see-through pictures", SignalsLikeTheWebsite);
+                Run("signal: " + (Website.SignalExports.Length + Website.SignalWallpapers.Length) + " PNGs and wallpapers through it as the website's, with the screen effect too, named for the connection", SignalPngsLikeTheWebsite);
+                Run("signal: the settings files the website hands the engine, number for number (" + Website.EngineFiles.Length + ")", EngineSettingsLikeTheWebsite);
+                Run("signal: CGA composite's colours from the signal, as the website's", ArtifactColoursLikeTheWebsite);
                 Run("wallpapers: " + Website.Wallpapers.Length + " wallpapers, with and without the screen effect, as the website's", WallpapersLikeTheWebsite);
                 Run("PNG: sizes, raw and as on a TV, for every machine and Size", SizesLikeTheWebsite);
                 Run("file names: the website's names, photo-nes-256x240-4x.png", NamesLikeTheWebsite);
@@ -138,12 +142,14 @@ namespace B0r3dDeRes.Tests
                 Run("window: the Colours slider picks fewer colours, and starts at each machine's own", ColoursSlider);
                 Run("window: .scr, .koa and .chr saved as the machine makes them, see-through ones on black", MachineFiles);
                 Run("window: palettes loaded, grabbed and saved in every kind", PalettesInAndOut);
-                Run("window: looks saved, pasted as a link, dropped as a file, and what comes later said", LooksInAndOut);
+                Run("window: looks saved, pasted as a link, dropped as a file, the screen and the signal in them", LooksInAndOut);
                 Run("window: a machine clicked again starts over, a look keeps its width, a .txt palette loads", SmallBehaviours);
                 Run("window: Surprise me rolls as the website does (the screen too), and Reset settings asks first", SurpriseAndReset);
                 Run("screen: each screen's controls, and the preview's screen effect is the engine's, made at the zoom shown, pixel for pixel at 100 % and 150 %", ScreenSectionAndPreview);
                 Run("screen: PNGs and copies with the screen effect from 3× up, named -fx, and the wallpapers, the PC's screens too", PngsAndWallpapersWithTheScreen);
                 Run("analog looks: their words, no dithers, their own colours, in the window", AnalogLooksInTheWindow);
+                Run("signal: its controls and words, the preview through it (and a screen over it) the engine's at the zoom shown, CGA composite's colours from it", SignalSectionAndPreview);
+                Run("signal: PNGs, copies, wallpapers and batches through it, full colour, named -rf", SignalInPngsAndWallpapers);
                 Run("batch: a folder through a look, every file read back, the broken one said, files numbered (a picture's together), skipped or replaced, .scr on black for kept parts, and closing waits for it", BatchMakesFiles);
                 Run("DeRes the screen: the screens in real pixels, a box, a screen or all of them as the picture", DeresTheScreen);
                 Run("keyboard: no two things share an access key, and every menu line has one", AccessKeysAreUnique);

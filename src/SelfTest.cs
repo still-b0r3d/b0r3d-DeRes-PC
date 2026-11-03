@@ -11,12 +11,17 @@ namespace B0r3dDeRes
 {
     // b0r3dDeRes.exe --selftest <file>: no window shown. Opens a sample from inside the exe, makes
     // the picture, saves it as a PNG the way File → Save PNG does and reads that back through
-    // Windows, makes it on every machine and through every screen effect, reads back a share
-    // link, builds the windows in both looks with the picture in them, and writes what it found
-    // to <file> as key=value lines; the exit code is 0 when it all worked. The tests run it on the
-    // finished exe, on its own in a folder, to prove it works with nothing beside it.
+    // Windows, makes it on every machine, through every screen effect and through the signal (the
+    // website's very frame), reads back a share link, builds the windows in both looks with the
+    // picture in them, and writes what it found to <file> as key=value lines; the exit code is 0
+    // when it all worked. The tests run it on the finished exe, on its own in a folder, to prove it
+    // works with nothing beside it.
     static class SelfTest
     {
+        // the website's own frame of the Rukus sample on the Game Boy over RF (its SHA-256; the
+        // tests check it against their copy of the website's, Website.SelfTestSignal)
+        internal const string RukusOverRf = "e4144a90e4de3245bdc926c59c83d478e993d8aa8d53702ace86b81d116de9d6";
+
         public static int Run(string reportPath)
         {
             var lines = new List<string>();
@@ -81,11 +86,24 @@ namespace B0r3dDeRes
                 lines.Add("screens=" + (screens ? "ok" : "failed"));
                 ok &= screens;
 
-                // a share link, made and read back
+                // the signal: the picture over RF comes out as the website's own, byte for byte (so
+                // this PC works its sums out as the website's engine does), and a PNG through it
+                SignalImage through = Signal.Run(r, r.Profile.Id, new SignalSettings { Mode = SignalModes.Rf }, 0);
+                bool signal;
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                    signal = string.Concat(sha.ComputeHash(through.Rgb).Select(b => b.ToString("x2"))) == RukusOverRf;
+                BitmapFrame overRf = BitmapDecoder.Create(new MemoryStream(Export.PngBytes(r, 3, false, null, through)), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0];
+                signal &= overRf.PixelWidth == 480 && overRf.PixelHeight == 432 && overRf.Format.BitsPerPixel >= 24;
+                lines.Add("signal=" + (signal ? "ok" : "failed"));
+                ok &= signal;
+
+                // a share link, made and read back (with the signal in it)
                 Settings shared = Settings.Defaults();
                 shared.Deres.ProfileId = "snes";
                 shared.Deres.CustomCount = 7;
-                bool link = Looks.Link(Looks.Apply(Looks.FromLink(Looks.Link(shared)), Settings.Defaults(), out _)) == Looks.Link(shared);
+                shared.Signal.Mode = SignalModes.VhsEp;
+                shared.Signal.Wear = 0.85;
+                bool link = Looks.Link(Looks.Apply(Looks.FromLink(Looks.Link(shared)), Settings.Defaults())) == Looks.Link(shared);
                 lines.Add("link=" + (link ? "ok" : "failed"));
                 ok &= link;
 

@@ -10,6 +10,8 @@ namespace B0r3dDeRes
         public const string Maker = "b0r3d.org";
         public const string MakerUrl = "https://b0r3d.org";
         public const string WebsiteUrl = "https://img.b0r3d.org";
+        // the signal engine's own page (under the Signal, "ntsc-rs")
+        public const string SignalEngineUrl = "https://github.com/valadaptive/ntsc-rs";
 
         // "0.1 build abc1234", the exe's Product version: the version, then the commit it was built
         // from ("dev" for a build made anywhere but GitHub). build.cmd passes the commit in.

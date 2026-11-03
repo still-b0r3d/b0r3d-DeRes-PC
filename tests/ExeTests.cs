@@ -68,6 +68,8 @@ namespace B0r3dDeRes.Tests
                 Check(found.TryGetValue("machines", out string machines) && machines == "ok" && found.TryGetValue("link", out string link) && link == "ok",
                     "every machine and a share link should work inside the exe: " + all);
                 Check(found.TryGetValue("screens", out string screens) && screens == "ok", "every screen effect should work inside the exe: " + all);
+                Check(SelfTest.RukusOverRf == Website.SelfTestSignal, "the self-test's frame over RF isn't the website's (make the test files again, and copy their hash into SelfTest.cs)");
+                Check(found.TryGetValue("signal", out string signal) && signal == "ok", "the signal inside the exe should make the website's very frame: " + all);
                 Check(found["bits"] == "64", "the exe ran as a " + found["bits"] + "-bit program; only 64-bit does the website's sums to the last bit");
                 Check(found["dpi"] == "per-monitor-v2", "the exe follows the screens' scaling as \"" + found["dpi"] + "\", not per-monitor-v2 (is the manifest in?)");
                 Check(found["version"] == Program.FullVersion, "the exe says " + found["version"]);
@@ -102,6 +104,7 @@ namespace B0r3dDeRes.Tests
             "https://img.b0r3d.org",          // Help → the website, opened in the browser
             "https://img.b0r3d.org/",         // a share link's start, copied as text (never opened)
             "https://img.b0r3d.org/#s=",
+            "https://github.com/valadaptive/ntsc-rs",   // the Signal's engine, opened in the browser
         };
         // an address: a scheme, then a host after the // ("https://" alone, in "Add https://", is none)
         const string Address = @"[A-Za-z][A-Za-z0-9+.\-]*://[A-Za-z0-9\[][^\s""'<>]*";

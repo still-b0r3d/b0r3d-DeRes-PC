@@ -23,10 +23,15 @@ namespace B0r3dDeRes
         public bool Maximized;
 
         public DeresSettings Deres = new DeresSettings();
+        public SignalSettings Signal = new SignalSettings();   // Signal
         public FxSettings Fx = new FxSettings();   // Screen
         public bool TvPixels;           // Export → Pixel shape: as on a TV, not raw
         public int Multiplier = 4;      // Export → Size
         public bool ExportFx;           // Export → With the screen effect
+        // a signal loop's frames and frames a second (the website's; kept and passed on in links)
+        public int LoopFrames = 16, LoopFps = 15;
+
+        public static readonly int[] LoopFrameCounts = { 16, 32, 48 }, LoopSpeeds = { 15, 30 };
 
         // a fresh start, as the website's first visit
         public static Settings Defaults() => new Settings();
@@ -35,12 +40,16 @@ namespace B0r3dDeRes
         {
             var copy = (Settings)MemberwiseClone();
             copy.Deres = Deres.Clone();
+            copy.Signal = Signal.Clone();
             copy.Fx = Fx.Clone();
             return copy;
         }
 
         // the screen effect an export gets: with the box ticked and a screen on (from 3× up)
         public FxSettings ExportScreen => ExportFx && Fx.Screen != Screens.Off ? Fx : null;
+
+        // the signal, while it's on (null: off)
+        public SignalSettings SignalOn => Signal.Mode != SignalModes.Off ? Signal : null;
 
         public static Settings Load() => Load(System.IO.Path.Combine(DataFolder.Path, FileName));
 
@@ -151,6 +160,27 @@ namespace B0r3dDeRes
                     case "on_screen_display":
                         if (value == "on" || value == "off") s.Fx.VhsOsd = value == "on";
                         break;
+                    case "signal":
+                        if (SignalModes.All.Contains(value)) s.Signal.Mode = value;
+                        break;
+                    case "wear":
+                        if (Number(value, out double wear)) s.Signal.Wear = Clamp(wear, 0, 1);
+                        break;
+                    case "signal_colour":
+                        if (Number(value, out double colour)) s.Signal.Colour = Clamp(colour, 0, 1.5);
+                        break;
+                    case "sharpen":
+                        if (Number(value, out double sharpen)) s.Signal.Sharpen = Clamp(sharpen, 0, 1);
+                        break;
+                    case "decoder":
+                        if (value == SignalModes.Notch || value == SignalModes.Comb) s.Signal.Decoder = value;
+                        break;
+                    case "loop_frames":
+                        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int frames) && LoopFrameCounts.Contains(frames)) s.LoopFrames = frames;
+                        break;
+                    case "loop_fps":
+                        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int fps) && LoopSpeeds.Contains(fps)) s.LoopFps = fps;
+                        break;
                 }
             }
             // a machine's dither when the one kept isn't one there is
@@ -201,6 +231,13 @@ namespace B0r3dDeRes
             Line("dither", d.Dither);
             if (d.CustomCount.HasValue) Line("colours", d.CustomCount.Value.ToString(CultureInfo.InvariantCulture));
             if (d.CustomPalette != null && d.CustomPalette.Length > 0) Line("palette", string.Join(" ", d.CustomPalette));
+            Line("signal", Signal.Mode);
+            Line("wear", N(Signal.Wear));
+            Line("signal_colour", N(Signal.Colour));
+            Line("sharpen", N(Signal.Sharpen));
+            Line("decoder", Signal.Decoder);
+            Line("loop_frames", LoopFrames.ToString(CultureInfo.InvariantCulture));
+            Line("loop_fps", LoopFps.ToString(CultureInfo.InvariantCulture));
             Line("screen", Fx.Screen);
             Line("mask", Fx.Mask);
             Line("scanlines", N(Fx.Scanlines));

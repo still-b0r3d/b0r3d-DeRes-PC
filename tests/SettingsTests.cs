@@ -70,6 +70,21 @@ namespace B0r3dDeRes.Tests
                     "the picture's settings read back as " + back.ToText());
                 Check(d.Adjust.Brightness == -0.17 && d.Adjust.Contrast == 1.37 && d.Adjust.Saturation == 0.01 && d.Adjust.Gamma == 2.03, "the adjustments read back as " + back.ToText());
                 string file = Path.Combine(folder, Settings.FileName);
+
+                // the signal, and its loop's frames and speed
+                s.Signal = new SignalSettings { Mode = SignalModes.VhsEp, Wear = 0.85, Colour = 1.25, Sharpen = 0.6, Decoder = SignalModes.Comb };
+                s.LoopFrames = 48;
+                s.LoopFps = 30;
+                Check(s.Save(), "couldn't save: " + DataFolder.WhyNotKept);
+                back = Settings.Load();
+                Check(back.Signal.SameAs(s.Signal) && back.LoopFrames == 48 && back.LoopFps == 30, "the signal read back as " + back.ToText());
+                File.WriteAllText(file, "signal=tv\nwear=2\nsignal_colour=-1\nsharpen=x\ndecoder=Comb\nloop_frames=17\nloop_fps=29.97\n");
+                Settings odd0 = Settings.Load();
+                Check(odd0.Signal.Mode == SignalModes.Off && odd0.Signal.Wear == 1 && odd0.Signal.Colour == 0 && odd0.Signal.Sharpen == 0.25 && odd0.Signal.Decoder == SignalModes.Notch &&
+                    odd0.LoopFrames == 16 && odd0.LoopFps == 15, "garbled signal lines: " + odd0.ToText());
+                s.Signal = new SignalSettings();
+                s.LoopFrames = 16;
+                s.LoopFps = 15;
                 Check(!Directory.GetFiles(folder).Any(f => f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)), "a .tmp was left behind");
 
                 // Custom's palette and count, and see-through parts kept

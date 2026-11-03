@@ -8,11 +8,11 @@ stay on your PC: it never goes online, and it never keeps them.
 
 It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install.
 
-**Being built.** This is version 0.3, the third of nine stages: the program itself, opening
+**Being built.** This is version 0.4, the fourth of nine stages: the program itself, opening
 pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
-screen effects, the preview, saving, copying and dragging out PNGs, wallpapers, batches, DeRes
-the screen, the machines' own files for emulators, palette files, look files and share links.
-The Signal comes next, then GIFs, video, the ASCII / ANSI studio and the EXIF tools.
+Signal, the screen effects, the preview, saving, copying and dragging out PNGs, wallpapers,
+batches, DeRes the screen, the machines' own files for emulators, palette files, look files and
+share links. GIFs and loops come next, then video, the ASCII / ANSI studio and the EXIF tools.
 
 ## Make a picture
 
@@ -59,6 +59,15 @@ The settings on the left fold out like the website's:
 - **Dither:** none, Bayer 2×2, 4×4 and 8×8, Floyd–Steinberg, Atkinson and Yliluoma, plus the
   Game Boy Camera's and the PlayStation's own on those machines. The ones that change nothing
   on a machine are greyed out, and a line says why.
+- **Signal:** the picture goes out of the machine as an analog TV signal and comes back the way
+  a TV decoded it, with the colour bleed, fringes and noise: over the machine's own connection,
+  RF, composite, or a VHS tape at SP, LP or EP. **Wear** goes from a clean signal to twice the
+  connection's usual noise; **Advanced** has the colour, the sharpening and the TV's decoder
+  (simple, or a comb filter, which cleans up the fringes and the colours that only exist in the
+  signal). Each machine goes out at its own pixel clock, and those with 228 colour cycles a line
+  keep their fringes still; CGA composite's colours are made by the signal itself, and its
+  picture is dithered to them. It's ntsc-rs, the engine the website runs, with every frame the
+  same as the website's.
 - **Screen:** what the machine's screen made of it: a CRT (no mask, a shadow mask or an aperture
   grille, with scanlines, curve and bloom), an LCD (its pixel grid and ghosting), a VHS tape
   (tracking jitter and noise, and the on-screen display), composite, and the green, amber and
@@ -84,8 +93,9 @@ line: how many colours it uses, its size, the shape of its pixels and the tile m
 website names it (`photo-nes-256x240-4x.png`), as an indexed PNG holding the machine's palette,
 and nothing else: no metadata, no program name, at any size. The looks that make their own
 colours (HAM, the PlayStation, the N64) hold exactly the colours they use, or go full colour
-past 256 of them. With the screen effect it's full colour, named `-fx`. Parts kept see-through
-stay see-through. **Edit → Copy picture** (Ctrl+C)
+past 256 of them. With the screen effect it's full colour, named `-fx`; through the signal it's
+full colour too, named for the connection (`photo-nes-256x240-4x-rf.png`). Parts kept
+see-through stay see-through. **Edit → Copy picture** (Ctrl+C)
 copies it, and the small picture under the preview drags it into a folder or another program,
 as a PNG and as a plain picture; those two go at most 16 megapixels, the website's own limit,
 so a bigger Size goes at the biggest one within it, and the bottom line says so.
@@ -96,13 +106,14 @@ emulators and the old paint programs: the ZX Spectrum's `.scr`, the C64 multicol
 palette…** keeps the picture's colours as a `.hex`, `.pal`, `.gpl` or palette picture.
 
 A wallpaper (Export, or **File → Save wallpaper**) is the picture enlarged by the biggest whole
-step that fits, centred on its first colour, with the screen effect from 3× up.
+step that fits, centred on its first colour, through the signal when it's on and with the
+screen effect from 3× up.
 
 ## Batches
 
 **File → Batch** (Ctrl+B), or a folder or several pictures dropped on the window, runs them all
-through the look you have into a folder: a PNG each (at the Size, Pixel shape and screen effect
-set under Export) or a wallpaper each, and the machine's own file if you ask. A folder gives its
+through the look you have (the signal too) into a folder: a PNG each (at the Size, Pixel shape
+and screen effect set under Export) or a wallpaper each, and the machine's own file if you ask. A folder gives its
 own pictures, not those in the folders inside it, nor the ones OneDrive keeps only online. You
 choose once what happens to a file that's already there: numbered, replaced or skipped. Several
 pictures are made at once, on every core; every file is written whole and then read back from
@@ -116,8 +127,8 @@ keeps it in a small `.json` file (the website's own names for its settings); **F
 look…**, or dropping the file on the window, brings it back. **Copy share link** (in Export and
 the Edit menu) copies a link that opens the same look on img.b0r3d.org; a share link made on the
 website, pasted here with Ctrl+V, opens its look on the PC. The links are the website's very
-own, letter for letter, screen effect and all. A link with the Signal says so: it comes with a
-later version.
+own, letter for letter, screen effect and signal and all (the signal's loop length and speed
+too, kept for the loops of a later version).
 
 **View → Look** follows Windows' light or dark setting, or stays light or dark.
 
@@ -143,7 +154,7 @@ download folder inside AppData), it still works and says settings won't be kept.
 ## The same pictures as the website
 
 The engine is the website's own, translated from its TypeScript into C# file by file, and the
-tests check it against the website's engine itself: 746 pictures (every machine and analog look
+tests check it against the website's engine itself: 761 pictures (every machine and analog look
 with every dither that changes it, the framings, custom widths, Detail, the adjustments,
 see-through parts kept and laid on white and black, the Colours slider and loaded palettes) come
 out the same, pixel for pixel, with the same tile meter and the same machine files; 253 PNGs
@@ -154,6 +165,15 @@ exponentials and powers are fdlibm's, as V8 has them in Node (where the test fil
 which give every value the website keeps (as floats) exactly. Today's Chrome rounds some sines,
 cosines, exponentials and cube roots differently in a double's last bit; once kept as floats,
 that hasn't changed a pixel in any case checked.
+The Signal is ntsc-rs, which the website runs as WebAssembly (built from Rust), translated
+into C#: 104 frames (every machine as it went out, every connection, the wear, colour,
+sharpening and decoder, later frames and huge frame numbers, interlaced, see-through and tiny
+pictures), 13 PNGs and wallpapers through it, CGA composite's colours and the engine's
+settings files come out the same as the website's, byte for byte. That holds on any PC: like
+the WebAssembly, C# here does every multiply and add on its own, rounded each time (no
+processor's fused shortcuts), and the signal's sines, powers and the like are copies of the
+routines Rust's maths library (libm) has. The self-test checks one of those frames on the PC
+it runs on.
 Share links and look files write and read numbers exactly as JavaScript does. The test files
 are made from the website at the version named at the top of `tests/WebsiteCases.cs`.
 
@@ -180,6 +200,7 @@ stays well within that on a two-core machine too.
 
 MIT with the Commons Clause, licensor b0r3d.org: free to use, change and share, not to sell.
 See [LICENSE](LICENSE). The cube root, power, sine, cosine and exponential routines come from
-fdlibm, through the V8 JavaScript engine; their notices are in
+fdlibm, through the V8 JavaScript engine; the Signal is ntsc-rs by valadaptive (MIT), with
+maths routines from Rust's libm (MIT, from musl and FreeBSD); their notices are in
 [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) and in Help → About. The licence covers the
 code, not the b0r3d name or the cup.
