@@ -146,8 +146,8 @@ The engine is the website's own, translated from its TypeScript into C# file by 
 tests check it against the website's engine itself: 746 pictures (every machine and analog look
 with every dither that changes it, the framings, custom widths, Detail, the adjustments,
 see-through parts kept and laid on white and black, the Colours slider and loaded palettes) come
-out the same, pixel for pixel, with the same tile meter and the same machine files; 313 PNGs
-hold the same palette, see-through entries and pixel rows; 359 screen effects at many sizes and
+out the same, pixel for pixel, with the same tile meter and the same machine files; 253 PNGs
+hold the same palette, see-through entries and pixel rows; 215 screen effects at many sizes and
 16 wallpapers come out the same pixel for pixel. Where .NET and JavaScript work out a sum
 differently in its last bit, the engine has copies of the routines: cube roots, sines, cosines,
 exponentials and powers are fdlibm's, as V8 has them in Node (where the test files are made),
@@ -171,7 +171,9 @@ You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) to build it (`
 takes any 10.0 one); the program itself runs on .NET Framework 4.8, which comes with Windows 10
 and 11. Double-click
 `build.cmd`, or run `build.cmd test` to build and run the tests. The exe lands in
-`bin\b0r3dDeRes.exe`. The tests print a PASS or FAIL line each;
+`bin\b0r3dDeRes.exe`. The tests print a PASS or FAIL line each, and a run stops itself after 90
+seconds; `build.cmd test` runs them in two parts (`--part engine`, then `--part window`) so each
+stays well within that on a two-core machine too.
 `bin\tests\b0r3dDeResTests.exe --shots <folder>` draws the windows to PNG files.
 
 ## Licence

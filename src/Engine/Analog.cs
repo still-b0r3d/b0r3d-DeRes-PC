@@ -216,11 +216,11 @@ namespace B0r3dDeRes.Engine
             // Each 8×8 block of a channel reads only its own pixels (the edge ones repeat the last
             // row and column), so the blocks go on every core and come out the same.
             int blocksX = (width + 7) / 8, blocksY = (height + 7) / 8;
-            EveryCore.For(0, 3 * blocksY, () => new float[3 * 64], (job, state, blocks) =>
+            EveryCore.For(0, 3 * blocksY, () => new BlockWork(), (job, state, work) =>
             {
                 int c = job / blocksY, by = job % blocksY * 8;
-                for (int bx = 0; bx < blocksX * 8; bx += 8) Block(srgb, width, height, c, bx, by, blocks);
-                return blocks;
+                for (int bx = 0; bx < blocksX * 8; bx += 8) Block(srgb, width, height, c, bx, by, work);
+                return work;
             });
 
             for (int i = 0; i < n; i++)
@@ -234,23 +234,34 @@ namespace B0r3dDeRes.Engine
             return new Result { Indices = indices, Rgb = output, Paper = new byte[] { 255, 255, 255 } };
         }
 
-        // one block of one channel: forward DCT, quantised, back
-        static void Block(float[] srgb, int width, int height, int c, int bx, int by, float[] buffers)
+        // a thread's room for working on blocks
+        sealed class BlockWork
         {
-            const int input = 0, dct = 64, back = 128;
+            public readonly float[] Input = new float[64], Dct = new float[64], Back = new float[64];
+            public readonly double[] Products = new double[512];
+        }
+
+        // One block of one channel: forward DCT, quantised, back. The website's sums term for
+        // term, in its order; only the products it makes over and over are made once and kept.
+        static void Block(float[] srgb, int width, int height, int c, int bx, int by, BlockWork work)
+        {
+            float[] input = work.Input, dct = work.Dct, back = work.Back;
+            double[] products = work.Products;
             for (int y = 0; y < 8; y++)
             {
                 int sy = Math.Min(height - 1, by + y);
                 for (int x = 0; x < 8; x++)
                 {
                     int sx = Math.Min(width - 1, bx + x);
-                    buffers[input + y * 8 + x] = (float)(((double)srgb[(sy * width + sx) * 3 + c] - 0.5) * 255);
+                    input[y * 8 + x] = (float)(((double)srgb[(sy * width + sx) * 3 + c] - 0.5) * 255);
                 }
             }
 
+            // forward: the sum over y and x of (input × cos u) × cos v
             for (int u = 0; u < 8; u++)
             {
                 double alphaU = u == 0 ? 0.35355339 : 0.5;   // 1/√8, then √(2/8)
+                for (int i = 0; i < 64; i++) products[i] = (double)input[i] * cosTable[u * 8 + (i & 7)];
                 for (int v = 0; v < 8; v++)
                 {
                     double alphaV = v == 0 ? 0.35355339 : 0.5;
@@ -258,38 +269,44 @@ namespace B0r3dDeRes.Engine
                     for (int y = 0; y < 8; y++)
                     {
                         double cosV = cosTable[v * 8 + y];
-                        for (int x = 0; x < 8; x++) sum += (double)buffers[input + y * 8 + x] * cosTable[u * 8 + x] * cosV;
+                        for (int x = 0; x < 8; x++) sum += products[y * 8 + x] * cosV;
                     }
-                    buffers[dct + v * 8 + u] = (float)(alphaU * alphaV * sum);
+                    dct[v * 8 + u] = (float)(alphaU * alphaV * sum);
                 }
             }
 
             for (int k = 0; k < 64; k++)
             {
                 double q = jpegQuant[k] * 1.4;
-                buffers[dct + k] = (float)(JsMath.Round(buffers[dct + k] / q) * q);
+                dct[k] = (float)(JsMath.Round(dct[k] / q) * q);
             }
 
+            // back: the sum over v and u of (αu × αv × coefficient × cos u) × cos v
+            for (int x = 0; x < 8; x++)
+                for (int v = 0; v < 8; v++)
+                {
+                    double alphaV = v == 0 ? 0.35355339 : 0.5;
+                    for (int u = 0; u < 8; u++)
+                    {
+                        double alphaU = u == 0 ? 0.35355339 : 0.5;
+                        products[x * 64 + v * 8 + u] = alphaU * alphaV * dct[v * 8 + u] * cosTable[u * 8 + x];
+                    }
+                }
             for (int y = 0; y < 8; y++)
                 for (int x = 0; x < 8; x++)
                 {
                     double sum = 0;
                     for (int v = 0; v < 8; v++)
                     {
-                        double alphaV = v == 0 ? 0.35355339 : 0.5;
                         double cosV = cosTable[v * 8 + y];
-                        for (int u = 0; u < 8; u++)
-                        {
-                            double alphaU = u == 0 ? 0.35355339 : 0.5;
-                            sum += alphaU * alphaV * buffers[dct + v * 8 + u] * cosTable[u * 8 + x] * cosV;
-                        }
+                        for (int u = 0; u < 8; u++) sum += products[x * 64 + v * 8 + u] * cosV;
                     }
-                    buffers[back + y * 8 + x] = (float)Math.Min(1, Math.Max(0, (sum + 128) / 255));
+                    back[y * 8 + x] = (float)Math.Min(1, Math.Max(0, (sum + 128) / 255));
                 }
 
             for (int y = 0; y < 8 && by + y < height; y++)
                 for (int x = 0; x < 8 && bx + x < width; x++)
-                    srgb[((by + y) * width + bx + x) * 3 + c] = buffers[back + y * 8 + x];
+                    srgb[((by + y) * width + bx + x) * 3 + c] = back[y * 8 + x];
         }
 
         // ---- the newspaper: CMYK dots at the press's angles on newsprint ----

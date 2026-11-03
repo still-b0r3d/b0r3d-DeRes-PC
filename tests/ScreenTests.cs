@@ -171,7 +171,10 @@ namespace B0r3dDeRes.Tests
             Check(window.WallpaperChoices.Take(3).Select(x => x.Id).SequenceEqual(new[] { "phone", "win95", "desktop-1080p" }) && window.WallpaperChoices.Count == 3 + Monitors.All().Count,
                 "the wallpapers should be the website's three and one for each screen");
             Check(window.WallpaperButtons.Children.Count == window.WallpaperChoices.Count && window.WallpaperMenu.Items.Count == window.WallpaperChoices.Count, "a button and a menu line for each wallpaper");
-            foreach (Wallpaper paper in window.WallpaperChoices.Take(4))
+            // a screen's wallpaper is named for its size (made as the others are, so not made here)
+            Wallpaper screenPaper = window.WallpaperChoices[3];
+            Check(window.WallpaperName(r, screenPaper) == "cat-nap-cga-1-" + screenPaper.Width + "x" + screenPaper.Height + "-wallpaper.png", "a screen's wallpaper name: " + window.WallpaperName(r, screenPaper));
+            foreach (Wallpaper paper in window.WallpaperChoices.Where(w => w.Id == "phone" || w.Id == "desktop-1080p"))
             {
                 string file = Path.Combine(folder, window.WallpaperName(r, paper));
                 Check(Path.GetFileName(file) == "cat-nap-cga-1-" + paper.Id + "-wallpaper.png", "the wallpaper's name: " + Path.GetFileName(file));

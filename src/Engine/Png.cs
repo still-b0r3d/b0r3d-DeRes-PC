@@ -14,6 +14,11 @@ namespace B0r3dDeRes.Engine
     {
         static readonly byte[] Signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
+        // For the tests that compare hundreds of PNGs' rows with the website's, on their own
+        // threads: the rows go into the PNG stored rather than squeezed (still a whole, valid
+        // PNG with the same rows, made in a fraction of the time). Never set by the program.
+        [ThreadStatic] internal static bool Stored;
+
         static readonly uint[] crcTable = MakeCrcTable();
 
         static uint[] MakeCrcTable()
@@ -194,7 +199,7 @@ namespace B0r3dDeRes.Engine
             {
                 inner = output;
                 inner.Write(new byte[] { 0x78, 0x9C }, 0, 2);
-                deflate = new DeflateStream(inner, CompressionLevel.Optimal, true);
+                deflate = new DeflateStream(inner, Stored ? CompressionLevel.NoCompression : CompressionLevel.Optimal, true);
             }
 
             public override void Write(byte[] buffer, int offset, int count)

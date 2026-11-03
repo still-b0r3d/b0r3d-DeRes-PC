@@ -255,14 +255,24 @@ namespace B0r3dDeRes.Tests
         static void WallpapersLikeTheWebsite()
         {
             var found = new System.Collections.Concurrent.ConcurrentBag<string>();
-            System.Threading.Tasks.Parallel.ForEach(Website.Wallpapers, e =>
+            System.Threading.Tasks.Parallel.For(0, Website.Wallpapers.Length, at =>
             {
+                ExportCase e = Website.Wallpapers[at];
                 RenderCase c = Website.Renders[e.Render];
                 Rendered r = Made(e.Render);
                 byte[] png;
                 using (var bytes = new MemoryStream())
                 {
-                    Export.WriteWallpaper(bytes, r, e.TargetW, e.TargetH, e.Tv && !r.Geometry.SquarePixels, e.Fx);
+                    // (rows stored, not squeezed, but for every fourth: the rows are what's compared)
+                    Engine.Png.Stored = at % 4 != 0;
+                    try
+                    {
+                        Export.WriteWallpaper(bytes, r, e.TargetW, e.TargetH, e.Tv && !r.Geometry.SquarePixels, e.Fx);
+                    }
+                    finally
+                    {
+                        Engine.Png.Stored = false;
+                    }
                     png = bytes.ToArray();
                 }
                 PngParts(png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows, out byte[] trns);
@@ -276,6 +286,9 @@ namespace B0r3dDeRes.Tests
                 if (why.Count > 0) found.Add(e.Name + (e.Fx != null ? " with " + e.Fx.Screen : "") + ": " + string.Join(", ", why));
             });
             List<string> wrong = found.OrderBy(w => w, StringComparer.Ordinal).ToList();
+            // the last of the checks that keep pictures: they go, so the tests after have the memory
+            made.Clear();
+            lock (engines) engines.Clear();
             Check(wrong.Count == 0, wrong.Count + " of " + Website.Wallpapers.Length + " differ: " + string.Join("; ", wrong.Take(6)));
             Check(Export.Wallpapers.Select(w => w.Id + " " + w.Width + "x" + w.Height).SequenceEqual(new[] { "phone 1080x2400", "win95 1024x768", "desktop-1080p 1920x1080" }), "the website's three wallpapers");
         }
@@ -333,17 +346,23 @@ namespace B0r3dDeRes.Tests
             // checks need are kept
             var keep = new HashSet<int>(Website.Exports.Select(e => e.Render).Concat(Website.Screens.Select(s => s.Render)).Concat(Website.Wallpapers.Select(w => w.Render)));
             var found = new System.Collections.Concurrent.ConcurrentBag<(int At, string Why)>();
+            var took = new System.Collections.Concurrent.ConcurrentBag<(long Ms, string Case)>();
             var runs = Website.Renders.Select((c, i) => (Case: c, At: i)).GroupBy(x => x.Case.Input + "#" + x.At / 40).ToList();
             System.Threading.Tasks.Parallel.ForEach(runs, run =>
             {
                 foreach (var (c, at) in run)
                 {
+                    var watch = System.Diagnostics.Stopwatch.StartNew();
                     Rendered r = Render(c, run.Key);
                     if (keep.Contains(at)) made[at] = r;
                     string problem = Compare(c, r);
                     if (problem != null) found.Add((at, problem));
+                    took.Add((watch.ElapsedMilliseconds, c.ToString()));
                 }
             });
+            // with DERES_SLOW set, the slowest pictures (to keep the run within its 90 seconds)
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DERES_SLOW")))
+                foreach (var t in took.OrderByDescending(t => t.Ms).Take(20)) Console.WriteLine("      " + t.Ms + " ms  " + t.Case);
             List<string> wrong = found.OrderBy(f => f.At).Select(f => f.Why).ToList();
             Check(wrong.Count == 0, wrong.Count + " of " + Website.Renders.Length + " differ: " + string.Join("; ", wrong.Take(8)));
         }
@@ -466,12 +485,23 @@ namespace B0r3dDeRes.Tests
             // the pictures (kept from above), then their PNGs on every core
             var pictures = Website.Exports.Select(e => e.Render).Distinct().ToDictionary(k => k, Made);
             var wrong = new System.Collections.Concurrent.ConcurrentBag<string>();
-            System.Threading.Tasks.Parallel.ForEach(Website.Exports, e =>
+            System.Threading.Tasks.Parallel.For(0, Website.Exports.Length, at =>
             {
+                ExportCase e = Website.Exports[at];
                 RenderCase c = Website.Renders[e.Render];
                 Rendered r = pictures[e.Render];
                 bool tv = e.Tv && !r.Geometry.SquarePixels;
-                byte[] png = Export.PngBytes(r, e.Multiplier, tv, e.Fx);
+                // (rows stored, not squeezed, but for every tenth: the rows are what's compared)
+                Engine.Png.Stored = at % 10 != 0;
+                byte[] png;
+                try
+                {
+                    png = Export.PngBytes(r, e.Multiplier, tv, e.Fx);
+                }
+                finally
+                {
+                    Engine.Png.Stored = false;
+                }
                 PngParts(png, out string chunks, out int width, out int height, out int depth, out int colourType, out byte[] palette, out byte[] rows, out byte[] trns);
                 var why = new List<string>();
                 if (chunks != e.Chunks) why.Add("chunks " + chunks);

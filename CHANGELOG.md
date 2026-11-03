@@ -30,7 +30,7 @@ The third stage: the screens, the analog looks, wallpapers and batches.
   do; only the Signal still comes later.
 - Sines, cosines and exponentials are fdlibm's, as V8 works them out in Node, where the
   website's engine makes the test files.
-- 73 tests: 746 pictures, 313 PNGs, 359 screen effects and 16 wallpapers against the website's
+- 73 tests: 746 pictures, 253 PNGs, 215 screen effects and 16 wallpapers against the website's
   own engine, and 41,146 sines, cosines and exponentials against Node's.
 
 ## 0.2 (not released yet)

@@ -36,5 +36,10 @@ dotnet build tests\b0r3dDeResTests.csproj -c Release -nologo -v quiet -nodeReuse
 if errorlevel 1 exit /b 1
 
 echo Built bin\b0r3dDeRes.exe, build %BUILD%
-if /i "%~1"=="test" bin\tests\b0r3dDeResTests.exe
+if /i not "%~1"=="test" exit /b 0
+rem The tests, in two parts that each finish within 90 seconds (their watchdog), even on a
+rem 2-core CI machine: the engine against the website, then the windows.
+bin\tests\b0r3dDeResTests.exe --part engine
+if errorlevel 1 exit /b 1
+bin\tests\b0r3dDeResTests.exe --part window
 exit /b %ERRORLEVEL%

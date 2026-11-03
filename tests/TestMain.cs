@@ -22,12 +22,16 @@ namespace B0r3dDeRes.Tests
 
     // Runs every test and prints a PASS, FAIL or SKIP line for each. It never shows a dialog:
     // whatever goes wrong ends as a line, and a watchdog stops the run after 90 seconds.
-    //   b0r3dDeResTests.exe                  run the tests
-    //   b0r3dDeResTests.exe --shots <folder> draw the windows to PNG files (see Shots.cs)
+    //   b0r3dDeResTests.exe                        run the tests
+    //   b0r3dDeResTests.exe --part engine|window   run one part of them (build.cmd test runs
+    //                                              the two in turn, each within its 90 seconds
+    //                                              on a 2-core CI machine too)
+    //   b0r3dDeResTests.exe --shots <folder>       draw the windows to PNG files (see Shots.cs)
     static partial class TestMain
     {
         static int passed, failed, skipped;
         static volatile string running = "starting";   // the test under way, for the watchdog
+        static string only, part;                       // the part asked for (null: all), and the one the tests below are in
 
         // this exe is in bin\tests\; the program's exe is in bin\
         static readonly string TestsFolder = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
@@ -58,14 +62,16 @@ namespace B0r3dDeRes.Tests
                     TryDelete(Work);
                     return shot;
                 }
-                if (args.Length > 0)
+                if (args.Length == 2 && args[0] == "--part" && (args[1] == "engine" || args[1] == "window")) only = args[1];
+                else if (args.Length > 0)
                 {
-                    Console.WriteLine("b0r3dDeResTests.exe [--shots <folder>]");
+                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|window] [--shots <folder>]");
                     return 2;
                 }
 
                 List<string> footprint = Footprint();
 
+                part = "engine";
                 Run("version: the exe carries the version and the build", ExeVersion);
                 Run("one file: the exe runs on its own, 64-bit, per-monitor DPI on, samples inside, and its windows load", ExeRunsOnItsOwn);
                 Run("never goes online: no networking, web, XML, media, native or COM way out in the exe", ExeNeverGoesOnline);
@@ -115,6 +121,7 @@ namespace B0r3dDeRes.Tests
                 Run("settings: a save that fails once (a held file) doesn't stop the next", SaveFailsOnlyOnce);
                 Run("command line: --data, --selftest, a picture, and unknown options", CommandLines);
 
+                part = "window";
                 Run("look: the three colour sets match, and every colour used is in them", ThemesMatch);
                 Run("window: builds in light and dark with no binding errors", WindowWithoutBindingErrors);
                 Run("window: starts with the Rukus sample on the Game Boy, its lines in the website's words", WindowStartsWithTheSample);
@@ -143,6 +150,7 @@ namespace B0r3dDeRes.Tests
                 Run("look: the text boxes' right-click menu is b0r3d DeRes's own, so it's themed", TextMenusAreThemed);
                 Run("about: the version, the build, the settings folder and every licence", AboutShowsItAll);
 
+                part = only;   // (every part ends with it)
                 Run("footprint: nothing written to AppData, Temp or the registry", () => FootprintUnchanged(footprint));
 
                 Console.WriteLine();
@@ -154,6 +162,7 @@ namespace B0r3dDeRes.Tests
 
         static void Run(string name, Action test)
         {
+            if (only != null && part != only) return;
             running = name;
             var watch = Stopwatch.StartNew();
             try
