@@ -222,10 +222,42 @@ namespace B0r3dDeRes.Video
         }
 
         // Windows' video objects live on the free-threaded side: they're made and used there, so a
-        // call from the window's thread goes over to a thread of its own for as long as it takes
-        // (not a shared one: on two cores those can all be waiting on this very call)
-        internal static T Mta<T>(Func<T> f) => Thread.CurrentThread.GetApartmentState() != ApartmentState.STA ? f()
-            : Task.Factory.StartNew(f, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).GetAwaiter().GetResult();
+        // call from the window's thread goes over to the video thread, one of b0r3d DeRes's own that
+        // stays for good, and waits for it there. Not a shared thread: on two cores those can all be
+        // waiting on this very call. Nor a new one each time: Windows Server hangs on that.
+        internal static T Mta<T>(Func<T> f)
+        {
+            if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA) return f();
+            var done = new TaskCompletionSource<T>();
+            videoCalls.Add(() =>
+            {
+                try
+                {
+                    done.SetResult(f());
+                }
+                catch (Exception x)
+                {
+                    done.SetException(x);
+                }
+            });
+            return done.Task.GetAwaiter().GetResult();
+        }
+
+        // the calls waiting for the video thread, which is started with it
+        static readonly System.Collections.Concurrent.BlockingCollection<Action> videoCalls = StartVideoThread();
+
+        static System.Collections.Concurrent.BlockingCollection<Action> StartVideoThread()
+        {
+            var calls = new System.Collections.Concurrent.BlockingCollection<Action>();
+            var t = new Thread(() =>
+            {
+                foreach (Action call in calls.GetConsumingEnumerable()) call();
+            })
+            { IsBackground = true, Name = "b0r3d DeRes video" };
+            t.SetApartmentState(ApartmentState.MTA);
+            t.Start();
+            return calls;
+        }
 
         internal static void Mta(Action a) => Mta(() =>
         {
