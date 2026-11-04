@@ -59,6 +59,12 @@ namespace B0r3dDeRes
         public static string PictureInfo(LoadedPicture picture)
         {
             if (picture == null) return "No picture yet";
+            // a video: its frames' size, its length and speed ("clip.mp4 · 1920×1080 · 12.4 s at 30 a second")
+            if (picture.Video != null)
+            {
+                var file = picture.Video.File;
+                return picture.Name + " · " + picture.Source.Width + "×" + picture.Source.Height + " · " + Length(file.Duration) + " at " + FrameRate(file.Fps) + " a second" + (file.HasSound ? "" : ", no sound");
+            }
             AnimatedGif a = picture.Animation;
             string text = picture.Name + " · " + (a != null ? a.OrigW + "×" + a.OrigH : picture.Source.Width + "×" + picture.Source.Height);
             string frames = a != null ? GifInfo.FramesText(picture.Frames, a.Frames.Length, a.Total, a.DurationMs, true) : GifInfo.FramesText(picture.Frames, 0, 0, 0, false);
@@ -159,6 +165,21 @@ namespace B0r3dDeRes
 
         // the sliders' values, as the website shows them
         public static string Percent(double v) => Whole(v * 100) + "%";
+
+        // Dub it's value: how many times the tape was copied
+        public static string Dubs(int n) => n <= 0 ? "off" : n == 1 ? "once" : n == 2 ? "twice" : n + " times";
+
+        // a frame rate: "30", "29.97"
+        public static string FrameRate(double fps) => Math.Abs(fps - Math.Round(fps)) < 0.005 ? Math.Round(fps).ToString(CultureInfo.InvariantCulture) : fps.ToString("0.##", CultureInfo.InvariantCulture);
+
+        // a video's length (100 ns steps): "12.4 s", "3:05", "1:02:07"
+        public static string Length(long time)
+        {
+            double s = Math.Max(0, time / 1e7);
+            if (s < 59.95) return s.ToString("0.0", CultureInfo.InvariantCulture) + " s";
+            long whole = (long)Math.Round(s);
+            return whole >= 3600 ? (whole / 3600) + ":" + (whole / 60 % 60).ToString("00") + ":" + (whole % 60).ToString("00") : (whole / 60) + ":" + (whole % 60).ToString("00");
+        }
         public static string SignedPercent(double v) => (v > 0 ? "+" : "") + Whole(v * 100);
         public static string Gamma(double v) => v.ToString("0.00", CultureInfo.InvariantCulture);
     }

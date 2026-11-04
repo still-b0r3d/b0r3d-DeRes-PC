@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 
@@ -472,5 +473,19 @@ namespace B0r3dDeRes
 
         // JSON.stringify's text of a number (null when it isn't finite)
         public static string Number(double v) => double.IsNaN(v) || double.IsInfinity(v) ? "null" : JsNumber.Text(v);
+
+        // a value Parse read, written back as JSON.stringify writes it (what was too deep to keep is null)
+        public static string Write(object value)
+        {
+            switch (value)
+            {
+                case bool b: return b ? "true" : "false";
+                case double d: return Number(d);
+                case string s: return Quote(s);
+                case List<object> list: return "[" + string.Join(",", list.Select(Write)) + "]";
+                case Dictionary<string, object> obj: return "{" + string.Join(",", obj.Select(kv => Quote(kv.Key) + ":" + Write(kv.Value))) + "}";
+                default: return "null";
+            }
+        }
     }
 }

@@ -2,35 +2,8 @@ using System;
 
 namespace B0r3dDeRes.Engine
 {
-    // What the engine is told, by its own names (its settings files), and only what the website
-    // can send it: the rest stays at the engine's defaults (or the values the website always sends,
-    // in brackets), and the steps the website never reaches aren't here. Every number is the float
-    // the engine reads from the website's settings file.
-    sealed class NtscSettings
-    {
-        public bool Interlaced;                 // use_field: interleaved upper (else both, one field a frame)
-        public bool Comb;                       // chroma_demodulation: the 2-line comb (else the notch)
-        public float CompositePreemphasis;      // composite_preemphasis
-        public float CompositeNoise;            // composite_noise_intensity (frequency 0.5, detail 1)
-        public float Snow;                      // snow_intensity (anisotropy 0.5)
-        public bool HeadSwitching;              // height 8, offset 3, starting mid-line at 0.95 with a jitter of 0.03
-        public float HeadSwitchingShift;        // head_switching_horizontal_shift
-        public bool TrackingNoise;              // height 12, snow anisotropy 0.25
-        public float TrackingWave, TrackingSnow, TrackingNoiseIntensity;
-        public float LumaNoise;                 // luma_noise_intensity (frequency 0.5, detail 1)
-        public float ChromaNoise;               // chroma_noise_intensity (frequency 0.05, detail 2)
-        public float ChromaPhaseNoise;          // chroma_phase_noise_intensity
-        public bool Vhs;                        // vhs_settings: sharpened (0.25, frequency 1), the edge wave on (speed 4, frequency 0.05, detail 2)
-        public int TapeSpeed = 2;               // vhs_tape_speed: 0 none, 1 SP, 2 LP, 3 EP
-        public float ChromaLoss;                // vhs_chroma_loss
-        public float EdgeWave;                  // vhs_edge_wave
-        public float VerticalScale = 1;         // vertical_scale (bandwidth_scale 1)
-        // and always: no input luma filter, Butterworth filters, the full chroma lowpass in and out,
-        // luma smear 0.5, ringing (0.45, power 4, scale 4), no chroma phase error or delay, no vertical blend
-    }
-
     // ntsc-rs, the analog TV engine by valadaptive (crates/ntscrs at 450c6ee, MIT OR ISC OR
-    // Apache-2.0), copied from its Rust for the steps the website uses, with the website's own
+    // Apache-2.0), copied from its Rust, every setting of it (NtscSettings), with the website's own
     // wrapper (its signal/src/lib.rs) around it. The website runs it as WebAssembly with SIMD
     // (4 floats at a time, a multiply and an add each rounded): every sum here is the same sum in
     // the same order, row by row, so the frames come out the same, byte for byte. A frame's noise
@@ -43,8 +16,10 @@ namespace B0r3dDeRes.Engine
         static readonly float Pi = F(0x40490fdb), FracSqrt2 = F(0x3f3504f3);
         // 315/88 MHz × 4, and its half (the pre-emphasis), as the engine's floats
         static readonly float NtscRate = F(0x4b5a7a66), PreemphasisCutoff = F(0x49da7a66);
+        // 16/255: the black level a box filter starts from
+        static readonly float BoxBlack = F(0x3d808081);
 
-        // ---- filters (filter.rs): IIR filters of up to 3 coefficients a side
+        // ---- filters (filter.rs): IIR filters of up to 4 coefficients a side
 
         sealed class Filter
         {
@@ -66,6 +41,10 @@ namespace B0r3dDeRes.Engine
                 float alpha = timeInterval / (tau + timeInterval);
                 return new Filter(new[] { alpha }, new[] { -(1f - alpha) });
             }
+
+            // the setting's kind of lowpass: three constant-k ones in a row, or a Butterworth
+            public static Filter LowpassFor(float cutoff, float rate, FilterType type) =>
+                type == FilterType.ConstantK ? Lowpass(cutoff, rate).CascadeSelf(3) : Butterworth(cutoff, rate);
 
             public static Filter Notch(float freq, float quality)
             {
@@ -96,6 +75,32 @@ namespace B0r3dDeRes.Engine
                 var den = new float[Len - 1];
                 Array.Copy(Den, den, Len - 1);
                 return new Filter(num, den);
+            }
+
+            // this filter then `b` (the polynomials multiplied, as the engine's Mul does it)
+            Filter Then(Filter b)
+            {
+                var num = new float[7];
+                var den = new float[7];
+                for (int i = 0; i < Len; i++)
+                    for (int j = 0; j < b.Len; j++) num[i + j] += Num[i] * b.Num[j];
+                for (int i = 0; i < Len; i++)
+                    for (int j = 0; j < b.Len; j++) den[i + j] += (i == 0 ? 1f : Den[i - 1]) * (j == 0 ? 1f : b.Den[j - 1]);
+                int numLen = 7, denLen = 7;
+                while (numLen > 0 && num[numLen - 1] == 0) numLen--;
+                while (denLen > 0 && den[denLen - 1] == 0) denLen--;
+                var n = new float[numLen];
+                Array.Copy(num, n, numLen);
+                var d = new float[Math.Max(0, denLen - 1)];
+                Array.Copy(den, 1, d, 0, d.Length);
+                return new Filter(n, d);
+            }
+
+            public Filter CascadeSelf(int n)
+            {
+                Filter f = this;
+                for (int i = 1; i < n; i++) f = f.Then(this);
+                return f;
             }
 
             // the state that starts the filter as if every sample before the row were `value`
@@ -310,6 +315,9 @@ namespace B0r3dDeRes.Engine
             }
         }
 
+        // a setting's octaves of noise, 1 to 5 (a negative number counts as 0)
+        static int Octaves(int detail) => Math.Max(1, Math.Min(5, detail));
+
         // ---- shifting a row by a fraction of a sample (shift.rs), linear between its neighbours:
         // the engine does whole blocks of 4 one way ((l - r) × frac + r) and the edges another
         // (l × frac + r × (1 - frac))
@@ -389,12 +397,30 @@ namespace B0r3dDeRes.Engine
             return (byte)(int)t;
         }
 
+        // the rows a field keeps of a picture `height` lines tall (num_image_rows), and of those
+        // the ones the picture really has (num_actual_image_rows: none for the lower field of a
+        // one-line picture)
+        static int UpperRows(int height) => (height + 1) / 2;
+        static int LowerRows(int height) => Math.Max(1, height / 2);
+
+        // which field a frame uses (UseField::to_yiq_field): alternating fields take the lower on even frames
+        static UseField FieldOf(UseField use, uint frame) => use != UseField.Alternating ? use : (frame & 1) == 0 ? UseField.Lower : UseField.Upper;
+
         // ---- one frame: the website's wrapper (signal/src/lib.rs)
 
         const int HalfCycle = 2;
 
         // Does this line's colour carrier come flipped (the engine's own rule for one field a frame)?
         static bool CarrierFlipped(uint frame, int line) => ((frame + 2 * (uint)line) & 2) != 0;
+
+        // a part of the picture the engine runs on: a field (or the whole of it), the source rows it
+        // holds (every one, or every other one from `first`), and its frame number
+        sealed class Part
+        {
+            public Field Field;
+            public int First, Step;
+            public uint Frame;
+        }
 
         // One frame of `rgb` (width × height, r, g, b a pixel) through the engine, back as r, g, b.
         // `frame`: which frame (its noise; sums wrap at 32 bits, as the engine's usize does in
@@ -405,54 +431,128 @@ namespace B0r3dDeRes.Engine
         // from 0).
         public static byte[] Frame(byte[] rgb, int width, int height, uint frame, NtscSettings s, float chroma, bool lineLocked, int pad)
         {
-            bool locked = lineLocked && !s.Interlaced;
+            bool locked = lineLocked && s.UseField == UseField.Both;
             pad = Math.Max(pad, locked ? HalfCycle : 0);
             int pw = width + 2 * pad;
+            UseField field = FieldOf(s.UseField, frame);
 
-            // into YIQ: one field of every line, or the even lines then the odd ones
-            Field[] fields = s.Interlaced
-                ? new[] { new Field(pw, (height + 1) / 2), new Field(pw, height / 2) }
-                : new[] { new Field(pw, height) };
+            // the parts, in the order their rows sit in the engine's buffer
+            Part P(int rows, int first, int step, uint number) => new Part { Field = new Field(pw, rows), First = first, Step = step, Frame = number };
+            Part[] parts;
+            switch (field)
+            {
+                case UseField.Upper:
+                    parts = new[] { P(UpperRows(height), 0, 2, frame) };
+                    break;
+                case UseField.Lower:
+                    parts = new[] { P(LowerRows(height), height == 1 ? 0 : 1, 2, frame) };
+                    break;
+                case UseField.InterleavedUpper:
+                    parts = height / 2 > 0 ? new[] { P(UpperRows(height), 0, 2, frame * 2), P(height / 2, 1, 2, frame * 2 + 1) } : new[] { P(UpperRows(height), 0, 2, frame * 2) };
+                    break;
+                case UseField.InterleavedLower:
+                    parts = height / 2 > 0 ? new[] { P(height / 2, 1, 2, frame * 2), P(UpperRows(height), 0, 2, frame * 2 + 1) } : new[] { P(UpperRows(height), 0, 2, frame * 2 + 1) };
+                    break;
+                default:
+                    parts = new[] { P(height, 0, 1, frame) };
+                    break;
+            }
+
+            // into YIQ
             var norm = new float[256];
             for (int v = 0; v < 256; v++) norm[v] = v * Inv255;
-            EveryCore.For(0, height, y =>
+            foreach (Part part in parts)
             {
-                Field f = fields[s.Interlaced ? y & 1 : 0];
-                int row = s.Interlaced ? y >> 1 : y;
-                if (f.Rows == 0) return;
-                int start = pad + (locked && CarrierFlipped(frame, y) ? HalfCycle : 0);
-                for (int x = 0; x < pw; x++)
+                Field f = part.Field;
+                EveryCore.For(0, f.Rows, row =>
                 {
-                    int sx = Math.Min(width - 1, Math.Max(0, x - start)), si = (y * width + sx) * 3, o = row * pw + x;
-                    float r = norm[rgb[si]], g = norm[rgb[si + 1]], b = norm[rgb[si + 2]];
-                    f.Y[o] = r * Ry + (g * Gy + b * By);
-                    f.I[o] = r * Ri + (g * Gi + b * Bi);
-                    f.Q[o] = r * Rq + (g * Gq + b * Bq);
-                }
-            });
-
-            if (s.Interlaced)
-            {
-                // the even lines are a frame's first field, the odd ones its second
-                if (fields[0].Rows > 0) Effect(fields[0], frame * 2, s);
-                if (fields[1].Rows > 0) Effect(fields[1], frame * 2 + 1, s);
+                    int y = height == 1 ? 0 : part.First + row * part.Step;
+                    int start = pad + (locked && CarrierFlipped(frame, y) ? HalfCycle : 0);
+                    for (int x = 0; x < pw; x++)
+                    {
+                        int sx = Math.Min(width - 1, Math.Max(0, x - start)), si = (y * width + sx) * 3, o = row * pw + x;
+                        float r = norm[rgb[si]], g = norm[rgb[si + 1]], b = norm[rgb[si + 2]];
+                        f.Y[o] = r * Ry + (g * Gy + b * By);
+                        f.I[o] = r * Ri + (g * Gi + b * Bi);
+                        f.Q[o] = r * Rq + (g * Gq + b * Bq);
+                    }
+                });
             }
-            else Effect(fields[0], frame, s);
 
+            foreach (Part part in parts) Effect(part.Field, part.Frame, s, height);
+
+            if (chroma != 1f)
+                foreach (Part part in parts)
+                {
+                    float[] i = part.Field.I, q = part.Field.Q;
+                    for (int k = 0; k < i.Length; k++)
+                    {
+                        i[k] *= chroma;
+                        q[k] *= chroma;
+                    }
+                }
+
+            // back out: the engine's buffer row each picture row shows (Bob: the rows a single field
+            // skips are the mean of the rows above and below)
+            int bufferRows = 0;
+            foreach (Part part in parts) bufferRows += part.Field.Rows;
+            (Field, int) BufferRow(int k)
+            {
+                foreach (Part part in parts)
+                {
+                    if (k < part.Field.Rows) return (part.Field, k);
+                    k -= part.Field.Rows;
+                }
+                return (parts[parts.Length - 1].Field, parts[parts.Length - 1].Field.Rows - 1);
+            }
             var outRgb = new byte[width * height * 3];
             EveryCore.For(0, height, y =>
             {
-                Field f = fields[s.Interlaced ? y & 1 : 0];
-                int row = s.Interlaced ? y >> 1 : y;
                 int start = pad + (locked && CarrierFlipped(frame, y) ? HalfCycle : 0);
+                Field f, f2 = null;
+                int row, row2 = 0;
+                switch (field)
+                {
+                    case UseField.Upper:
+                    case UseField.Lower:
+                        {
+                            Field only = parts[0].Field;
+                            int skip = field == UseField.Upper ? 1 : 0;
+                            if ((y & 1) == skip && y != 0 && y != height - 1)
+                            {
+                                f = only;
+                                row = (y + 1) >> 1;
+                                f2 = only;
+                                row2 = (y - 1) >> 1;
+                            }
+                            else
+                            {
+                                f = only;
+                                row = Math.Min(y >> 1, only.Rows - 1);
+                            }
+                            break;
+                        }
+                    case UseField.InterleavedUpper:
+                        (f, row) = BufferRow(Math.Min((y >> 1) + UpperRows(height) * (y & 1), height - 1));
+                        break;
+                    case UseField.InterleavedLower:
+                        (f, row) = BufferRow(Math.Min((y >> 1) + LowerRows(height) * (1 - (y & 1)), height - 1));
+                        break;
+                    default:
+                        f = parts[0].Field;
+                        row = Math.Min(y, f.Rows - 1);
+                        break;
+                }
                 for (int x = 0; x < width; x++)
                 {
                     int o = row * pw + start + x, d = (y * width + x) * 3;
                     float yy = f.Y[o], ii = f.I[o], qq = f.Q[o];
-                    if (chroma != 1f)
+                    if (f2 != null)
                     {
-                        ii *= chroma;
-                        qq *= chroma;
+                        int o2 = row2 * pw + start + x;
+                        yy = (yy + f2.Y[o2]) * 0.5f;
+                        ii = (ii + f2.I[o2]) * 0.5f;
+                        qq = (qq + f2.Q[o2]) * 0.5f;
                     }
                     outRgb[d] = FromNorm(qq * Qr + (ii * Ir + yy));
                     outRgb[d + 1] = FromNorm(qq * Qg + (ii * Ig + yy));
@@ -462,6 +562,25 @@ namespace B0r3dDeRes.Engine
             return outRgb;
         }
 
+        // The tape copied again and again ("Dub it N times"): `generations` runs, each one's picture
+        // the next one's input and each with its own noise (the seed plus the generation); the colour
+        // after decoding only on the last, the TV it's played on.
+        public static byte[] Dub(byte[] rgb, int width, int height, uint frame, NtscSettings s, float chroma, bool lineLocked, int pad, int generations)
+        {
+            byte[] tape = rgb;
+            for (int g = 0; g < Math.Max(1, generations); g++)
+            {
+                NtscSettings pass = s;
+                if (g > 0)
+                {
+                    pass = s.Clone();
+                    pass.RandomSeed = unchecked(s.RandomSeed + g);
+                }
+                tape = Frame(tape, width, height, frame, pass, g == Math.Max(1, generations) - 1 ? chroma : 1f, lineLocked, pad);
+            }
+            return tape;
+        }
+
         // ---- the effect (ntsc.rs), on one field
 
         static readonly float[] iMult = { 1, 0, -1, 0 }, qMult = { 0, 1, 0, -1 }, iMultInv = { -1, 0, 1, 0 }, qMultInv = { 0, -1, 0, 1 };
@@ -469,14 +588,20 @@ namespace B0r3dDeRes.Engine
         // the colour carrier's phase on a line (0 or 2 samples)
         static int CarrierPhase(uint frame, int line) => (int)((frame + ((uint)line << 1)) & 2);
 
-        static void Effect(Field f, uint frame, NtscSettings s)
+        // `fullHeight`: the whole picture's lines (a field holds about half of them)
+        static void Effect(Field f, uint frame, NtscSettings s, int fullHeight)
         {
             int w = f.Width, rows = f.Rows;
-            const ulong seed = 0;
-            const float hs = 1f;            // bandwidth scale 1 (the samples are already at the engine's rate)
-            float vs = s.VerticalScale;
+            ulong seed = (uint)s.RandomSeed;
+            float videoScale = s.Scale && s.ScaleWithVideoSize ? (float)fullHeight / 480f : 1f;
+            float hs = 1f * videoScale * (s.Scale ? s.HorizontalScale : 1f);
+            float vs = 1f * videoScale * (s.Scale ? s.VerticalScale : 1f);
 
-            ChromaLowpass(f, hs);
+            // the brightness filtered on its way in
+            if (s.InputLumaFilter == LumaLowpass.Box) BoxLuma(f);
+            else if (s.InputLumaFilter == LumaLowpass.Notch) FilterPlane(f.Y, w, rows, Filter.Notch(0.5f, 2f), true, 0);
+
+            BlurColour(f, s.ChromaLowpassIn, s.FilterType, hs);
 
             // the colour onto the carrier, into the one signal
             EveryCore.For(0, rows, r =>
@@ -492,51 +617,42 @@ namespace B0r3dDeRes.Engine
             if (s.CompositePreemphasis != 0)
                 FilterPlane(f.Y, w, rows, Filter.Lowpass(PreemphasisCutoff * hs, NtscRate * hs).WithScale(-s.CompositePreemphasis), false, 0);
 
-            // composite noise (seed 0)
-            Rng composite = new Rng(seed).Mix(0).Mix((ulong)frame);
-            EveryCore.For(0, rows, r => NoiseLine(f.Y, r * w, w, composite, (uint)r, 0.5f / hs, s.CompositeNoise, 1));
+            if (s.CompositeNoise)
+            {
+                Rng composite = new Rng(seed).Mix(0).Mix((ulong)frame);
+                float frequency = s.CompositeNoiseFrequency / hs;
+                int octaves = Octaves(s.CompositeNoiseDetail);
+                EveryCore.For(0, rows, r => NoiseLine(f.Y, r * w, w, composite, (uint)r, frequency, s.CompositeNoiseIntensity, octaves));
+            }
 
             if (s.Snow > 0 && hs > 0)
             {
                 Rng snow = new Rng(seed).Mix(6).Mix((ulong)frame);
                 float intensity = s.Snow * 0.01f;
-                EveryCore.For(0, rows, r => Speckles(f.Y, r * w, w, snow.Mix((ulong)r), intensity, 0.5f, hs));
+                EveryCore.For(0, rows, r => Speckles(f.Y, r * w, w, snow.Mix((ulong)r), intensity, s.SnowAnisotropy, hs));
             }
 
-            if (s.HeadSwitching) HeadSwitching(f, frame, s, hs, vs);
-            if (s.TrackingNoise) TrackingNoise(f, frame, s, hs, vs);
+            if (s.HeadSwitching) HeadSwitching(f, frame, s, seed, hs, vs);
+            if (s.TrackingNoise) TrackingNoise(f, frame, s, seed, hs, vs);
 
-            // the colour back off the carrier
-            Array.Copy(f.Y, f.S, w * rows);
-            if (s.Comb && rows > 1)
+            LumaIntoChroma(f, frame, s.ChromaDemodulation);
+
+            if (s.LumaSmear > 0) FilterPlane(f.Y, w, rows, Filter.Lowpass(RustMath.Exp2f(-4f * s.LumaSmear) * 0.25f, hs), false, 0);
+
+            if (s.Ringing)
             {
-                EveryCore.For(0, rows, r =>
-                {
-                    int prev = r == 0 ? 1 : r - 1, next = r == rows - 1 ? rows - 2 : r + 1;
-                    int o = r * w, po = prev * w, no = next * w;
-                    for (int p = 0; p < w; p++) f.Y[o + p] = f.S[o + p] * 0.5f + f.S[po + p] * 0.25f + f.S[no + p] * 0.25f;
-                    Demodulate(f, r, CarrierPhase(frame, r));
-                });
+                float frequency = Math.Max(0f, Math.Min(1f, s.RingingFrequency / hs));
+                FilterPlane(f.Y, w, rows, Filter.Notch(frequency, s.RingingPower).WithScale(s.RingingScale), true, 1);
             }
-            else
+
+            if (s.LumaNoise) PlaneNoise(f.Y, w, rows, seed, 10, frame, s.LumaNoiseFrequency / hs, s.LumaNoiseIntensity, s.LumaNoiseDetail);
+            if (s.ChromaNoise)
             {
-                FilterPlane(f.Y, w, rows, Filter.Notch(0.5f, 2f), false, 0);
-                EveryCore.For(0, rows, r => Demodulate(f, r, CarrierPhase(frame, r)));
+                PlaneNoise(f.I, w, rows, seed, 1, frame, s.ChromaNoiseFrequency / hs, s.ChromaNoiseIntensity, s.ChromaNoiseDetail);
+                PlaneNoise(f.Q, w, rows, seed, 9, frame, s.ChromaNoiseFrequency / hs, s.ChromaNoiseIntensity, s.ChromaNoiseDetail);
             }
 
-            // luma smear (0.5)
-            FilterPlane(f.Y, w, rows, Filter.Lowpass(RustMath.Exp2f(-4f * 0.5f) * 0.25f, hs), false, 0);
-
-            // ringing
-            float ringing = Math.Max(0f, Math.Min(1f, 0.45f / hs));
-            FilterPlane(f.Y, w, rows, Filter.Notch(ringing, 4f).WithScale(4f), true, 1);
-
-            // luma noise (seed 10), chroma noise (1 and 9)
-            Rng luma = new Rng(seed).Mix(10).Mix((ulong)frame);
-            EveryCore.For(0, rows, r => NoiseLine(f.Y, r * w, w, luma, (uint)r, 0.5f / hs, s.LumaNoise, 1));
-            Rng chromaI = new Rng(seed).Mix(1).Mix((ulong)frame), chromaQ = new Rng(seed).Mix(9).Mix((ulong)frame);
-            EveryCore.For(0, rows, r => NoiseLine(f.I, r * w, w, chromaI, (uint)r, 0.05f / hs, s.ChromaNoise, 2));
-            EveryCore.For(0, rows, r => NoiseLine(f.Q, r * w, w, chromaQ, (uint)r, 0.05f / hs, s.ChromaNoise, 2));
+            if (s.ChromaPhaseError > 0) EveryCore.For(0, rows, r => PhaseLine(f, r, s.ChromaPhaseError));
 
             if (s.ChromaPhaseNoise > 0)
             {
@@ -548,9 +664,11 @@ namespace B0r3dDeRes.Engine
                 });
             }
 
+            if (s.ChromaDelayHorizontal != 0 || s.ChromaDelayVertical != 0) ChromaDelay(f, s.ChromaDelayHorizontal, s.ChromaDelayVertical, hs, vs);
+
             if (s.Vhs)
             {
-                if (s.EdgeWave > 0) EdgeWave(f, frame, s, hs, vs);
+                if (s.EdgeWave && s.EdgeWaveIntensity > 0) EdgeWave(f, frame, s, seed, hs, vs);
 
                 // the tape's bandwidth (none: no tape filters, and no sharpening)
                 float lumaCut = 0, chromaCut = 0;
@@ -558,16 +676,16 @@ namespace B0r3dDeRes.Engine
                 bool tape = true;
                 switch (s.TapeSpeed)
                 {
-                    case 1: lumaCut = 2400000; chromaCut = 320000; chromaDelay = 4; break;
-                    case 2: lumaCut = 1900000; chromaCut = 300000; chromaDelay = 5; break;
-                    case 3: lumaCut = 1400000; chromaCut = 280000; chromaDelay = 6; break;
+                    case TapeSpeed.SP: lumaCut = 2400000; chromaCut = 320000; chromaDelay = 4; break;
+                    case TapeSpeed.LP: lumaCut = 1900000; chromaCut = 300000; chromaDelay = 5; break;
+                    case TapeSpeed.EP: lumaCut = 1400000; chromaCut = 280000; chromaDelay = 6; break;
                     default: tape = false; break;
                 }
                 if (tape)
                 {
                     int delay = (int)RustMath.ToU32(RustMath.Round(chromaDelay * hs));
-                    FilterPlane(f.Y, w, rows, Filter.Butterworth(lumaCut, NtscRate * hs), false, 0);
-                    Filter chromaFilter = Filter.Butterworth(chromaCut, NtscRate * hs);
+                    FilterPlane(f.Y, w, rows, Filter.LowpassFor(lumaCut, NtscRate * hs, s.FilterType), false, 0);
+                    Filter chromaFilter = Filter.LowpassFor(chromaCut, NtscRate * hs, s.FilterType);
                     FilterPlane(f.I, w, rows, chromaFilter, false, delay);
                     FilterPlane(f.Q, w, rows, chromaFilter, false, delay);
                     FilterPlane(f.Y, w, rows, Filter.Lowpass(lumaCut, NtscRate * hs).WithScale(-1.6f), false, 0);
@@ -588,19 +706,153 @@ namespace B0r3dDeRes.Engine
                     }
                 }
 
-                // sharpened (0.25, frequency 1; Butterworth filters take 1× the frequency)
-                const float sharpen = 0.25f, frequency = 1f;
-                if (tape) FilterPlane(f.Y, w, rows, Filter.Butterworth(lumaCut * 1f * frequency, NtscRate * hs).WithScale(-sharpen * 2f * frequency), false, 0);
+                // sharpened (constant-k filters take 4× the frequency, Butterworth ones 1×)
+                if (s.Sharpen && tape)
+                {
+                    float extra = s.FilterType == FilterType.ConstantK ? 4f : 1f;
+                    FilterPlane(f.Y, w, rows, Filter.LowpassFor(lumaCut * extra * s.SharpenFrequency, NtscRate * hs, s.FilterType)
+                        .WithScale(-s.SharpenIntensity * 2f * s.SharpenFrequency), false, 0);
+                }
             }
 
-            ChromaLowpass(f, hs);
+            if (s.ChromaVertBlend) ChromaVertBlend(f, fullHeight);
+
+            BlurColour(f, s.ChromaLowpassOut, s.FilterType, hs);
         }
 
-        // the full chroma lowpass (Butterworth): I to 1.3 MHz, Q to 0.6 MHz
-        static void ChromaLowpass(Field f, float hs)
+        // the colour blurred: full (I to 1.3 MHz, Q to 0.6 MHz) or light (both to 2.6 MHz)
+        static void BlurColour(Field f, ChromaLowpass mode, FilterType type, float hs)
         {
-            FilterPlane(f.I, f.Width, f.Rows, Filter.Butterworth(1300000f, NtscRate * hs), false, 2);
-            FilterPlane(f.Q, f.Width, f.Rows, Filter.Butterworth(600000f, NtscRate * hs), false, 4);
+            if (mode == ChromaLowpass.Full)
+            {
+                FilterPlane(f.I, f.Width, f.Rows, Filter.LowpassFor(1300000f, NtscRate * hs, type), false, 2);
+                FilterPlane(f.Q, f.Width, f.Rows, Filter.LowpassFor(600000f, NtscRate * hs, type), false, 4);
+            }
+            else if (mode == ChromaLowpass.Light)
+            {
+                Filter filter = Filter.LowpassFor(2600000f, NtscRate * hs, type);
+                FilterPlane(f.I, f.Width, f.Rows, filter, false, 1);
+                FilterPlane(f.Q, f.Width, f.Rows, filter, false, 1);
+            }
+        }
+
+        // the brightness through a box filter 4 samples wide, starting from black (luma_filter's Box)
+        static void BoxLuma(Field f)
+        {
+            int w = f.Width;
+            if (w < 2) return;
+            EveryCore.For(0, f.Rows, r =>
+            {
+                float[] y = f.Y;
+                int o = r * w, head = 0;
+                var queue = new[] { BoxBlack, BoxBlack, y[o], y[o + 1] };
+                float sum = queue[0] + queue[1] + queue[2] + queue[3];
+                float Push(float c)
+                {
+                    float old = queue[head];
+                    queue[head] = c;
+                    head = (head + 1) & 3;
+                    return old;
+                }
+                for (int i = 0; i < w - 2; i++)
+                {
+                    float c = y[o + i + 2];
+                    sum -= Push(c);
+                    sum += c;
+                    y[o + i] = sum * 0.25f;
+                }
+                float last = y[o + w - 1];
+                for (int i = w - 2; i < w; i++)
+                {
+                    sum -= Push(last);
+                    sum += last;
+                    y[o + i] = sum * 0.25f;
+                }
+            });
+        }
+
+        // The colour taken back off the carrier, by the setting's decoder (the comb and 2D ones
+        // need 2 lines, the 2D ones 3 samples across; short of that it's the notch).
+        static void LumaIntoChroma(Field f, uint frame, ChromaDemodulation mode)
+        {
+            int w = f.Width, rows = f.Rows;
+            bool lines = mode == ChromaDemodulation.OneLineComb || mode == ChromaDemodulation.TwoLineComb || mode == ChromaDemodulation.TwoD || mode == ChromaDemodulation.TwoDAdaptive;
+            if (rows == 1 && lines || w < 3 && (mode == ChromaDemodulation.TwoD || mode == ChromaDemodulation.TwoDAdaptive)) mode = ChromaDemodulation.Notch;
+            float[] y = f.Y, m = f.S;
+            Array.Copy(y, m, w * rows);
+            switch (mode)
+            {
+                case ChromaDemodulation.Box:
+                    EveryCore.For(0, rows, r =>
+                    {
+                        int o = r * w;
+                        for (int p = 0; p < w; p++)
+                        {
+                            float a0 = p > 0 ? m[o + p - 1] : BoxBlack;
+                            y[o + p] = (a0 + m[o + p] + m[o + Math.Min(p + 1, w - 1)] + m[o + Math.Min(p + 2, w - 1)]) * 0.25f;
+                        }
+                        Demodulate(f, r, CarrierPhase(frame, r));
+                    });
+                    break;
+                case ChromaDemodulation.OneLineComb:
+                    EveryCore.For(0, rows, r =>
+                    {
+                        // the line before (the first line takes the second: the carrier must flip between them)
+                        int o = r * w, top = (r == 0 ? 1 : r - 1) * w;
+                        for (int p = 0; p < w; p++) y[o + p] = (m[top + p] + m[o + p]) * 0.5f;
+                        Demodulate(f, r, CarrierPhase(frame, r));
+                    });
+                    break;
+                case ChromaDemodulation.TwoLineComb:
+                    EveryCore.For(0, rows, r =>
+                    {
+                        int prev = r == 0 ? 1 : r - 1, next = r == rows - 1 ? rows - 2 : r + 1;
+                        int o = r * w, po = prev * w, no = next * w;
+                        for (int p = 0; p < w; p++) y[o + p] = m[o + p] * 0.5f + m[po + p] * 0.25f + m[no + p] * 0.25f;
+                        Demodulate(f, r, CarrierPhase(frame, r));
+                    });
+                    break;
+                case ChromaDemodulation.TwoD:
+                case ChromaDemodulation.TwoDAdaptive:
+                    {
+                        bool adaptive = mode == ChromaDemodulation.TwoDAdaptive;
+                        EveryCore.For(0, rows, r =>
+                        {
+                            int prev = r == 0 ? 1 : r - 1, next = r == rows - 1 ? rows - 2 : r + 1;
+                            int o = r * w, po = prev * w, no = next * w;
+                            for (int p = 0; p < w; p++)
+                            {
+                                int pl = p < 2 ? p + 2 : p - 2, pr = p > w - 3 ? p - 2 : p + 2;
+                                float tl = m[po + pl], t = m[po + p], tr = m[po + pr], l = m[o + pl], c = m[o + p], rr = m[o + pr], bl = m[no + pl], b = m[no + p], br = m[no + pr];
+                                y[o + p] = adaptive ? Adaptive2D(tl, t, tr, l, c, rr, bl, b, br) : c * 0.75f + ((l + rr) + (t + b)) * 0.125f - ((tl + tr) + (bl + br)) * 0.0625f;
+                            }
+                            Demodulate(f, r, CarrierPhase(frame, r));
+                        });
+                        break;
+                    }
+                default:
+                    FilterPlane(y, w, rows, Filter.Notch(0.5f, 2f), false, 0);
+                    EveryCore.For(0, rows, r => Demodulate(f, r, CarrierPhase(frame, r)));
+                    break;
+            }
+        }
+
+        // 1/0.001, 1/(0.001 × √2) and 2/0.001², as the engine's floats
+        static readonly float InvThreshold = F(0x4479ffff), InvThresholdDiag = F(0x4430c6d6), DiagLimit = F(0x49f423fe);
+
+        // the edge-following 2D decoder's one sample: weights that follow the edges around it
+        static float Adaptive2D(float tl, float t, float tr, float l, float c, float r, float bl, float b, float br)
+        {
+            float gx = (tr - tl) + (r - l) + (br - bl);
+            float gy = (bl - tl) + (b - t) + (br - tr);
+            float gxT = gx * InvThreshold, gyT = gy * InvThreshold;
+            float gd1T = (gx + gy) * InvThresholdDiag, gd2T = (gx - gy) * InvThresholdDiag;
+            float ax = 1f / (1f + gxT * gxT), ay = 1f / (1f + gyT * gyT);
+            float norm = 0.25f / (ax + ay);
+            float wx = ax * norm, wy = ay * norm;
+            float wd1 = norm / Math.Max(1f + gd1T * gd1T, DiagLimit), wd2 = norm / Math.Max(1f + gd2T * gd2T, DiagLimit);
+            float wCenter = 0.5f + 2f * (wd1 + wd2);
+            return c * wCenter + ((l + r) * wx + (t + b) * wy) - ((tl + br) * wd1 + (tr + bl) * wd2);
         }
 
         // I and Q from a line's chroma (the signal less its luma, in S), each sample with half its neighbours'
@@ -638,9 +890,16 @@ namespace B0r3dDeRes.Engine
             Rng r = rng.Mix(index);
             int seed = r.I32();
             float offset = r.F32() * width;
-            int octaves = Math.Max(1, Math.Min(5, detail));
+            int octaves = Octaves(detail);
             float scale = intensity * 0.25f;
             Noise1(offset, width, x => Fbm1(x, seed, octaves, 1f, 2f, frequency), (p, n) => a[o + p] = a[o + p] + n * scale);
+        }
+
+        // noise over a whole plane, each line its own (plane_noise)
+        static void PlaneNoise(float[] plane, int w, int rows, ulong seed, ulong which, uint frame, float frequency, float intensity, int detail)
+        {
+            Rng rng = new Rng(seed).Mix(which).Mix((ulong)frame);
+            EveryCore.For(0, rows, r => NoiseLine(plane, r * w, w, rng, (uint)r, frequency, intensity, detail));
         }
 
         // snow on a line: short bright transients, clumped along some lines more than others (row_speckles)
@@ -689,32 +948,35 @@ namespace B0r3dDeRes.Engine
             }
         }
 
-        // VHS head switching: the bottom lines pulled sideways, the top one from mid-line
-        static void HeadSwitching(Field f, uint frame, NtscSettings s, float hs, float vs)
+        // a setting's count of lines scaled to the picture (`(n as f32 * scale).round() as usize`)
+        static uint ScaledLines(int n, float scale) => RustMath.ToU32(RustMath.Round((float)(uint)Math.Max(0, n) * scale));
+
+        // VHS head switching: the bottom lines pulled sideways, the top one (if set) from mid-line
+        static void HeadSwitching(Field f, uint frame, NtscSettings s, ulong seed, float hs, float vs)
         {
-            uint numRows = RustMath.ToU32(RustMath.Round(8 * vs)), offset = RustMath.ToU32(RustMath.Round(3 * vs));
+            uint numRows = ScaledLines(s.HeadSwitchingHeight, vs), offset = ScaledLines(s.HeadSwitchingOffset, vs);
             if (offset > numRows) return;
             uint affected = numRows - offset;
             int w = f.Width, height = f.Rows;
             uint startRow = Math.Max((uint)height, affected) - affected, cutOff = affected > height ? affected - (uint)height : 0;
-            Rng rng = new Rng(0).Mix(2).Mix((ulong)frame);
+            Rng rng = new Rng(seed).Mix(2).Mix((ulong)frame);
             EveryCore.For((int)startRow, height, r =>
             {
                 uint index = affected - ((uint)r - startRow + cutOff);
                 float rowShift = s.HeadSwitchingShift * RustMath.Powf((float)(index + offset) / numRows, 1.5f);
                 float shift = (rowShift + (rng.Mix(index).F32() - 0.5f)) * hs;
                 int o = r * w;
-                if (index != affected)
+                if (index != affected || !s.HeadSwitchingMidLine)
                 {
                     ShiftRow(f.Y, o, w, shift, false);
                     return;
                 }
                 // the whole line shifted, but only from mid-line on
                 ShiftRowTo(f.Y, o, f.S, o, w, shift, false);
-                Rng mid = new Rng(0).Mix(8).Mix((ulong)frame);
+                Rng mid = new Rng(seed).Mix(8).Mix((ulong)frame);
                 float jitterRand = (mid.F32() + mid.F32()) * 0.5f;
-                float jitter = (jitterRand - 0.5f) * 0.03f;
-                uint copyStart = RustMath.ToU32(w * (0.95f + jitter));
+                float jitter = (jitterRand - 0.5f) * s.MidLineJitter;
+                uint copyStart = RustMath.ToU32((float)w * (s.MidLinePosition + jitter));
                 if (copyStart > w) return;
                 Array.Copy(f.S, o + (int)copyStart, f.Y, o + (int)copyStart, w - (int)copyStart);
                 // and a transient where the switch starts
@@ -731,11 +993,11 @@ namespace B0r3dDeRes.Engine
         }
 
         // VHS tracking noise: the bottom lines waver, with noise and snow, more toward the bottom
-        static void TrackingNoise(Field f, uint frame, NtscSettings s, float hs, float vs)
+        static void TrackingNoise(Field f, uint frame, NtscSettings s, ulong seed, float hs, float vs)
         {
-            uint numRows = RustMath.ToU32(RustMath.Round(12 * vs));
+            uint numRows = ScaledLines(s.TrackingNoiseHeight, vs);
             int w = f.Width, height = f.Rows;
-            Rng rng = new Rng(0).Mix(3).Mix((ulong)frame);
+            Rng rng = new Rng(seed).Mix(3).Mix((ulong)frame);
             int noiseSeed = rng.I32();
             float offset = rng.F32() * height;
             uint startRow = Math.Max((uint)height, numRows) - numRows, cutOff = numRows > height ? numRows - (uint)height : 0;
@@ -749,21 +1011,101 @@ namespace B0r3dDeRes.Engine
                 int o = r * w;
                 ShiftRow(f.Y, o, w, f.S[index - cutOff] * scale * s.TrackingWave * 0.25f * hs, false);
                 NoiseLine(f.Y, o, w, rng, index, 0.25f / hs, scale * scale * s.TrackingNoiseIntensity * 4f, 1);
-                Speckles(f.Y, o, w, rng.Mix(index), s.TrackingSnow * (scale * scale), 0.25f, hs);
+                Speckles(f.Y, o, w, rng.Mix(index), s.TrackingSnow * (scale * scale), s.TrackingSnowAnisotropy, hs);
             });
         }
 
+        // The colour moved sideways by a fraction of a sample and up or down by whole lines (chroma_delay).
+        static void ChromaDelay(Field f, float horizontal, int vertical, float hs, float vs)
+        {
+            float across = horizontal * hs;
+            int down = RustMath.ToI32(RustMath.Round((float)vertical * vs));
+            int w = f.Width, rows = f.Rows;
+            if (down == 0)
+            {
+                EveryCore.For(0, rows, r =>
+                {
+                    ShiftRow(f.I, r * w, w, across, false);
+                    ShiftRow(f.Q, r * w, w, across, false);
+                });
+                return;
+            }
+            void Move(int from, int to)
+            {
+                if (Math.Abs(across) == 0)
+                {
+                    Array.Copy(f.I, from * w, f.I, to * w, w);
+                    Array.Copy(f.Q, from * w, f.Q, to * w, w);
+                }
+                else
+                {
+                    ShiftRowTo(f.I, from * w, f.I, to * w, w, across, false);
+                    ShiftRowTo(f.Q, from * w, f.Q, to * w, w, across, false);
+                }
+            }
+            if (down < 0)
+            {
+                // up: from the top down, each line from `up` lines below it (none left: no colour)
+                int up = -down;
+                for (int row = 0; row < rows; row++)
+                {
+                    if (row >= Math.Max(rows, up) - up)
+                    {
+                        Array.Clear(f.I, row * w, w);
+                        Array.Clear(f.Q, row * w, w);
+                    }
+                    else Move(row + up, row);
+                }
+            }
+            else
+            {
+                for (int row = rows - 1; row >= 0; row--)
+                {
+                    if (row < down)
+                    {
+                        Array.Clear(f.I, row * w, w);
+                        Array.Clear(f.Q, row * w, w);
+                    }
+                    else Move(row - down, row);
+                }
+            }
+        }
+
         // the VHS edge wave: every line moved sideways by fractal noise down the picture, which drifts with the frames
-        static void EdgeWave(Field f, uint frame, NtscSettings s, float hs, float vs)
+        static void EdgeWave(Field f, uint frame, NtscSettings s, ulong seed, float hs, float vs)
         {
             int w = f.Width, height = f.Rows;
-            Rng rng = new Rng(0).Mix(5);
+            Rng rng = new Rng(seed).Mix(5);
             int noiseSeed = rng.I32();
             float offset = rng.F32() * height;
-            float frequency = 0.05f / vs, time = frame * 4f;
-            Noise1(offset, height, x => Fbm2(x, time, noiseSeed, 2, FracSqrt2, 2f, frequency), (p, n) => f.S[p] = n);
+            float frequency = s.EdgeWaveFrequency / vs, time = frame * s.EdgeWaveSpeed;
+            int octaves = Octaves(s.EdgeWaveDetail);
+            Noise1(offset, height, x => Fbm2(x, time, noiseSeed, octaves, FracSqrt2, 2f, frequency), (p, n) => f.S[p] = n);
             foreach (float[] plane in new[] { f.Y, f.I, f.Q })
-                EveryCore.For(0, height, r => ShiftRow(plane, r * w, w, f.S[r] / F(0x3cb43958) * s.EdgeWave * 0.5f * hs, true));
+                EveryCore.For(0, height, r => ShiftRow(plane, r * w, w, f.S[r] / F(0x3cb43958) * s.EdgeWaveIntensity * 0.5f * hs, true));
+        }
+
+        // Each line's colour mixed with the line above's, as VHS does (chroma_vert_blend). ntsc-rs
+        // keeps its two delay lines in a field's scratch rows, so a field of one line (a picture of
+        // 2 or 3 lines in fields) stops the website's engine; here that line is left as it is.
+        static void ChromaVertBlend(Field f, int fullHeight)
+        {
+            if (fullHeight < 2 || f.Rows < 2) return;
+            int w = f.Width;
+            foreach (float[] plane in new[] { f.I, f.Q })
+            {
+                var delay = new float[w];
+                for (int r = 0; r < f.Rows; r++)
+                {
+                    int o = r * w;
+                    for (int p = 0; p < w; p++)
+                    {
+                        float c = plane[o + p];
+                        plane[o + p] = (delay[p] + c) * 0.5f;
+                        delay[p] = c;
+                    }
+                }
+            }
         }
     }
 }

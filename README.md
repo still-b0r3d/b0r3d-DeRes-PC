@@ -1,6 +1,6 @@
 # b0r3d DeRes for Windows
 
-**b0r3d DeRes** turns photos into the pictures of old computers and consoles: their
+**b0r3d DeRes** turns photos and videos into the pictures of old computers and consoles: their
 resolution, their colours, their dithers. It's the Windows program of
 [img.b0r3d.org](https://img.b0r3d.org), made by [b0r3d.org](https://b0r3d.org), and it makes
 the same pictures, pixel for pixel (photos over 2048 pixels aside: see below). Your pictures
@@ -8,21 +8,23 @@ stay on your PC: it never goes online, and it never keeps them.
 
 It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install.
 
-**Being built.** This is version 0.5, the fifth of nine stages: the program itself, opening
+**Being built.** This is version 0.6, the sixth of nine stages: the program itself, opening
 pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
-Signal, the screen effects, the preview, saving, copying and dragging out PNGs, wallpapers,
-animated GIFs playing, GIF and APNG loops, batches, DeRes the screen, the machines' own files for
-emulators, palette files, look files and share links. Video comes next, then the ASCII / ANSI
-studio and the EXIF tools.
+Signal (every one of its engine's settings, presets and dubbed tapes), the screen effects, the
+preview, saving, copying and dragging out PNGs, wallpapers, animated GIFs playing, GIF and APNG
+loops, videos (playing, and saved as MP4s with their sound, GIFs, APNGs and PNG frames),
+batches, DeRes the screen, the machines' own files for emulators, palette files, look files and
+share links. The ASCII / ANSI studio comes next, then the EXIF tools.
 
 ## Make a picture
 
 Put `b0r3dDeRes.exe` in a folder of its own and double-click it. It opens with the Rukus
 sample on the Game Boy, as the website does. Open a picture of your own with **File → Open
-picture…** (Ctrl+O), drop one anywhere on the window, paste one (Ctrl+V), or drop it on
+picture or video…** (Ctrl+O), drop one anywhere on the window, paste one (Ctrl+V), or drop it on
 `b0r3dDeRes.exe` itself. PNG, JPEG, GIF (an animated one plays: see below), BMP and TIFF always
 open, and WebP, HEIC, AVIF,
-JPEG XL and camera RAW photos where Windows has Microsoft's free extensions for them. Photos
+JPEG XL and camera RAW photos where Windows has Microsoft's free extensions for them; videos
+too (see Videos, below). Photos
 come out the right way up, and in their own colours when they carry a colour profile. The
 whole photo is used, however big (up to 150 megapixels). **DeRes the screen** (Ctrl+Shift+D)
 steps aside and lets you drag a box on the screen, click for a whole screen, or press Enter for
@@ -68,7 +70,13 @@ The settings on the left fold out like the website's:
   signal). Each machine goes out at its own pixel clock, and those with 228 colour cycles a line
   keep their fringes still; CGA composite's colours are made by the signal itself, and its
   picture is dithered to them. It's ntsc-rs, the engine the website runs, with every frame the
-  same as the website's.
+  same as the website's. Advanced also has **Dub it** (the tape copied up to nine times, each
+  copy through it all again), **presets** (nine built in, from a fresh rental tape to a
+  late-night broadcast, and your own: **Save as preset…**) and **Every setting…**, a window
+  with every one of ntsc-rs's settings for the picture on screen: what you change there stays on
+  top of the connection's own until **Reset all**, and ntsc-rs's own settings files load (what
+  they have otherwise than the connection; the scale stays fitted to each picture) and save
+  there.
 - **Screen:** what the machine's screen made of it: a CRT (no mask, a shadow mask or an aperture
   grille, with scanlines, curve and bloom), an LCD (its pixel grid and ghosting), a VHS tape
   (tracking jitter and noise, and the on-screen display), composite, and the green, amber and
@@ -77,7 +85,8 @@ The settings on the left fold out like the website's:
 - **Export:** the size (1× to 16×), for machines whose pixels weren't square raw pixels or as
   on a TV, **With the screen effect** (from 3× up), the **Animation loop** for GIF and APNG, and
   the **wallpapers**: the website's phone, b0r3d 95 and Full HD, and one for each of your screens
-  at its real size.
+  at its real size. With a video open, its frame rate, **Keep the sound**, **Save MP4…** and
+  **Save PNG frames…**.
 
 **Reset settings** at the bottom puts everything back as a first start has it (the picture
 stays).
@@ -133,18 +142,42 @@ that are made twice instead, so any number fit. When the Size chosen is too big,
 the biggest that fits and a line by the buttons says so. Frames are made on every core, the
 bottom line counts them, and **Stop** leaves no file.
 
+## Videos
+
+A video opens as a picture does (MP4, MOV, MKV, AVI, WMV, MPEG and whatever else Windows plays),
+the right way up, as the phone took it. An iPhone's HDR video comes out in normal colour: DeRes
+converts its HLG itself; other HDR goes through Windows' own conversion. A timeline comes under
+the picture: **Play** / **Pause** with the sound, a frame back and on, the slider to any moment,
+and **Start here**, **Stop here** and **All of it** for the stretch to save. Every frame goes
+through all the settings, the Signal (its noise moves at the video's own speed) and the screen
+effect. Paused, the frame on screen is the picture, so every control works on it, and Compare,
+Save PNG, copies and wallpapers take it.
+
+**Save MP4…** (under Export, and in the File menu) saves the stretch through the look as an MP4
+with its sound (H.264 and AAC, which play in Windows' Media Player, in browsers and on phones),
+at the Size chosen up to 4096 × 2304, the most an MP4 holds, and at the video's own frame rate or
+a slower one (30, 25, 24, 15, 12 or 10 a second). The sound stays in step with the picture, phone
+videos' too. **Save GIF…** and **Save APNG…** make an animation of its frames (Animation loop:
+**Video**; a GIF goes at 50 frames a second at most, an APNG at 60, as browsers show them), and
+**Save PNG frames…** puts every frame in a folder as a PNG
+(`clip-nes-rf-00001.png` on). Frames are made on several cores, the bottom line says how far it's
+got and the time left, and **Stop** leaves no file. Windows' "N" editions come without its video
+parts: there b0r3d DeRes says what to install, and pictures work as ever.
+
 ## Batches
 
-**File → Batch** (Ctrl+B), or a folder or several pictures dropped on the window, runs them all
-through the look you have (the signal too) into a folder: a PNG each (at the Size, Pixel shape
-and screen effect set under Export), a wallpaper each, or a GIF or an APNG each (an animated GIF
-as its own frames, any other picture as the loop picked under Export), and the machine's own file
-if you ask. A folder gives its
-own pictures, not those in the folders inside it, nor the ones OneDrive keeps only online. You
-choose once what happens to a file that's already there: numbered, replaced or skipped. Several
-pictures are made at once, on every core; every file is written whole and then read back from
-the disk; a picture that won't open is listed with why. **Stop**, or closing b0r3d DeRes,
-finishes the pictures under way first.
+**File → Batch** (Ctrl+B), or a folder or several pictures or videos dropped on the window, runs
+them all through the look you have (the signal too) into a folder: a PNG each (at the Size, Pixel
+shape and screen effect set under Export), a wallpaper each, or a GIF or an APNG each (an animated
+GIF as its own frames, any other picture as the loop picked under Export), and the machine's own
+file if you ask. A video goes out whole as an MP4 with its sound (at the Size, or the biggest an
+MP4 holds) or, with GIF or APNG picked, as a GIF or APNG of its frames, at its own frame rate or
+the slower one picked under Export. A folder gives its own pictures and videos, not those in the
+folders inside it, nor the ones OneDrive keeps only online. You choose once what happens to a
+file that's already there: numbered, replaced or skipped. Several are made at once, on every
+core; every file is written whole and then read back from the disk (an MP4 frame by frame); one
+that won't open is listed with why. **Stop**, or closing b0r3d DeRes, finishes the pictures under
+way first (a video or an animation being made stops, leaving no file).
 
 ## Looks and share links
 
@@ -154,7 +187,9 @@ look…**, or dropping the file on the window, brings it back. **Copy share link
 the Edit menu) copies a link that opens the same look on img.b0r3d.org; a share link made on the
 website, pasted here with Ctrl+V, opens its look on the PC. The links are the website's very
 own, letter for letter, screen effect and signal and all (the signal loop's length and speed
-too). A look file also keeps the Animation loop picked.
+too). A look file also keeps the Animation loop picked. The engine settings changed under Every
+setting and the tape's copies go in links and look files too, as additions of the PC's own (the
+website reads a link without them).
 
 **View → Look** follows Windows' light or dark setting, or stays light or dark.
 
@@ -171,7 +206,8 @@ too). A look file also keeps the Animation loop picked.
 ## Portable
 
 Everything b0r3d DeRes keeps is in one folder, `b0r3dDeRes data` next to the exe: its settings
-(`b0r3dDeRes.ini`) and the `b0r3dDeRes drag` folder, where a picture you drag out waits as a PNG
+(`b0r3dDeRes.ini`), your Signal presets (`b0r3dDeRes presets.json`) and the `b0r3dDeRes drag`
+folder, where a picture you drag out waits as a PNG
 for the program it's dropped on until b0r3d DeRes closes (or starts again, after a crash), then
 goes. Nothing goes in AppData, the registry or Temp. To keep the settings somewhere else, start it with
 `b0r3dDeRes.exe --data "D:\Somewhere"`. If its folder can't be written to (a zip, a CD, a
@@ -200,7 +236,9 @@ settings files come out the same as the website's, byte for byte. That holds on 
 the WebAssembly, C# here does every multiply and add on its own, rounded each time (no
 processor's fused shortcuts), and the signal's sines, powers and the like are copies of the
 routines Rust's maths library (libm) has. The self-test checks one of those frames on the PC
-it runs on.
+it runs on. Every one of the engine's settings, each field mode and dubbed tapes: 69 frames more,
+made with the settings changed, come out as the website's own engine makes them from the same
+settings, byte for byte, and ntsc-rs settings files are read as the engine reads them.
 GIFs and loops: hand-made GIFs for every rule of the decoder (and the GIF sample) read as the
 website reads them, frame by frame; the GIF and APNG writers make the website's files (GIFs
 byte for byte, APNGs chunk for chunk, as with PNGs); and every loop style, with the screen
@@ -226,8 +264,9 @@ takes any 10.0 one); the program itself runs on .NET Framework 4.8, which comes 
 and 11. Double-click
 `build.cmd`, or run `build.cmd test` to build and run the tests. The exe lands in
 `bin\b0r3dDeRes.exe`. The tests print a PASS or FAIL line each, and a run stops itself after 90
-seconds; `build.cmd test` runs them in five parts (`--part engine`, `animation`, `gifs`,
-`frames`, then `window`) so each stays within that on a two-core machine too.
+seconds; `build.cmd test` runs them in eight parts (`--part engine`, `animation`, `gifs`,
+`frames`, `signal`, `video`, `videobatch`, then `window`) so each stays within that on a
+two-core machine too. The video tests use short clips in `tests\video`, made with ffmpeg.
 `bin\tests\b0r3dDeResTests.exe --shots <folder>` draws the windows to PNG files.
 
 ## Licence

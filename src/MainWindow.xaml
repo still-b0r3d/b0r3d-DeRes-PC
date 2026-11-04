@@ -33,7 +33,7 @@
              B, L, U, K, R and P (Play) on buttons; each menu list has its own. -->
         <Menu x:Name="MenuBar" DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open picture…" Command="{x:Static local:Commands.OpenPicture}" />
+                <MenuItem Header="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" />
                 <MenuItem x:Name="SamplesMenu" Header="Open a sa_mple" />
                 <MenuItem Header="DeRes the scree_n…" Command="{x:Static local:Commands.DeresScreen}" />
                 <MenuItem Header="_Batch: a folder or several pictures…" Command="{x:Static local:Commands.Batch}" />
@@ -43,6 +43,8 @@
                 <MenuItem Header="_Save PNG…" Command="{x:Static local:Commands.SavePng}" />
                 <MenuItem x:Name="SaveGifMenu" Header="Save _GIF…" Click="OnSaveGif" />
                 <MenuItem x:Name="SaveApngMenu" Header="Save A_PNG…" Click="OnSaveApng" />
+                <MenuItem x:Name="SaveMp4Menu" Header="Save MP_4…" Click="OnSaveMp4" />
+                <MenuItem x:Name="SaveFramesMenu" Header="Save PNG f_rames…" Click="OnSaveFrames" />
                 <MenuItem x:Name="WallpaperMenu" Header="Save _wallpaper" />
                 <MenuItem x:Name="EmulatorMenu" Header="Save for an _emulator…" Click="OnSaveEmulator" />
                 <MenuItem Header="Save loo_k…" Click="OnSaveLook" />
@@ -68,7 +70,7 @@
                 <Separator />
                 <MenuItem x:Name="CompareMenu" Header="_Compare" Command="{x:Static local:Commands.Compare}" IsCheckable="False" />
                 <MenuItem x:Name="FullScreenMenu" Header="F_ull screen" Command="{x:Static local:Commands.FullScreen}" />
-                <MenuItem x:Name="PlayMenu" Header="_Play or pause the GIF" Click="OnPlayMenu" />
+                <MenuItem x:Name="PlayMenu" Header="_Play or pause" Click="OnPlayMenu" />
                 <Separator />
                 <MenuItem Header="_Look">
                     <MenuItem x:Name="LookWindows" Header="Like _Windows" IsCheckable="True" Tag="Windows" Click="OnLook" />
@@ -112,7 +114,7 @@
 
                                     <Expander x:Name="ImageSection" Style="{StaticResource Section}" Header="_Image" IsExpanded="True">
                                         <StackPanel>
-                                            <Button x:Name="OpenButton" Content="_Open picture…" Command="{x:Static local:Commands.OpenPicture}" HorizontalAlignment="Stretch" />
+                                            <Button x:Name="OpenButton" Content="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" HorizontalAlignment="Stretch" />
                                             <UniformGrid Rows="1" Margin="0,8,0,0">
                                                 <Button x:Name="SnipButton" Content="DeRes the screen…" Command="{x:Static local:Commands.DeresScreen}" Margin="0,0,4,0"
                                                         ToolTip="A box of the screen, a whole screen or all of them becomes the picture (Ctrl+Shift+D)" />
@@ -121,7 +123,7 @@
                                             </UniformGrid>
                                             <TextBlock x:Name="SampleLine" Style="{StaticResource Hint}" Margin="0,8,0,0" />
                                             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
-                                                       Text="Or drop a picture on the window, or paste one. Drop a folder or several pictures for a batch." />
+                                                       Text="Or drop a picture or a video on the window, or paste a picture. Drop a folder, or several pictures or videos, for a batch." />
                                             <TextBlock x:Name="PictureInfo" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold" />
 
                                             <TextBlock Style="{StaticResource Label}" Text="Resolution" />
@@ -270,11 +272,28 @@
                                                         </UniformGrid>
                                                         <TextBlock Style="{StaticResource Hint}"
                                                                    Text="A comb filter cleans up the colour fringes, and with them the colours that only exist in the signal (CGA, Apple II)." />
+                                                        <!-- the tape's extras: copies, presets, and every one of the engine's settings -->
+                                                        <DockPanel Margin="0,12,0,0">
+                                                            <TextBlock x:Name="DubsValue" DockPanel.Dock="Right" />
+                                                            <TextBlock Text="Dub it" Foreground="{DynamicResource Dim}" />
+                                                        </DockPanel>
+                                                        <Slider x:Name="DubsSlider" Minimum="0" Maximum="9" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnDubs"
+                                                                AutomationProperties.Name="Dub it, copies of the tape" />
+                                                        <TextBlock Style="{StaticResource Hint}" Text="Each copy goes through it all again, as a tape copied from a tape: a little worse each time." />
+                                                        <TextBlock Style="{StaticResource Label}" Text="Presets" />
+                                                        <ComboBox x:Name="PresetBox" SelectionChanged="OnPreset" AutomationProperties.Name="Signal presets" />
+                                                        <WrapPanel Margin="0,8,0,0">
+                                                            <Button x:Name="SavePresetButton" Content="Save as preset…" Click="OnSavePreset" Margin="0,0,8,6" ToolTip="Keep this Signal (connection, wear, every setting, copies) under a name" />
+                                                            <Button x:Name="DeletePresetButton" Content="Delete preset" Click="OnDeletePreset" Margin="0,0,0,6" ToolTip="Delete your preset that's on now" />
+                                                        </WrapPanel>
+                                                        <Button x:Name="EverySettingButton" Content="Every setting…" Click="OnEverySetting" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                                                ToolTip="All of ntsc-rs's settings, the engine behind the Signal" />
+                                                        <TextBlock x:Name="EngineNote" Style="{StaticResource Hint}" Visibility="Collapsed" />
                                                     </StackPanel>
                                                 </Expander>
                                             </StackPanel>
                                             <TextBlock x:Name="SignalMoves" Style="{StaticResource Hint}" Margin="0,10,0,0"
-                                                       Text="The noise moves when a GIF plays, and in the animations under Export." />
+                                                       Text="The noise moves when a GIF or a video plays, and in the animations and videos under Export." />
                                             <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0">
                                                 <Run Text="Signal engine: " /><Hyperlink Click="OnSignalEngine" ToolTip="github.com/valadaptive/ntsc-rs (opens your browser)">ntsc-rs</Hyperlink><Run Text=" by valadaptive (MIT) · " /><Hyperlink Click="OnSignalNotices" ToolTip="Help → About">notices</Hyperlink>
                                             </TextBlock>
@@ -366,9 +385,19 @@
                                                 <TextBlock Style="{StaticResource Label}" Text="Loop speed" />
                                                 <UniformGrid x:Name="LoopSpeeds" Rows="1" Margin="0,0,-6,0" />
                                             </StackPanel>
+                                            <!-- a video's: the frame rate it goes out at, and its sound -->
+                                            <StackPanel x:Name="VideoRows" Visibility="Collapsed">
+                                                <TextBlock Style="{StaticResource Label}" Text="Frame rate" />
+                                                <UniformGrid x:Name="VideoRates" Columns="4" Margin="0,0,-6,0" />
+                                                <CheckBox x:Name="VideoKeepSound" Content="Keep the sound" Margin="0,10,0,0" Checked="OnVideoKeepSound" Unchecked="OnVideoKeepSound"
+                                                          ToolTip="The MP4 keeps the video's sound, from its start to its stop" />
+                                                <TextBlock x:Name="VideoHint" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                                            </StackPanel>
                                             <WrapPanel Margin="0,12,0,0">
+                                                <Button x:Name="SaveMp4Button" Content="Save MP4…" Click="OnSaveMp4" Margin="0,0,8,6" Visibility="Collapsed" ToolTip="The video through the look, from its start to its stop, with its sound" />
                                                 <Button x:Name="SaveGifButton" Content="Save GIF…" Click="OnSaveGif" Margin="0,0,8,6" ToolTip="A looping GIF: the loop above, or an animated GIF's own frames" />
                                                 <Button x:Name="SaveApngButton" Content="Save APNG…" Click="OnSaveApng" Margin="0,0,8,6" ToolTip="An animated PNG: full colour, played by browsers" />
+                                                <Button x:Name="SaveFramesButton" Content="Save PNG frames…" Click="OnSaveFrames" Margin="0,0,8,6" Visibility="Collapsed" ToolTip="Every frame from its start to its stop as a numbered PNG, into a folder" />
                                                 <Button x:Name="StopAnimationButton" Content="Stop" Click="OnStopAnimation" Margin="0,0,0,6" Visibility="Collapsed" AutomationProperties.Name="Stop making the animation" />
                                             </WrapPanel>
                                             <TextBlock x:Name="AnimHint" Style="{StaticResource Hint}" Margin="0,2,0,0" Visibility="Collapsed" />
@@ -417,6 +446,25 @@
                                 <Slider x:Name="FrameSlider" Minimum="0" Maximum="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" TickFrequency="1" IsMoveToPointEnabled="True"
                                         VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Frame" />
                             </DockPanel>
+
+                            <!-- a video's timeline: Play / Pause with its sound, a frame back and on, the time; and the stretch a save takes -->
+                            <StackPanel x:Name="VideoBar" Grid.Row="1" Margin="0,10,0,0" Visibility="Collapsed">
+                                <DockPanel>
+                                    <Button x:Name="VideoPlayButton" DockPanel.Dock="Left" MinWidth="96" />
+                                    <Button x:Name="StepBackButton" DockPanel.Dock="Left" Content="◀▮" MinWidth="34" Padding="0" Margin="6,0,0,0" ToolTip="A frame back" AutomationProperties.Name="A frame back" />
+                                    <Button x:Name="StepOnButton" DockPanel.Dock="Left" Content="▮▶" MinWidth="34" Padding="0" Margin="4,0,0,0" ToolTip="A frame on" AutomationProperties.Name="A frame on" />
+                                    <TextBlock x:Name="VideoTime" DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" TextAlignment="Right" FontFamily="Consolas" AutomationProperties.Name="Time" />
+                                    <Slider x:Name="TimeSlider" Minimum="0" Maximum="1" IsMoveToPointEnabled="True" VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Time in the video" />
+                                </DockPanel>
+                                <DockPanel Margin="0,6,0,0">
+                                    <CheckBox x:Name="VideoSoundBox" DockPanel.Dock="Right" Content="Sound" IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0"
+                                              ToolTip="Its sound while it plays (a save keeps the sound when Export says so)" />
+                                    <Button x:Name="SetStartButton" DockPanel.Dock="Left" Content="Start here" ToolTip="What's saved starts at the frame on screen" />
+                                    <Button x:Name="SetStopButton" DockPanel.Dock="Left" Content="Stop here" Margin="6,0,0,0" ToolTip="What's saved stops after the frame on screen" />
+                                    <Button x:Name="WholeButton" DockPanel.Dock="Left" Content="All of it" Margin="6,0,0,0" ToolTip="Save the whole video" />
+                                    <TextBlock x:Name="RangeText" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Dim}" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </StackPanel>
 
                             <!-- (a fixed height: a readout of two lines never moves the picture) -->
                             <DockPanel x:Name="ViewBar" Grid.Row="2" Margin="0,10,0,0" Height="50">

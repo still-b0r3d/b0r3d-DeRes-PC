@@ -8,8 +8,9 @@ namespace B0r3dDeRes
 {
     // Where b0r3d DeRes keeps its settings: one folder, "b0r3dDeRes data" next to the exe, or the
     // folder given with --data. b0r3d DeRes writes nothing anywhere else: no AppData, no registry,
-    // no Temp. In the folder it only ever touches names of its own (b0r3dDeRes.ini and the
-    // "b0r3dDeRes drag" folder), so --data can point at a folder that holds other things.
+    // no Temp. In the folder it only ever touches names of its own (b0r3dDeRes.ini, "b0r3dDeRes
+    // presets.json" and the "b0r3dDeRes drag" folder), so --data can point at a folder that holds
+    // other things.
     static class DataFolder
     {
         public const string DefaultName = "b0r3dDeRes data";

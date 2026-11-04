@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.6 (not released yet)
+
+The sixth stage: video.
+
+- Videos open as pictures do (File → Open picture or video…, a drop, the command line): MP4,
+  MOV, MKV, AVI, WMV, MPEG and whatever else Windows has a decoder for, through Windows' own
+  video system, the right way up as the phone took them. An iPhone's HDR video (HLG) comes out
+  in normal colour, converted by DeRes itself; other HDR through Windows' own conversion.
+- The timeline under the picture: Play / Pause with the sound, a frame back and on, the slider
+  to any moment, Start here, Stop here and All of it. Every frame goes through the settings, the
+  screen effect and the Signal (its noise at the video's own speed). Paused, the frame on screen
+  is the picture: every control works on it, and Compare, saves, copies and wallpapers take it.
+  A video that reads slower than it plays (4K HDR on a modest PC) still moves, leaving frames
+  out to keep up with its sound; one whose sound stops first plays on to its end.
+- Save MP4… (Export, and the File menu): the stretch through the look as H.264 and AAC, with its
+  sound (Keep the sound), at the Size chosen up to 4096 × 2304 and the video's own frame rate or
+  a slower one (30, 25, 24, 15, 12, 10). It plays in Windows' Media Player, browsers and phones,
+  the sound in step: Windows passes over an MP4's edit lists, which phones and ffmpeg write, so
+  DeRes reads them itself.
+- GIF and APNG of a video's frames (Animation loop: Video), at the Size or the biggest that
+  fits, a GIF at 50 frames a second at most and an APNG at 60 (faster, browsers slow them down:
+  60 becomes 30 for a GIF), and Save PNG frames… (`clip-nes-rf-00001.png` on). Frames are made
+  on several cores, the bottom line says how far it's got and the time left, and Stop leaves no
+  file.
+- Batches take videos: an MP4 each with its sound, at the Size or the biggest an MP4 holds, or a
+  GIF or APNG of its frames; each read back from the disk, an MP4 frame by frame.
+- The Signal's engine, all of it: Every setting… (Signal → Advanced) has every one of ntsc-rs's
+  settings for the picture on screen, changed on top of the connection's own until Reset all;
+  ntsc-rs's settings files save there, and load as what they have otherwise than the connection
+  (the scale, which fits the engine to each picture, stays DeRes's). 69 frames made with them
+  changed (every field mode too) come out as the website's own engine makes them from the same
+  settings, byte for byte.
+- Dub it: the tape copied up to nine times, each copy through it all again.
+- Presets: nine built in and your own (Save as preset…), kept in the settings folder as
+  `b0r3dDeRes presets.json`. What that file holds that this version can't read stays in it, and
+  a file that can't be read at all is never written over (the list says so).
+- Share links, look files and the settings file keep the engine settings changed and the copies
+  (the website's own links and files have none).
+- A Windows without its video parts (the "N" editions) says what to install; pictures work there
+  all the same.
+- The Signal's line: "The noise moves when a GIF or a video plays, and in the animations and
+  videos under Export."
+- The self-test writes an MP4 beside its report and reads it back. The tests run in eight parts.
+
 ## 0.5 (not released yet)
 
 The fifth stage: GIFs and loops.

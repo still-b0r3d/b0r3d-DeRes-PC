@@ -37,9 +37,10 @@ if errorlevel 1 exit /b 1
 
 echo Built bin\b0r3dDeRes.exe, build %BUILD%
 if /i not "%~1"=="test" exit /b 0
-rem The tests, in five parts that each finish within 90 seconds (their watchdog), even on a
+rem The tests, in eight parts that each finish within 90 seconds (their watchdog), even on a
 rem 2-core CI machine: the engine against the website, its GIF writers and loops, half of
-rem GIFs' own frames and GIFs in the window, the other half, then the windows.
+rem GIFs' own frames and GIFs in the window, the other half, the Signal's every setting,
+rem videos read and written, batches of videos, then the windows.
 bin\tests\b0r3dDeResTests.exe --part engine
 if errorlevel 1 exit /b 1
 bin\tests\b0r3dDeResTests.exe --part animation
@@ -47,6 +48,12 @@ if errorlevel 1 exit /b 1
 bin\tests\b0r3dDeResTests.exe --part gifs
 if errorlevel 1 exit /b 1
 bin\tests\b0r3dDeResTests.exe --part frames
+if errorlevel 1 exit /b 1
+bin\tests\b0r3dDeResTests.exe --part signal
+if errorlevel 1 exit /b 1
+bin\tests\b0r3dDeResTests.exe --part video
+if errorlevel 1 exit /b 1
+bin\tests\b0r3dDeResTests.exe --part videobatch
 if errorlevel 1 exit /b 1
 bin\tests\b0r3dDeResTests.exe --part window
 exit /b %ERRORLEVEL%

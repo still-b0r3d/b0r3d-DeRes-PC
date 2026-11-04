@@ -100,6 +100,71 @@ namespace B0r3dDeRes.Tests
             Check(wrong.Count == 0, wrong.Count + " of " + (Website.SignalExports.Length + Website.SignalWallpapers.Length) + " differ: " + string.Join("; ", wrong.Take(6)));
         }
 
+        // Every engine setting the PC lets you change, every field mode and dubbing, as the website's
+        // own wasm makes them from the same settings file (the website's page sends only some of them).
+        static void EveryEngineSettingLikeTheWebsite()
+        {
+            var found = new System.Collections.Concurrent.ConcurrentBag<(int At, string Why)>();
+            for (int at = 0; at < Website.EngineCases.Length; at++)
+            {
+                var c = Website.EngineCases[at];
+                SignalSettings s = c.Signal.Clone();
+                s.Engine = Signal.CheckEngine(Json.Parse(c.Engine));
+                s.Dubs = c.Dubs;
+                RenderCase picture = Website.Renders[c.Render];
+                SignalImage img = Signal.Run(Made(c.Render), picture.Profile, s, c.Frame);
+                string why = img.Width != c.Width || img.Height != c.Height ? "size " + img.Width + "×" + img.Height : Sha(img.Rgb) != c.Rgb ? "colours" : null;
+                if (why != null) found.Add((at, picture + " " + c.Signal.Mode + " frame " + c.Frame + " " + c.Engine + (c.Dubs > 0 ? " dubbed " + c.Dubs : "") + ": " + why));
+            }
+            List<string> wrong = found.OrderBy(f => f.At).Select(f => f.Why).ToList();
+            Check(wrong.Count == 0, wrong.Count + " of " + Website.EngineCases.Length + " differ: " + string.Join("; ", wrong.Take(6)));
+        }
+
+        // ntsc-rs settings files read as the engine reads them (the legacy defaults for what's left
+        // out, fractions cut to whole numbers, ranges held), and refused where it refuses them
+        static void EngineFilesLikeTheWebsite()
+        {
+            foreach (var c in Website.EngineFileCases)
+            {
+                Rendered r = Made(c.Render);
+                SignalMachine machine = Signal.Machine(Website.Renders[c.Render].Profile, r.Width);
+                byte[] input = Signal.Input(r, machine, out int width);
+                byte[] rgb = Ntsc.Frame(input, width, r.Height, 1, NtscSettings.FromFile(c.Json), 1f, machine.LineLocked, 16);
+                Check(Sha(rgb) == c.Rgb, "the settings file " + c.Json + " runs differently");
+            }
+            // the defaults, written as the engine writes them, letter for letter, and read back
+            NtscSettings defaults = NtscSettings.FromValues(NtscSettings.DefaultValues());
+            Check(defaults.ToFile() == Website.EngineDefaults, "the defaults are written as " + defaults.ToFile());
+            Check(NtscSettings.FromFile(Website.EngineDefaults).SameAs(defaults) && EngineFileSettings(Website.EngineDefaults).SameAs(defaults), "the defaults read back as themselves");
+            foreach (string bad in new[] { "{}", "{\"version\":2}", "[1]", "{\"version\":1,\"use_field\":9}", "{\"version\":1,\"ringing\":1}", "{\"version\":1,\"luma_smear\":true}", "not json" })
+            {
+                bool refused = false;
+                try
+                {
+                    NtscSettings.FromFile(bad);
+                }
+                catch (FormatException)
+                {
+                    refused = true;
+                }
+                Check(refused, "the engine refuses " + bad + ", so the PC must too");
+            }
+            // an ntscQT preset (the engine converts those; DeRes says what it is instead)
+            try
+            {
+                NtscSettings.FromFile("{\"_composite_preemphasis\":1}");
+                Check(false, "an ntscQT preset is said to be one");
+            }
+            catch (FormatException x)
+            {
+                Check(x.Message.Contains("ntscQT"), "an ntscQT preset is said to be one: " + x.Message);
+            }
+            // a float written as Rust writes it: the fewest digits, never an exponent
+            Check(NtscSettings.F32Text(1e-7f) == "0.0000001" && NtscSettings.F32Text(3e10f) == "30000000000" && NtscSettings.F32Text(0.1f) == "0.1" &&
+                NtscSettings.F32Text(-0f) == "-0" && NtscSettings.F32Text(16777217f) == "16777216" && NtscSettings.F32Text(1.5e-45f) == "0." + new string('0', 44) + "1",
+                "floats are written as Rust writes them");
+        }
+
         static void ArtifactColoursLikeTheWebsite()
         {
             foreach (var a in Website.Artifacts)
@@ -143,57 +208,27 @@ namespace B0r3dDeRes.Tests
             return (float)(negative ? -value : value);
         }
 
+        // A settings file as the engine reads it: every setting it has, each number straight from its
+        // text to the nearest float (FloatOf), over the engine's legacy defaults.
+        internal static NtscSettings EngineFileSettings(string json)
+        {
+            var values = (Dictionary<string, object>)Json.Parse(json);
+            foreach (string key in values.Keys.ToList())
+                if (values[key] is double && NtscSettings.Find(key) is NtscSetting s && (s.Kind == SettingKind.Float || s.Kind == SettingKind.Percent))
+                    values[key] = (double)FloatOf(Regex.Match(json, "\"" + key + "\":([^,}]+)").Groups[1].Value);
+            return NtscSettings.FromValues(values);
+        }
+
         static void EngineSettingsLikeTheWebsite()
         {
             foreach (var f in Website.EngineFiles)
             {
-                string Text(string key) => Regex.Match(f.Json, "\"" + key + "\":([^,}]+)").Groups[1].Value;
-                float Number(string key, float lo, float hi)
-                {
-                    float v = FloatOf(Text(key));
-                    return v < lo ? lo : v > hi ? hi : v;
-                }
                 NtscSettings s = Signal.EngineSettings(f.Connection, new SignalSettings { Mode = f.Connection, Wear = f.Wear, Sharpen = f.Sharpen }, f.Lines);
-                var wrong = new List<string>();
-                void Same(string what, bool same, object got)
-                {
-                    if (!same) wrong.Add(what + " " + got);
-                }
-                Same("interlaced", s.Interlaced == (Text("use_field") == "4"), s.Interlaced);
-                Same("pre-emphasis", s.CompositePreemphasis == Number("composite_preemphasis", -1, 2), s.CompositePreemphasis.ToString("R"));
-                Same("composite noise", s.CompositeNoise == Number("composite_noise_intensity", 0, 1), s.CompositeNoise.ToString("R"));
-                Same("snow", s.Snow == Number("snow_intensity", 0, 100), s.Snow.ToString("R"));
-                Same("head switching", s.HeadSwitching == (Text("head_switching") == "true"), s.HeadSwitching);
-                Same("its shift", s.HeadSwitchingShift == Number("head_switching_horizontal_shift", -100, 100), s.HeadSwitchingShift.ToString("R"));
-                Same("tracking noise", s.TrackingNoise == (Text("tracking_noise") == "true"), s.TrackingNoise);
-                Same("its wave", s.TrackingWave == Number("tracking_noise_wave_intensity", -50, 50), s.TrackingWave.ToString("R"));
-                Same("its snow", s.TrackingSnow == Number("tracking_noise_snow_intensity", 0, 1), s.TrackingSnow.ToString("R"));
-                Same("its noise", s.TrackingNoiseIntensity == Number("tracking_noise_noise_intensity", 0, 1), s.TrackingNoiseIntensity.ToString("R"));
-                Same("luma noise", s.LumaNoise == Number("luma_noise_intensity", 0, 1), s.LumaNoise.ToString("R"));
-                Same("chroma noise", s.ChromaNoise == Number("chroma_noise_intensity", 0, 1), s.ChromaNoise.ToString("R"));
-                Same("phase noise", s.ChromaPhaseNoise == Number("chroma_phase_noise_intensity", 0, 1), s.ChromaPhaseNoise.ToString("R"));
-                Same("VHS", s.Vhs == (Text("vhs_settings") == "true"), s.Vhs);
-                Same("tape speed", s.TapeSpeed.ToString(CultureInfo.InvariantCulture) == Text("vhs_tape_speed"), s.TapeSpeed);
-                Same("chroma loss", s.ChromaLoss == Number("vhs_chroma_loss", 0, 1), s.ChromaLoss.ToString("R"));
-                Same("edge wave", s.EdgeWave == Number("vhs_edge_wave", 0, 20), s.EdgeWave.ToString("R"));
-                Same("vertical scale", s.VerticalScale == Number("vertical_scale", 0.125f, 8.8f), s.VerticalScale.ToString("R"));
-                Same("comb", !s.Comb && Text("chroma_demodulation") == "1", s.Comb);
-                // and what the website always sends, which the engine then always does
-                Same("the rest", Text("random_seed") == "0" && Text("input_luma_filter") == "0" && Text("filter_type") == "1" && Text("chroma_lowpass_in") == "2" &&
-                    Text("chroma_lowpass_out") == "2" && Text("luma_smear") == "0.5" && Text("ringing") == "true" && Text("ringing_frequency") == "0.45" && Text("ringing_power") == "4" &&
-                    Text("ringing_scale") == "4" && Text("composite_noise") == "true" && Text("composite_noise_frequency") == "0.5" && Text("composite_noise_detail") == "1" &&
-                    Text("luma_noise") == "true" && Text("luma_noise_frequency") == "0.5" && Text("luma_noise_detail") == "1" && Text("chroma_noise") == "true" &&
-                    Text("chroma_noise_frequency") == "0.05" && Text("chroma_noise_detail") == "2" && Text("snow_anisotropy") == "0.5" && Text("chroma_phase_error") == "0" &&
-                    Text("chroma_delay_horizontal") == "0" && Text("chroma_delay_vertical") == "0" && Text("vhs_chroma_vert_blend") == "false" && Text("vhs_sharpen_enabled") == "true" &&
-                    Text("vhs_sharpen") == "0.25" && Text("vhs_sharpen_frequency") == "1" && Text("vhs_edge_wave_enabled") == "true" && Text("vhs_edge_wave_speed") == "4" &&
-                    Text("vhs_edge_wave_frequency") == "0.05" && Text("vhs_edge_wave_detail") == "2" && Text("head_switching_height") == "8" && Text("head_switching_offset") == "3" &&
-                    Text("head_switching_start_mid_line") == "true" && Text("head_switching_mid_line_position") == "0.95" && Text("head_switching_mid_line_jitter") == "0.03" &&
-                    Text("tracking_noise_height") == "12" && Text("tracking_noise_snow_anisotropy") == "0.25" && Text("scale_settings") == "true" && Text("bandwidth_scale") == "1" &&
-                    Text("scale_with_video_size") == "false", "");
+                List<string> wrong = s.Differences(EngineFileSettings(f.Json));
                 Check(wrong.Count == 0, f.Connection + " wear " + f.Wear + " sharpen " + f.Sharpen + " " + f.Lines + " lines: " + string.Join(", ", wrong));
             }
             // the comb filter, and a double exactly halfway between two floats (its digits decide)
-            Check(Signal.EngineSettings(SignalModes.Rf, new SignalSettings { Decoder = SignalModes.Comb }, 240).Comb, "the comb filter");
+            Check(Signal.EngineSettings(SignalModes.Rf, new SignalSettings { Decoder = SignalModes.Comb }, 240).ChromaDemodulation == ChromaDemodulation.TwoLineComb, "the comb filter");
             double between = (1.0 + Math.Pow(2, -24)) * 0.25;   // halfway between two floats, 0.25 and the next
             Check(Signal.JsonFloat(between) == FloatOf(JsNumber.Text(between)) && Signal.JsonFloat(0.1) == 0.1f && Signal.JsonFloat(1 / 3.0) == FloatOf(JsNumber.Text(1 / 3.0)),
                 "a number's float, as the engine reads JavaScript's text of it");

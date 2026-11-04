@@ -72,6 +72,7 @@ namespace B0r3dDeRes.Tests
                 Check(found.TryGetValue("signal", out string signal) && signal == "ok", "the signal inside the exe should make the website's very frame: " + all);
                 Check(SelfTest.RukusGif == Website.SelfTestGif, "the self-test's GIF isn't the website's (make the test files again, and copy its hash into SelfTest.cs)");
                 Check(found.TryGetValue("gif", out string gif) && gif == "ok", "the GIF sample inside the exe should read as the website reads it and make the website's very GIF: " + all);
+                Check(found.TryGetValue("video", out string video) && video == (B0r3dDeRes.Video.Mf.Available ? "ok" : "none"), "an MP4 should go through Windows' video system and back inside the exe: " + all);
                 Check(found["bits"] == "64", "the exe ran as a " + found["bits"] + "-bit program; only 64-bit does the website's sums to the last bit");
                 Check(found["dpi"] == "per-monitor-v2", "the exe follows the screens' scaling as \"" + found["dpi"] + "\", not per-monitor-v2 (is the manifest in?)");
                 Check(found["version"] == Program.FullVersion, "the exe says " + found["version"]);
@@ -94,6 +95,12 @@ namespace B0r3dDeRes.Tests
             { "shcore.dll", new[] { "GetDpiForMonitor" } },                                                                                     // each screen's scaling
             { "gdi32.dll", new[] { "CreateCompatibleDC", "CreateCompatibleBitmap", "SelectObject", "BitBlt", "DeleteObject", "DeleteDC" } },  // a picture of the screen
             { "dwmapi.dll", new[] { "DwmSetWindowAttribute" } },                                                                                // title bars, no fade while stepping aside
+            // videos: Windows' own video system, started without its network parts, reading and
+            // writing only streams of the program's own (the sink writer's "URL" is always none)
+            { "mfplat.dll", new[] { "MFStartup", "MFCreateAttributes", "MFCreateMediaType", "MFCreateSample", "MFCreateMemoryBuffer", "MFCreateMFByteStreamOnStream" } },
+            { "mfreadwrite.dll", new[] { "MFCreateSourceReaderFromByteStream", "MFCreateSinkWriterFromURL" } },
+            // a video's sound out of the speakers while it plays
+            { "winmm.dll", new[] { "waveOutOpen", "waveOutPrepareHeader", "waveOutUnprepareHeader", "waveOutWrite", "waveOutGetPosition", "waveOutReset", "waveOutClose" } },
         };
         static readonly string[] AllowedCom =
         {

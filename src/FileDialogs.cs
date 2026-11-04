@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -89,11 +90,19 @@ namespace B0r3dDeRes
             new FilterSpec { Name = "Looks (.json)", Spec = "*.json" },
             new FilterSpec { Name = "All files", Spec = "*.*" }));
 
+        // an ntsc-rs settings file (or a preset of its), or null when cancelled
+        public static string OpenEngineSettings(Window owner) => Open(owner, PrepareOpen("Load ntsc-rs settings",
+            new FilterSpec { Name = "ntsc-rs settings (.json)", Spec = "*.json" },
+            new FilterSpec { Name = "All files", Spec = "*.*" }));
+
         // several pictures for a batch, or null when cancelled
         public static string[] OpenPictures(Window owner)
         {
-            IFileOpenDialog dialog = PrepareOpen("Pictures to DeRes",
+            string videos = string.Join(";", Video.VideoFile.Extensions.Select(e => "*" + e));
+            IFileOpenDialog dialog = PrepareOpen("Pictures and videos to DeRes",
+                new FilterSpec { Name = "Pictures and videos", Spec = Pictures.DialogPattern + ";" + videos },
                 new FilterSpec { Name = "Pictures", Spec = Pictures.DialogPattern },
+                new FilterSpec { Name = "Videos", Spec = videos },
                 new FilterSpec { Name = "All files", Spec = "*.*" });
             dialog.GetOptions(out uint options);
             dialog.SetOptions(options | AllowMultiSelect);
@@ -172,8 +181,10 @@ namespace B0r3dDeRes
             return dialog;
         }
 
-        internal static IFileOpenDialog PrepareOpen() => PrepareOpen("Open a picture",
+        internal static IFileOpenDialog PrepareOpen() => PrepareOpen("Open a picture or a video",
+            new FilterSpec { Name = "Pictures and videos", Spec = Pictures.DialogPattern + ";" + string.Join(";", Video.VideoFile.Extensions.Select(e => "*" + e)) },
             new FilterSpec { Name = "Pictures", Spec = Pictures.DialogPattern },
+            new FilterSpec { Name = "Videos", Spec = string.Join(";", Video.VideoFile.Extensions.Select(e => "*" + e)) },
             new FilterSpec { Name = "All files", Spec = "*.*" });
 
         internal static IFileOpenDialog PrepareOpen(string title, params FilterSpec[] filters)

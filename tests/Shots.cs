@@ -15,9 +15,11 @@ namespace B0r3dDeRes.Tests
     // Rukus kept see-through on the Super Nintendo; the Amstrad's Colours slider; the PlayStation's
     // dithers; the C64's .koa and the share link; the screens, a CRT close up at 150 %, the analog
     // looks, the export's wallpapers, a batch and the snip; the signal; the GIF sample playing and
-    // paused, the Animation loop, a VHS loop's rows and a batch of GIFs; nothing opened yet) and
-    // About, in light and dark, into PNG files, straight from the controls. Nothing shows on screen
-    // and nothing takes focus; menus that pop open, and full screen, aren't in them.
+    // paused, the Animation loop, a VHS loop's rows and a batch of GIFs; a video paused on its
+    // timeline, the video rows under Export, the Signal's tape extras, every engine setting and a
+    // batch of a video; nothing opened yet) and About, in light and dark, into PNG files, straight
+    // from the controls. Nothing shows on screen and nothing takes focus; menus that pop open, and
+    // full screen, aren't in them.
     static partial class TestMain
     {
         static int TakeShots(string folder)
@@ -309,6 +311,75 @@ namespace B0r3dDeRes.Tests
                 Shoot(gifBatch.Root, gifBatchSize.Width, gifBatchSize.Height, 1, Path.Combine(folder, "batch-gif-" + name + ".png"));
                 gifBatch.Close();
 
+                // stage 6: a video (the cat napping, panned across) on the NES over a VHS tape, paused
+                // with a stretch picked; the Export section's video rows; the Signal's tape extras
+                // with a preset on; every one of the engine's settings; a batch of a video and a picture
+                if (Video.Mf.Available)
+                {
+                    string clip = Path.Combine(Work, "cat-nap-pan.mp4");
+                    if (!File.Exists(clip)) PanClip(clip);
+                    MainWindow video = NewMain();
+                    WaitForPicture(video);
+                    video.OpenFile(clip);
+                    Pump(() => !video.Opening, 20000);
+                    WaitForPicture(video);
+                    Pick(video, "nes");
+                    PickSignal(video, SignalModes.VhsSp);
+                    void At(double seconds)
+                    {
+                        video.TimeSlider.Value = seconds;
+                        Pump(() => Math.Abs(video.OpenedPicture.Video.Time / 1e7 - seconds) < 0.002 && !video.Rendering && video.ShownFrame == video.OpenedPicture.Video.FrameNumber(video.OpenedPicture.Video.Time), 15000);
+                        WaitForPicture(video);
+                    }
+                    At(0.5);
+                    Click(video.SetStartButton);
+                    At(1.5);
+                    Click(video.SetStopButton);
+                    At(0.9);
+                    Settle(video);
+                    Shoot(video.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "video-timeline-" + name + ".png"));
+                    video.ImageSection.IsExpanded = false;
+                    video.ExportSection.IsExpanded = true;
+                    Settle(video);
+                    ScrollTo(video, video.VideoRows);
+                    Shoot(video.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "video-export-" + name + ".png"));
+
+                    MainWindow tape = NewMain();
+                    WaitForPicture(tape);
+                    tape.OpenSample("cat-nap");
+                    WaitForPicture(tape);
+                    Pick(tape, "nes");
+                    PickSignal(tape, SignalModes.VhsSp);
+                    tape.UsePreset("Copy of a copy");
+                    tape.ImageSection.IsExpanded = false;
+                    tape.SignalSection.IsExpanded = true;
+                    tape.SignalAdvanced.IsExpanded = true;
+                    Settle(tape);
+                    WaitForScreen(tape);
+                    ScrollTo(tape, tape.DubsSlider);
+                    Shoot(tape.Root, MainWidth, MainHeight, 1, Path.Combine(folder, "signal-tape-extras-" + name + ".png"));
+                    TapeWindow every = tape.EverySetting();
+                    ((Slider)every.ControlOf("snow_intensity")).Value = 600;
+                    var everyRoot = (FrameworkElement)every.Content;
+                    LayOut(everyRoot, 560, 720);
+                    Pump(() => false, 60);
+                    LayOut(everyRoot, 560, 720);
+                    Shoot(everyRoot, 560, 720, 1, Path.Combine(folder, "every-setting-" + name + ".png"));
+                    every.Close();
+
+                    string videos = Path.Combine(Work, "shots-batch-videos");
+                    Fresh(videos);
+                    File.Copy(clip, Path.Combine(videos, "cat-nap-pan.mp4"));
+                    File.WriteAllBytes(Path.Combine(videos, "rukus.png"), SampleBytes("rukus"));
+                    tape.Sizes.Children.OfType<RadioButton>().First(b => (int)b.Tag == 2).IsChecked = true;
+                    BatchWindow videoBatch = tape.OpenBatch(new[] { videos });
+                    videoBatch.Make(Clash.Number);
+                    Pump(() => videoBatch.Running.IsCompleted, 60000);
+                    Size videoBatchSize = LayOut(videoBatch.Root, 640, 760);
+                    Shoot(videoBatch.Root, videoBatchSize.Width, videoBatchSize.Height, 1, Path.Combine(folder, "batch-video-" + name + ".png"));
+                    videoBatch.Close();
+                }
+
                 // nothing opened yet (a picture that won't open)
                 MainWindow empty = NewMain(1, false);
                 Settle(empty);
@@ -331,6 +402,38 @@ namespace B0r3dDeRes.Tests
             LayOut(window.Root, MainWidth, MainHeight);
             Pump(() => false, 60);
             LayOut(window.Root, MainWidth, MainHeight);
+        }
+
+        // A 2-second video for the screenshots: the cat napping, panned across at 640×480, 30 a
+        // second, with a quiet sound track.
+        static void PanClip(string path)
+        {
+            PictureSource cat = Pictures.Sample("cat-nap").Source;
+            const int w = 640, h = 480, frames = 60;
+            double cropW = Math.Min(cat.Width * 0.8, cat.Height * 0.95 * 4 / 3), cropH = cropW * 3 / 4;
+            using (FileStream file = File.Create(path))
+            using (var mp4 = new Video.Mp4Writer(file, w, h, 30, true))
+            {
+                var bgra = new byte[w * h * 4];
+                for (int k = 0; k < frames; k++)
+                {
+                    double x0 = (cat.Width - cropW) * k / (frames - 1), y0 = (cat.Height - cropH) / 2;
+                    for (int y = 0; y < h; y++)
+                    {
+                        int sy = Math.Min(cat.Height - 1, (int)(y0 + y * cropH / h));
+                        for (int x = 0; x < w; x++)
+                        {
+                            int sx = Math.Min(cat.Width - 1, (int)(x0 + x * cropW / w));
+                            Array.Copy(cat.Bgra, ((long)sy * cat.Width + sx) * 4, bgra, ((long)y * w + x) * 4, 4);
+                        }
+                    }
+                    long time = (long)Math.Round(k * 1e7 / 30), next = (long)Math.Round((k + 1) * 1e7 / 30);
+                    mp4.AddFrame(bgra, time, next - time);
+                }
+                var quiet = new short[96000 * 2];
+                mp4.AddSound(quiet, 0, quiet.Length, 0);
+                mp4.Finish();
+            }
         }
 
         // a sample's file, as it is inside the exe

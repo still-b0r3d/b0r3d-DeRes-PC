@@ -33,8 +33,16 @@ namespace B0r3dDeRes
         // Export → Animation loop: the Screen FX loop, the A/B wipe or the dither shimmer (an
         // animated GIF's own frames are picked for each GIF opened, never kept)
         public string AnimationStyle = Animation.ScreenFx;
+        // Export, for a video: the frame rate it goes out at (0: the video's own), and whether an MP4 keeps its sound
+        public int VideoRate;
+        public bool VideoSound = true;
 
         public static readonly int[] LoopFrameCounts = { 16, 32, 48 }, LoopSpeeds = { 15, 30 };
+        // the slower frame rates a video can go out at (each only below its own)
+        public static readonly int[] VideoRates = { 30, 25, 24, 15, 12, 10 };
+
+        // the frame rate a video of `own` frames a second goes out at
+        public double VideoFps(double own) => VideoRate > 0 && VideoRate < own - 0.01 ? VideoRate : own;
 
         // a fresh start, as the website's first visit
         public static Settings Defaults() => new Settings();
@@ -178,6 +186,18 @@ namespace B0r3dDeRes
                     case "decoder":
                         if (value == SignalModes.Notch || value == SignalModes.Comb) s.Signal.Decoder = value;
                         break;
+                    case "signal_engine":
+                        try
+                        {
+                            s.Signal.Engine = Engine.Signal.CheckEngine(Json.Parse(value));
+                        }
+                        catch (FormatException)
+                        {
+                        }
+                        break;
+                    case "dubs":
+                        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int dubs)) s.Signal.Dubs = Math.Min(SignalSettings.MaxDubs, Math.Max(0, dubs));
+                        break;
                     case "loop_frames":
                         if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int frames) && LoopFrameCounts.Contains(frames)) s.LoopFrames = frames;
                         break;
@@ -186,6 +206,12 @@ namespace B0r3dDeRes
                         break;
                     case "animation":
                         if (Animation.Styles.Contains(value)) s.AnimationStyle = value;
+                        break;
+                    case "video_rate":
+                        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int rate) && (rate == 0 || VideoRates.Contains(rate))) s.VideoRate = rate;
+                        break;
+                    case "video_sound":
+                        if (value == "on" || value == "off") s.VideoSound = value == "on";
                         break;
                 }
             }
@@ -242,9 +268,13 @@ namespace B0r3dDeRes
             Line("signal_colour", N(Signal.Colour));
             Line("sharpen", N(Signal.Sharpen));
             Line("decoder", Signal.Decoder);
+            if (Signal.Engine.Count > 0) Line("signal_engine", Signal.EngineText);
+            if (Signal.Dubs > 0) Line("dubs", Signal.Dubs.ToString(CultureInfo.InvariantCulture));
             Line("loop_frames", LoopFrames.ToString(CultureInfo.InvariantCulture));
             Line("loop_fps", LoopFps.ToString(CultureInfo.InvariantCulture));
             Line("animation", AnimationStyle);
+            Line("video_rate", VideoRate.ToString(CultureInfo.InvariantCulture));
+            Line("video_sound", VideoSound ? "on" : "off");
             Line("screen", Fx.Screen);
             Line("mask", Fx.Mask);
             Line("scanlines", N(Fx.Scanlines));

@@ -23,8 +23,8 @@ namespace B0r3dDeRes.Tests
     // Runs every test and prints a PASS, FAIL or SKIP line for each. It never shows a dialog:
     // whatever goes wrong ends as a line, and a watchdog stops the run after 90 seconds.
     //   b0r3dDeResTests.exe                        run the tests
-    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|window   run one part of them
-    //                                              (build.cmd test runs the five in turn, each
+    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|signal|video|videobatch|window   run one part of them
+    //                                              (build.cmd test runs the eight in turn, each
     //                                              within its 90 seconds on a 2-core CI machine too)
     //   b0r3dDeResTests.exe --shots <folder>       draw the windows to PNG files (see Shots.cs)
     static partial class TestMain
@@ -51,6 +51,8 @@ namespace B0r3dDeRes.Tests
                 // the program's resources and styles, as when it runs; a window that throws is a FAIL line
                 var app = new App();
                 app.InitializeComponent();
+                // (the program ends when its main window closes; the tests close many and go on)
+                app.ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
                 App.OnProblem = e => { Console.WriteLine("FAIL  a window threw: " + e); Environment.Exit(3); };
                 SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
                 Fresh(Work);
@@ -62,10 +64,10 @@ namespace B0r3dDeRes.Tests
                     TryDelete(Work);
                     return shot;
                 }
-                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "window" }.Contains(args[1])) only = args[1];
+                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videobatch", "window" }.Contains(args[1])) only = args[1];
                 else if (args.Length > 0)
                 {
-                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|window] [--shots <folder>]");
+                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videobatch|window] [--shots <folder>]");
                     return 2;
                 }
 
@@ -144,6 +146,24 @@ namespace B0r3dDeRes.Tests
                 Run("window: GIFs shrunk to be held: Custom's height and widest and the resolution line by the GIF's own size", ShrunkGifInTheWindow);
                 Run("batch: GIFs skipped (not made) or replaced, Stop while one's made leaves no file and counts nothing, a file that came to the name meanwhile left as it was", BatchGifsSkipReplaceStop);
                 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DERES_MEASURE"))) Run("measure: an animation at the PC's limits, its time and memory", MeasureAnimations);
+
+                part = "signal";
+                Run("signal: " + Website.EngineCases.Length + " frames with the engine's settings changed, every field mode and dubbed tapes, as the website's own engine makes them from the same settings, byte for byte", EveryEngineSettingLikeTheWebsite);
+                Run("signal: ntsc-rs settings files read as the engine reads them (the defaults letter for letter), and refused where it refuses them", EngineFilesLikeTheWebsite);
+                Run("window: Dub it, the presets (built in, and your own kept, replaced and deleted; a broken presets file left alone, a later version's entries kept), every one of the engine's settings in its window, ntsc-rs settings files in and out; links, look files and the settings file keep them", TapeExtrasInTheWindow);
+
+                part = "video";
+                Run("video: MP4, MKV, MPEG-2, WMV and AVI clips open upright at their own speed and length, every frame in order, the flash on its frame and the beep at 1 s, mono 44.1 kHz made 48 kHz stereo", VideosOpen);
+                Run("video: the frame at any time, forwards and back, and a variable frame rate's frames each at its own time", VideoFramesByTime);
+                Run("video: HLG HDR (an iPhone's) in normal colour, close to the picture it was made from; the whole clip where Windows can decode HEVC", HdrVideosInNormalColour);
+                if (Environment.GetEnvironmentVariable("DERES_MEASURE") == "hlg") Run("measure: an HLG frame of 4K into normal colour", MeasureHlg);
+                Run("video: MP4s written (H.264 and AAC) read back with every frame, upright, at their speed (29.97 too), the sound in step with the picture", Mp4sWriteAndReadBack);
+                Run("video: a clip through the NES on RF saved as MP4 with its sound (its own speed and 15 a second, part of it without sound), GIF, APNG and PNG frames; Stop leaves no file", VideosSaveThroughTheLook);
+                Run("window: a video opens with its timeline; a frame on and back and the slider make that frame the picture; start and stop; saved as MP4 at a Size and frame rate; it plays and pauses", VideoInTheWindow);
+                Run("window: a video plays with its sound to its end when the sound stops first, the sound where its times put it, and on from where the slider's moved while it plays; the clock's words, GIF and APNG frame rates", VideoPlaysWithItsSound);
+
+                part = "videobatch";
+                Run("batch: videos as MP4s through the look with their sound (none for one without), at the biggest Size an MP4 holds, a GIF and an APNG of a video's frames at 10 a second, a picture beside them, every file read back", VideoBatches);
 
                 part = "window";
                 Run("look: the three colour sets match, and every colour used is in them", ThemesMatch);

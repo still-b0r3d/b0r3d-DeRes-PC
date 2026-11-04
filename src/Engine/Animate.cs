@@ -75,6 +75,7 @@ namespace B0r3dDeRes.Engine
         public Func<int, int, Rendered> Render;              // frame k through the machine, on lane `lane` (each lane its own engine)
         public int Lanes = 1;                               // frames made at once
         public Func<Rendered, int, SignalImage> Signal;     // frame k through the signal (null: off)
+        public Func<int, double> Phase;                     // the screen effect's place at frame k (null: once round over the frames, as the website's)
         public bool Indexed, SharedPalette;                 // pixels are palette entries; and the palette is every frame's
         public bool SeeThrough;
         public long? Budget;                                // pixels a full-colour GIF may hold at once (else Limits.Budget)
@@ -450,7 +451,7 @@ namespace B0r3dDeRes.Engine
             // frame k at the export size, full colour
             AnimFrame RgbFrame(Rendered r, int k)
             {
-                double phase = (double)k / total;
+                double phase = o.Phase != null ? o.Phase(k) : (double)k / total;
                 if (o.Signal != null) return SignalFrame(o.Signal(r, k), width, height, fx, phase, r.Paper);
                 if (fx != null) return FxFrame(r, width, height, fx, phase);
                 return Enlarged(r, width, height);

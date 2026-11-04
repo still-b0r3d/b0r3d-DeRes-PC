@@ -78,6 +78,9 @@ namespace B0r3dDeRes
             {
                 parts.Add("\"sg\":[" + Json.Quote(sig.Mode) + "," + string.Join(",", new[] { sig.Wear, sig.Colour, sig.Sharpen }.Select(Json.Number)) + "," + Json.Quote(sig.Decoder) + "]");
                 parts.Add("\"lp\":[" + Json.Number(settings.LoopFrames) + "," + Json.Number(settings.LoopFps) + "]");
+                // the PC's own, only when there are some (the website passes over names it doesn't know)
+                if (sig.Engine.Count > 0) parts.Add("\"ng\":" + sig.EngineText);
+                if (sig.Dubs > 0) parts.Add("\"du\":" + Json.Number(sig.Dubs));
             }
             if (d.CustomCount.HasValue && d.CustomCount.Value != 0) parts.Add("\"cc\":" + Json.Number(d.CustomCount.Value));
             if (d.CustomPalette != null && d.CustomPalette.Length > 0) parts.Add("\"cp\":[" + string.Join(",", d.CustomPalette.Select(Json.Quote)) + "]");
@@ -145,6 +148,8 @@ namespace B0r3dDeRes
             {
                 var signal = new Dictionary<string, object>();
                 for (int i = 0; i < signalNames.Length && i < g.Count; i++) signal[signalNames[i]] = g[i];
+                if (fields.TryGetValue("ng", out object ng)) signal["engine"] = ng;
+                if (fields.TryGetValue("du", out object du)) signal["dubs"] = du;
                 output["signal"] = signal;
             }
             else output["signal"] = new Dictionary<string, object> { { "mode", SignalModes.Off } };
@@ -195,11 +200,15 @@ namespace B0r3dDeRes
             fields.Add("\"multiplier\": " + Json.Number(settings.Multiplier));
             fields.Add("\"exportFx\": " + (settings.ExportFx ? "true" : "false"));
             SignalSettings sig = settings.Signal;
-            fields.Add("\"signal\": " + Pretty(new[]
+            var signal = new List<string>
             {
                 "\"mode\": " + Json.Quote(sig.Mode), "\"wear\": " + Json.Number(sig.Wear), "\"colour\": " + Json.Number(sig.Colour),
                 "\"sharpen\": " + Json.Number(sig.Sharpen), "\"decoder\": " + Json.Quote(sig.Decoder),
-            }, "{", "}", "  "));
+            };
+            // the PC's own, only when there are some
+            if (sig.Engine.Count > 0) signal.Add("\"engine\": " + Pretty(sig.Engine.Select(kv => Json.Quote(kv.Key) + ": " + (kv.Value is bool b ? (b ? "true" : "false") : Json.Number((double)kv.Value))), "{", "}", "    "));
+            if (sig.Dubs > 0) signal.Add("\"dubs\": " + Json.Number(sig.Dubs));
+            fields.Add("\"signal\": " + Pretty(signal, "{", "}", "  "));
             fields.Add("\"animationStyle\": " + Json.Quote(settings.AnimationStyle));
             fields.Add("\"loopFrames\": " + Json.Number(settings.LoopFrames));
             fields.Add("\"loopFps\": " + Json.Number(settings.LoopFps));

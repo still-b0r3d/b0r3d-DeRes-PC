@@ -46,8 +46,8 @@ namespace B0r3dDeRes
             foreach (int fps in Settings.LoopSpeeds) LoopSpeeds.Children.Add(Segment("LoopSpeed", fps, fps + " fps", "Loop at " + fps + " frames a second", OnLoopSpeed));
         }
 
-        // what the animation is made of: the GIF's own frames, or a loop style
-        internal string AnimationKind => picture?.Animation != null && gifFramesChosen ? Animation.GifFrames : settings.AnimationStyle;
+        // what the animation is made of: the GIF's (or the video's) own frames, or a loop style
+        internal string AnimationKind => (picture?.Animation != null || picture?.Video != null) && gifFramesChosen ? Animation.GifFrames : settings.AnimationStyle;
 
         // the size a GIF or APNG of the picture comes out at, with the PC's limits
         AnimationFit FitNow(Geometry g) =>
@@ -56,14 +56,21 @@ namespace B0r3dDeRes
         // the Animation loop's controls and the line by its buttons, from the settings (inside Sync)
         void SyncAnimation(Profile p, Geometry g)
         {
-            bool gif = picture?.Animation != null;
+            bool gif = picture?.Animation != null, video = picture?.Video != null;
             string kind = AnimationKind;
             foreach (RadioButton b in AnimStyles.Children)
             {
                 string id = (string)b.Tag;
-                b.Visibility = id == Animation.GifFrames && !gif ? Visibility.Collapsed : Visibility.Visible;
+                b.Visibility = id == Animation.GifFrames && !gif && !video ? Visibility.Collapsed : Visibility.Visible;
                 b.IsChecked = id == kind;
+                // a video's own frames, from its start to its stop
+                if (id == Animation.GifFrames)
+                {
+                    b.Content = video ? "Video" : "GIF frames";
+                    AutomationProperties.SetName(b, video ? "The video's frames, from its start to its stop" : "GIF frames, the GIF's own");
+                }
             }
+            SyncVideo(p, g);
             // the length and speed of the Screen FX loop with the signal on
             bool signalLoop = settings.SignalOn != null && kind == Animation.ScreenFx;
             LoopRows.Visibility = signalLoop ? Visibility.Visible : Visibility.Collapsed;
@@ -83,7 +90,7 @@ namespace B0r3dDeRes
             bool idle = animating == null;
             SaveGifButton.IsEnabled = SaveApngButton.IsEnabled = SaveGifMenu.IsEnabled = SaveApngMenu.IsEnabled = picture != null && fits && idle;
             StopAnimationButton.Visibility = idle ? Visibility.Collapsed : Visibility.Visible;
-            PlayMenu.IsEnabled = player.Animated;
+            PlayMenu.IsEnabled = player.Animated || video;
         }
 
         void OnAnimStyle(object sender, RoutedEventArgs e)
@@ -109,7 +116,11 @@ namespace B0r3dDeRes
             Kept();
         }
 
-        void OnPlayMenu(object sender, RoutedEventArgs e) => player.Toggle();
+        void OnPlayMenu(object sender, RoutedEventArgs e)
+        {
+            if (picture?.Video != null) videoPlayer.Toggle();
+            else player.Toggle();
+        }
 
         // ---- playing ----
 
@@ -263,7 +274,8 @@ namespace B0r3dDeRes
                     MessageBox.Show(this, "Windows' Save dialog didn't open:\n\n" + x.Message, Program.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
-                if (path != null) CouldntSave(path, await SaveAnimation(path, apng, r, pic, kind, s));
+                // a video's own frames go out through the video's save, from its start to its stop
+                if (path != null) CouldntSave(path, pic?.Video != null && kind == Animation.GifFrames ? await SaveVideo(path, apng ? VideoOut.Apng : VideoOut.Gif) : await SaveAnimation(path, apng, r, pic, kind, s));
             }
             finally
             {

@@ -25,9 +25,10 @@ namespace B0r3dDeRes
         public string Name;             // "photo.jpg", or "image.png" for a pasted picture, as the website names those
         public int Frames = 1;          // images in the file (a GIF can hold many)
         public AnimatedGif Animation;   // an animated GIF's frames, or null for a still
+        public VideoClip Video;         // a video (its paused frame is the picture), or null
 
-        // frame k of an animated GIF (a still has only its picture)
-        public PictureSource SourceAt(int frame) => Animation != null ? Animation.Frames[Math.Max(0, Math.Min(Animation.Frames.Length - 1, frame))] : Source;
+        // frame k of an animated GIF (a still has only its picture; a video, its paused frame)
+        public PictureSource SourceAt(int frame) => Animation != null ? Animation.Frames[Math.Max(0, Math.Min(Animation.Frames.Length - 1, frame))] : Video != null ? Video.Source : Source;
 
         public int FrameCount => Animation?.Frames.Length ?? 1;
     }

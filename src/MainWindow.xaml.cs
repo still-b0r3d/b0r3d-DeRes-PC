@@ -16,6 +16,7 @@ using System.Windows.Automation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using B0r3dDeRes.Engine;
+using B0r3dDeRes.Video;
 using Geometry = B0r3dDeRes.Engine.Geometry;
 
 namespace B0r3dDeRes
@@ -39,9 +40,14 @@ namespace B0r3dDeRes
         DeresSettings shownWith;
         LoadedPicture shownFrom;   // the picture it was made from (one being opened may be newer)
         // an animated GIF: the frame that's the picture (paused there; 0 for a still), and the
-        // frame `shown` was made from
+        // frame `shown` was made from; a video: the same frames' numbers, and their times
         int frame, shownFrame;
+        long frameTime, shownTime;
         readonly Player player;
+        VideoPlayer videoPlayer;
+
+        // a GIF or a video playing
+        internal bool AnythingPlays => player.Playing || videoPlayer != null && videoPlayer.Playing;
 
         // for the tests: a pretend screen scaling (1.5 = 150 %)
         internal double? ScaleOverride
@@ -94,6 +100,7 @@ namespace B0r3dDeRes
 
             Exports.ClearDragFolder();
             player = new Player(PlayButton, FrameSlider, FrameCounter, PlayBar, PlayBudget, MakePlayed, ShowPlayed, OnPlayStarted, OnPlayPaused, Problem, () => picture);
+            BuildVideo();
             BuildLists();
             OnTheme();
             ShowNote();
@@ -579,7 +586,7 @@ namespace B0r3dDeRes
             if (path != null) OpenFile(path);
         }
 
-        internal void OpenFile(string path) => Open(() => Pictures.Load(path), Pictures.NameOf(path));
+        internal void OpenFile(string path) => Open(VideoFile.LooksLikeVideo(path) ? (Func<LoadedPicture>)(() => LoadVideo(path)) : () => Pictures.Load(path), Pictures.NameOf(path));
 
         internal void OpenSample(string id) => Open(() => Pictures.Sample(id), Pictures.Samples.First(s => s.Id == id).File);
 
@@ -589,10 +596,11 @@ namespace B0r3dDeRes
         {
             int ticket = ++opening;
             Opening = true;
-            // a GIF playing stops where it is while the next picture opens (and if that one won't,
-            // the frame it stopped on is the picture)
-            bool wasPlaying = player.Playing;
+            // a GIF or a video playing stops where it is while the next picture opens (and if that
+            // one won't, the frame it stopped on is the picture)
+            bool wasPlaying = player.Playing, videoWasPlaying = videoPlayer.Playing;
             player.Halt();
+            videoPlayer.HaltForGood();
             if (picture == null) ShowStage("Opening…");
             else Readout.Text = "Opening…";
             LoadedPicture loaded = null;
@@ -622,13 +630,18 @@ namespace B0r3dDeRes
                 if (picture == null) ShowStage("Choose a picture to start.");
                 else ShowReadout();
                 if (wasPlaying && picture?.Animation != null) OnPlayPaused(player.Frame);
+                if (videoWasPlaying && picture?.Video != null) OnVideoPaused(picture.Video.Time, picture.Video.Source);
                 return;
             }
+            // the video that was open lets go of its file (unless it's the one opening again)
+            if (picture?.Video != null && picture.Video != loaded.Video) picture.Video.Dispose();
             picture = loaded;
-            frame = 0;
+            frameTime = loaded.Video?.Time ?? 0;
+            frame = loaded.Video != null ? loaded.Video.FrameNumber(frameTime) : 0;
             // an animated GIF's animation is its own frames, until another loop is picked
             gifFramesChosen = true;
             player.SetAnimation(loaded.Animation?.DelaysMs);
+            videoPlayer.SetVideo(loaded.Video);
             Sync();
             RenderSoon();
         }
@@ -667,7 +680,7 @@ namespace B0r3dDeRes
                 string palette = existing.FirstOrDefault(IsPaletteFile);
                 if (look != null) OpenLook(look);
                 if (palette != null) LoadPalette(palette);
-                string[] pictures = existing.Where(Pictures.LooksLikePicture).ToArray();
+                string[] pictures = existing.Where(f => Pictures.LooksLikePicture(f) || VideoFile.LooksLikeVideo(f)).ToArray();
                 // a folder or several pictures: a batch
                 if (folders.Length > 0 || pictures.Length > 1)
                 {
@@ -735,6 +748,7 @@ namespace B0r3dDeRes
         string[] wantedColours;   // CGA composite's colours from the signal, when the picture wanted has them
         LoadedPicture wantedPicture;
         int wantedFrame;
+        long wantedTime;
         bool rendering;
         int renders;   // for the tests: how many have been shown
 
@@ -751,11 +765,18 @@ namespace B0r3dDeRes
             // frames played with older settings are no good; a GIF playing makes its own
             CheckPlayKey();
             if (player.Playing) return;
+            // a video playing makes its frames again with the new settings
+            if (videoPlayer.Playing)
+            {
+                videoPlayer.Invalidate();
+                return;
+            }
             // (with the signal on, CGA composite is dithered to the colours the signal makes)
             wanted = Signal.ForRender(settings.Deres.Clone(), settings.SignalOn);
             wantedColours = wanted.FixedPalette;
             wantedPicture = picture;
             wantedFrame = frame;
+            wantedTime = frameTime;
             if (!rendering) RenderLoop();
         }
 
@@ -770,13 +791,16 @@ namespace B0r3dDeRes
                     DeresSettings s = wanted;
                     LoadedPicture pic = wantedPicture;
                     int at = wantedFrame;
+                    long time = wantedTime;
+                    // (a video's paused frame, taken now: moving on changes it)
+                    PictureSource source = pic.SourceAt(at);
                     wanted = null;
                     Rendered r = null;
                     BitmapSource original = null;
                     string problem = null;
                     try
                     {
-                        (r, original) = await Task.Run(() => Make(pic, s, at));
+                        (r, original) = await Task.Run(() => Make(pic, source, s, at));
                     }
                     catch (OutOfMemoryException)
                     {
@@ -793,7 +817,7 @@ namespace B0r3dDeRes
                     {
                         if (wanted == null) Problem(problem);
                     }
-                    else if (at == frame || wanted == null) Show(r, original, s, pic, at);
+                    else if (at == frame && time == frameTime || wanted == null) Show(r, original, s, pic, at, time);
                 }
             }
             finally
@@ -809,15 +833,14 @@ namespace B0r3dDeRes
 
         // On a worker thread, one at a time: the picture (frame `at` of an animated GIF), and the
         // original framed the same way.
-        (Rendered, BitmapSource) Make(LoadedPicture pic, DeresSettings s, int at = 0)
+        (Rendered, BitmapSource) Make(LoadedPicture pic, PictureSource source, DeresSettings s, int at = 0)
         {
             lock (engine)
             {
-                PictureSource source = pic.SourceAt(at);
                 if (engine.Source != source) engine.SetSource(source);
                 Rendered r = engine.Render(s);
                 Geometry g = r.Geometry;
-                string key = string.Join("|", pic.GetHashCode(), at, g.Width, g.Height, g.Src.X, g.Src.Y, g.Src.W, g.Src.H, g.Dst.X, g.Dst.Y, g.Dst.W, g.Dst.H, s.Background);
+                string key = string.Join("|", pic.GetHashCode(), source.GetHashCode(), at, g.Width, g.Height, g.Src.X, g.Src.Y, g.Src.W, g.Src.H, g.Dst.X, g.Dst.Y, g.Dst.W, g.Dst.H, s.Background);
                 if (key != originalKey)
                 {
                     originalPicture = Original.Framed(source, g, s.Background);
@@ -827,15 +850,16 @@ namespace B0r3dDeRes
             }
         }
 
-        void Show(Rendered r, BitmapSource original, DeresSettings s, LoadedPicture from, int at)
+        void Show(Rendered r, BitmapSource original, DeresSettings s, LoadedPicture from, int at, long time = 0)
         {
             shown = r;
             shownWith = s;
             shownFrom = from;
             shownFrame = at;
+            shownTime = time;
             renders++;
-            // a GIF playing (or its slider held) shows the frames it makes; this one waits for the pause
-            if (player.Playing || player.Holding)
+            // a GIF or a video playing (or a GIF's slider held) shows the frames it makes; this one waits for the pause
+            if (AnythingPlays || player.Holding)
             {
                 CommandManager.InvalidateRequerySuggested();
                 return;
@@ -870,6 +894,7 @@ namespace B0r3dDeRes
         // a GIF's frame on screen while it plays, made by the player (null: `shown` is)
         Rendered onScreen;
         int onScreenFrame;
+        long onScreenTime;
 
         void ShowReadout()
         {
@@ -908,7 +933,7 @@ namespace B0r3dDeRes
         // Compare: not while a GIF plays (a moving frame has no original to show); it comes back on the paused frame
         void WhenThereIsAnOriginal(object sender, CanExecuteRoutedEventArgs e)
         {
-            e.CanExecute = shown != null && !player.Playing;
+            e.CanExecute = shown != null && !AnythingPlays;
             e.Handled = true;
         }
 
@@ -1040,19 +1065,23 @@ namespace B0r3dDeRes
         async Task<Rendered> Latest()
         {
             if (player.Playing) player.Pause();
+            if (videoPlayer.Playing) videoPlayer.Pause();
             while (Rendering) await Task.Delay(20);
             return shown;
         }
 
-        // the start of a file's name: the photo's, and an animated GIF's frame after the first ("photo-frame12")
-        string BaseOf(Rendered r) => Export.FrameBase(Export.BaseName(shownFrom?.Name ?? "photo"), shownFrom?.Animation != null, FrameOf(r));
+        // the start of a file's name: the photo's, and an animated GIF's or a video's frame after the first ("photo-frame12")
+        string BaseOf(Rendered r) => Export.FrameBase(Export.BaseName(shownFrom?.Name ?? "photo"), shownFrom?.Animation != null || shownFrom?.Video != null, FrameOf(r));
 
         // where a picture made here sits in an animated GIF: its frame (0 for a still), the engine
         // frame of its signal (frame k of a GIF: k × its step, so the noise moves at the GIF's
-        // speed), and its place in the loop for the screen effect's moving parts
+        // speed), and its place in the loop for the screen effect's moving parts; in a video, the
+        // same from its time, at the frame rate it goes out at
         int FrameOf(Rendered r) => r != null && r == onScreen ? onScreenFrame : r != null && r == shown ? shownFrame : 0;
-        int SignalFrameOf(Rendered r) => shownFrom?.Animation != null ? FrameOf(r) * shownFrom.Animation.SignalStep : 0;
-        double PhaseOf(Rendered r) => shownFrom?.Animation != null ? shownFrom.Animation.Phase(FrameOf(r)) : 0;
+        long TimeOf(Rendered r) => r != null && r == onScreen ? onScreenTime : r != null && r == shown ? shownTime : 0;
+        int SignalFrameOf(Rendered r) => shownFrom?.Video != null ? VideoExport.SignalFrame(TimeOf(r), settings.VideoFps(shownFrom.Video.File.Fps)) :
+            shownFrom?.Animation != null ? FrameOf(r) * shownFrom.Animation.SignalStep : 0;
+        double PhaseOf(Rendered r) => shownFrom?.Video != null ? VideoExport.PhaseAt(TimeOf(r)) : shownFrom?.Animation != null ? shownFrom.Animation.Phase(FrameOf(r)) : 0;
 
         string FileName(Rendered r, int multiplier) =>
             Export.FileName(BaseOf(r), r.Profile.Id, r.Width, r.Height, multiplier, settings.TvPixels && !r.Geometry.SquarePixels,
@@ -1306,9 +1335,10 @@ namespace B0r3dDeRes
             string problem = null;
             EmulatorFile file = null;
             int at = frame;
+            PictureSource source = pic.SourceAt(at);
             try
             {
-                file = await Task.Run(() => Make(pic, s, at).Item1.EmulatorFile);
+                file = await Task.Run(() => Make(pic, source, s, at).Item1.EmulatorFile);
                 if (file == null || file.Format != format) problem = "this machine has no ." + format + " file";
                 else await Task.Run(() => Exports.Write(path, file.Data));
             }
@@ -1812,6 +1842,9 @@ namespace B0r3dDeRes
                 return;
             }
             player.Halt();
+            // (no move still under way plays it on)
+            videoPlayer.SetVideo(null);
+            picture?.Video?.Dispose();
             if (fullScreen) SetFullScreen(false);
             saveTimer.Stop();
             SaveSettings();

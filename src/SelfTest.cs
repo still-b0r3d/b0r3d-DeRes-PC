@@ -12,10 +12,11 @@ namespace B0r3dDeRes
     // b0r3dDeRes.exe --selftest <file>: no window shown. Opens a sample from inside the exe, makes
     // the picture, saves it as a PNG the way File → Save PNG does and reads that back through
     // Windows, makes it on every machine, through every screen effect and through the signal (the
-    // website's very frame), reads back a share link, builds the windows in both looks with the
-    // picture in them, and writes what it found to <file> as key=value lines; the exit code is 0
-    // when it all worked. The tests run it on the finished exe, on its own in a folder, to prove it
-    // works with nothing beside it.
+    // website's very frame), reads back a share link, writes an MP4 beside <file> and reads it
+    // back (then deletes it), builds the windows in both looks with the picture in them, and
+    // writes what it found to <file> as key=value lines; the exit code is 0 when it all worked.
+    // The tests run it on the finished exe, on its own in a folder, to prove it works with
+    // nothing beside it.
     static class SelfTest
     {
         // the website's own frame of the Rukus sample on the Game Boy over RF (its SHA-256; the
@@ -142,6 +143,12 @@ namespace B0r3dDeRes
                 lines.Add("samples=" + (samples ? "ok" : "failed"));
                 ok &= samples;
 
+                // video: an MP4 through Windows' video system and back (a Windows without its video
+                // parts, the "N" editions, says so: pictures work there all the same)
+                string video = VideoRoundTrip(reportPath);
+                lines.Add("video=" + video);
+                ok &= video == "ok" || video == "none";
+
                 // the windows, built from inside this exe and laid out (never shown), in both looks:
                 // their pages, styles and pictures all load
                 var app = new App();
@@ -185,6 +192,59 @@ namespace B0r3dDeRes
             }
             lines.Add("result=" + (ok ? "ok" : "failed"));
             return Report(reportPath, lines, ok);
+        }
+
+        // Ten frames and a third of a second of sound written as an MP4 the way Save MP4 writes one
+        // (H.264 and AAC), beside the report, read back frame by frame and deleted: "ok", "none"
+        // on a Windows without video parts, or what came back.
+        static string VideoRoundTrip(string reportPath)
+        {
+            if (!Video.Mf.Available) return "none";
+            string full = Path.GetFullPath(reportPath);
+            string path = Path.Combine(Path.GetDirectoryName(full), Path.GetFileNameWithoutExtension(full) + "-selftest.mp4");
+            try
+            {
+                using (FileStream file = File.Create(path))
+                using (var mp4 = new Video.Mp4Writer(file, 64, 48, 30, true))
+                {
+                    var bgra = new byte[64 * 48 * 4];
+                    for (int k = 0; k < 10; k++)
+                    {
+                        for (int i = 0; i < bgra.Length; i += 4)
+                        {
+                            bgra[i] = (byte)(k * 25);
+                            bgra[i + 1] = 128;
+                            bgra[i + 2] = (byte)(255 - k * 25);
+                            bgra[i + 3] = 255;
+                        }
+                        long time = (long)Math.Round(k * 1e7 / 30), next = (long)Math.Round((k + 1) * 1e7 / 30);
+                        mp4.AddFrame(bgra, time, next - time);
+                    }
+                    var quiet = new short[16000 * 2];
+                    mp4.AddSound(quiet, 0, quiet.Length, 0);
+                    mp4.Finish();
+                }
+                Video.VideoFile back = Video.VideoFile.Open(path);
+                int frames = 0;
+                using (Video.VideoReader reader = back.Frames())
+                    while (reader.Next() != null) frames++;
+                return back.Width == 64 && back.Height == 48 && frames == 10 && back.HasSound ? "ok"
+                    : "failed (" + back.Width + "x" + back.Height + ", " + frames + " frames" + (back.HasSound ? "" : ", no sound") + ")";
+            }
+            catch (Video.VideoException x)
+            {
+                return "failed (" + Flat(x.Message) + ")";
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                {
+                }
+            }
         }
 
         // lets the window's queued work run for a moment

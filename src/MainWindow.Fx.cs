@@ -123,6 +123,8 @@ namespace B0r3dDeRes
         void FxChanged()
         {
             Sync();
+            // a video playing makes its frames again with the new screen
+            if (videoPlayer.Playing) videoPlayer.Invalidate();
             FxSoon();
             saveTimer.Stop();
             saveTimer.Start();
@@ -213,7 +215,7 @@ namespace B0r3dDeRes
         {
             // frames played with older settings (or at another size) are no good; a GIF playing makes its own
             CheckPlayKey();
-            if (player.Playing || player.Holding) return;
+            if (AnythingPlays || player.Holding || videoPlayer.Holding) return;
             Rendered r = shown;
             if (r == null || settings.Fx.Screen == Screens.Off && settings.SignalOn == null)
             {
@@ -275,7 +277,7 @@ namespace B0r3dDeRes
                         continue;
                     }
                     // the screen and the signal turned off meanwhile, or a GIF started playing: this one's no longer wanted
-                    if (settings.Fx.Screen == Screens.Off && settings.SignalOn == null || player.Playing || player.Holding) continue;
+                    if (settings.Fx.Screen == Screens.Off && settings.SignalOn == null || AnythingPlays || player.Holding || videoPlayer.Holding) continue;
                     // A newer picture meanwhile: this one still shows while the newer one's is made,
                     // when it's of the same photo at the same size (a slider moving), so the preview
                     // follows a slider that makes the picture again; else it's no longer wanted.

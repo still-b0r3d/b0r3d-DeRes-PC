@@ -13,17 +13,18 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using B0r3dDeRes.Engine;
+using B0r3dDeRes.Video;
 
 namespace B0r3dDeRes
 {
     // what to do with a file that's already in the folder
     enum Clash { Number, Replace, Skip }
 
-    // The batch: a folder or a pile of pictures through the look the main window has now, into a
-    // folder: a PNG, a wallpaper, a GIF or an APNG each (and the machine's own file, when asked),
-    // several pictures at once on every core. An animated GIF goes out as its own frames, any other
-    // picture as the loop picked under Export. Every file is written whole, then read back from
-    // the disk.
+    // The batch: a folder or a pile of pictures and videos through the look the main window has
+    // now, into a folder: a PNG, a wallpaper, a GIF or an APNG each (and the machine's own file,
+    // when asked), several at once on every core. An animated GIF goes out as its own frames, any
+    // other picture as the loop picked under Export; a video as an MP4 with its sound (or a GIF or
+    // APNG of its frames). Every file is written whole, then read back from the disk.
     public partial class BatchWindow : Window
     {
         readonly MainWindow owner;
@@ -58,9 +59,11 @@ namespace B0r3dDeRes
 
         // ---------- the pictures ----------
 
-        // Pictures and folders to DeRes: a folder gives its own pictures (not those in the folders
-        // inside it, nor online-only ones), in name order. A picture already in the list isn't
-        // added again. False while a batch runs (nothing is added then).
+        static bool Takes(string path) => Pictures.LooksLikePicture(path) || VideoFile.LooksLikeVideo(path);
+
+        // Pictures, videos and folders to DeRes: a folder gives its own pictures and videos (not
+        // those in the folders inside it, nor online-only ones), in name order. One already in the
+        // list isn't added again. False while a batch runs (nothing is added then).
         internal bool Add(IEnumerable<string> paths)
         {
             if (busy) return false;
@@ -74,13 +77,13 @@ namespace B0r3dDeRes
                     if (Directory.Exists(path))
                     {
                         found = new List<string>();
-                        foreach (string f in Directory.EnumerateFiles(path).Where(Pictures.LooksLikePicture).OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase))
+                        foreach (string f in Directory.EnumerateFiles(path).Where(Takes).OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase))
                         {
                             if (Pictures.OnlyOnline(f)) online++;
                             else found.Add(f);
                         }
                     }
-                    else found = File.Exists(path) && Pictures.LooksLikePicture(path) ? new List<string> { path } : new List<string>();
+                    else found = File.Exists(path) && Takes(path) ? new List<string> { path } : new List<string>();
                 }
                 catch (Exception x) when (x is IOException || x is UnauthorizedAccessException || x is ArgumentException || x is NotSupportedException || x is System.Security.SecurityException)
                 {
@@ -96,8 +99,8 @@ namespace B0r3dDeRes
             if (!intoChosen && files.Count > 0) into = Path.Combine(Path.GetDirectoryName(files[0]), "DeRes");
             ClearOutcome();
             if (online > 0)
-                notes.Add("Left out " + Count(online, "picture") + " kept only online (OneDrive and the like): in Explorer, Always keep on this device brings " + (online == 1 ? "it" : "them") + " in.");
-            if (files.Count == before && notes.Count == 0) notes.Add("No new pictures in that.");
+                notes.Add("Left out " + Count(online, "file") + " kept only online (OneDrive and the like): in Explorer, Always keep on this device brings " + (online == 1 ? "it" : "them") + " in.");
+            if (files.Count == before && notes.Count == 0) notes.Add("No new pictures or videos in that.");
             StatusLine.Text = string.Join(" ", notes);
             Refresh();
             return true;
@@ -105,7 +108,7 @@ namespace B0r3dDeRes
 
         void OnChooseFolder(object sender, RoutedEventArgs e)
         {
-            string folder = Ask(() => FileDialogs.PickFolder(this, "A folder of pictures to DeRes"), "folder");
+            string folder = Ask(() => FileDialogs.PickFolder(this, "A folder of pictures or videos to DeRes"), "folder");
             if (folder != null) Add(new[] { folder });
         }
 
@@ -187,10 +190,11 @@ namespace B0r3dDeRes
             if (Profiles.DitherApplies(p, s.Deres.Dither)) look.Add(Dither.ById(s.Deres.Dither)?.Name + " dither");
             string connection = Signal.Connection(s.Signal.Mode, Signal.Machine(p.Id, p.Width));
             if (connection != null) look.Add("through " + Signal.ConnectionNames[connection]);
-            LookLine.Text = "Each picture goes through the look the main window has now: " + string.Join(", ", look) + ".";
+            LookLine.Text = "Each picture or video goes through the look the main window has now: " + string.Join(", ", look) + ".";
 
-            PicturesLine.Text = files.Count == 0 ? "No pictures yet." :
-                Count(files.Count, "picture") + (FromOneFolder(out string folder) ? " from " + folder : "");
+            int videos = files.Count(VideoFile.LooksLikeVideo), stills = files.Count - videos;
+            PicturesLine.Text = files.Count == 0 ? "No pictures or videos yet." :
+                (stills > 0 ? Count(stills, "picture") + (videos > 0 ? " and " : "") : "") + (videos > 0 ? Count(videos, "video") : "") + (FromOneFolder(out string folder) ? " from " + folder : "");
             IntoLine.Text = into ?? "(a folder called DeRes beside the pictures)";
             IntoLine.ToolTip = into;
 
@@ -224,6 +228,10 @@ namespace B0r3dDeRes
             }
             if (s.Fx.Screen != Screens.Off && !withFx)
                 MakeLine.Text += " The " + screen + " isn't in the files: that takes With the screen effect, under Export, at 3× and up.";
+            // videos: the whole of each, at its own frame rate or the slower one picked under Export
+            if (videos > 0)
+                MakeLine.Text += " A video goes out whole as " + (animated == null ? "an MP4" + (s.VideoSound ? " with its sound" : ", without its sound") + ", at " + s.Multiplier + "× or the biggest Size an MP4 holds"
+                    : animated.Value ? "an APNG of its frames" : "a GIF of its frames") + (s.VideoRate > 0 ? ", at " + s.VideoRate + " frames a second (or its own, if that's slower)" : ", at its own frame rate") + ".";
             string format = p.EmulatorFormats.FirstOrDefault();
             MachineFileBox.Visibility = format != null ? Visibility.Visible : Visibility.Collapsed;
             if (format != null) MachineFileBox.Content = "Also the machine's own ." + format + " file (" + Words.EmulatorType(format) + ")";
@@ -259,6 +267,8 @@ namespace B0r3dDeRes
             public bool MachineFile;
             public Clash Clash;
             public string Into;
+            public int Total;               // pictures and videos in the batch
+            public int VideoLanes = 1;      // a video's frames made at once
             public readonly HashSet<string> Taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             public int Made, Skipped, Done;
             public readonly List<string> Failed = new List<string>();
@@ -267,16 +277,17 @@ namespace B0r3dDeRes
         }
 
         // One file a picture makes: its name (before any number), and its bytes, or for an
-        // animation what makes it straight into its file (it may be more than memory holds). For a
-        // PNG, GIF or APNG its size, and an animation's frames and what went into the file, summed
-        // and counted, to read it back by.
+        // animation or a video what makes it straight into its file (it may be more than memory
+        // holds). For a PNG, GIF, APNG or MP4 its size, an animation's or a video's frames and,
+        // but for an MP4 (Windows writes it, going back in the file), what went into the file,
+        // summed and counted, to read it back by.
         sealed class Output
         {
             public string Name;
             public byte[] Bytes;
             public Action<Stream> Make;
             public int Width, Height, Frames;
-            public bool Gif;
+            public bool Gif, Mp4, Sound;
             public uint Sum;
             public long Length;
         }
@@ -307,6 +318,7 @@ namespace B0r3dDeRes
                 MachineFile = MachineFileBox.Visibility == Visibility.Visible && MachineFileBox.IsChecked == true,
                 Clash = clash,
                 Into = folder,
+                Total = files.Count,
             };
             Running = Run(job, files.ToList());
             Running.ContinueWith(t => Dispatcher.BeginInvoke(new Action(() => throw new InvalidOperationException("The batch failed.", t.Exception.GetBaseException()))),
@@ -335,8 +347,10 @@ namespace B0r3dDeRes
             ShowProgress(job, todo.Count, null);
             try
             {
-                // (animations hold their frames: two at most)
-                int atOnce = AtOnce ?? Math.Max(1, Math.Min(job.Animated != null ? 2 : 4, Environment.ProcessorCount / 3));
+                // (animations hold their frames, and a video makes several of its own at once: two at most)
+                bool videos = todo.Any(VideoFile.LooksLikeVideo);
+                int atOnce = AtOnce ?? Math.Max(1, Math.Min(job.Animated != null || videos ? 2 : 4, Environment.ProcessorCount / 3));
+                job.VideoLanes = Math.Max(1, Math.Min(4, Environment.ProcessorCount / 3 / atOnce));
                 using (var gate = new SemaphoreSlim(atOnce))
                 {
                     var running = new List<Task>();
@@ -348,7 +362,7 @@ namespace B0r3dDeRes
                             gate.Release();
                             break;
                         }
-                        ShowProgress(job, todo.Count, file);
+                        ShowProgress(job, todo.Count, Pictures.NameOf(file));
                         // (One catches whatever a picture throws, so none of these fault)
                         running.Add(Task.Run(() => One(job, file, false)).ContinueWith(t =>
                         {
@@ -361,7 +375,7 @@ namespace B0r3dDeRes
                 // the ones there wasn't memory for beside the others: once more, alone
                 while (!stopping && job.TooBig.TryDequeue(out string big))
                 {
-                    ShowProgress(job, todo.Count, big);
+                    ShowProgress(job, todo.Count, Pictures.NameOf(big));
                     await Task.Run(() => One(job, big, true));
                 }
             }
@@ -377,19 +391,20 @@ namespace B0r3dDeRes
             else if (closeWhenDone) Close();
         }
 
+        // "3 of 12 done · photo.jpg" (`now`: what's under way, or null)
         void ShowProgress(Job job, int total, string now)
         {
             int done;
             lock (job) done = job.Done;
             Progress.Value = done;
             StatusLine.Text = (stopping ? "Stopping: the pictures under way finish first. " : "") + done.ToString("N0") + " of " + total.ToString("N0") + " done" +
-                (now != null ? " · " + Pictures.NameOf(now) : "");
+                (now != null ? " · " + now : "");
             StatusLine.ClearValue(TextBlock.ForegroundProperty);
         }
 
-        // One picture, on a worker thread: opened, made, its files written and read back. Whatever
-        // goes wrong is this picture's: listed, never the batch's end. Out of memory beside the
-        // others, it waits to be made on its own (unless a file of it is written already).
+        // One picture or video, on a worker thread: opened, made, its files written and read back.
+        // Whatever goes wrong is this one's: listed, never the batch's end. Out of memory beside
+        // the others, it waits to be made on its own (unless a file of it is written already).
         void One(Job job, string file, bool alone)
         {
             string name = Pictures.NameOf(file);
@@ -397,80 +412,8 @@ namespace B0r3dDeRes
             List<string> names = null;
             try
             {
-                LoadedPicture picture = Pictures.Load(file);
-                var engine = new Deres();
-                engine.SetSource(picture.Source);
-                DeresSettings s = job.Settings.Deres;
-                SignalSettings signal = job.Settings.SignalOn;
-                Rendered r = engine.Render(Signal.ForRender(s, signal));
-                string stem = Export.BaseName(picture.Name);
-                bool tv = job.Settings.TvPixels && !r.Geometry.SquarePixels;
-                FxSettings fx = job.Settings.ExportScreen;
-                // through the signal when it's on (always kept), its connection in the name (an
-                // animation makes its own frames of it)
-                SignalImage through = signal != null && job.Animated == null ? Signal.Run(r, r.Profile.Id, signal, 0) : null;
-                string connection = signal != null ? Signal.Connection(signal.Mode, Signal.Machine(r.Profile.Id, r.Width)) : null;
-                var outputs = new List<Output>();
-                var png = new Output();
-                if (job.Animated != null)
-                {
-                    // an animated GIF's own frames, any other picture the loop picked under Export,
-                    // at the Size or the biggest that fits; made as it's written (once its name is
-                    // the picture's: a skipped one isn't made)
-                    bool apng = job.Animated.Value;
-                    Settings js = job.Settings;
-                    string kind = picture.Animation != null ? Animation.GifFrames : js.AnimationStyle;
-                    Geometry g = r.Geometry;
-                    AnimationFit fit = Animation.FitFor(g.Width, g.Height, g.ParX, g.ParY, js.TvPixels, js.Multiplier, kind, signal != null ? js.LoopFrames : (int?)null, AnimationLimits.Pc);
-                    if (fit.Multiplier == null) throw new AnimationException("it's too big for an animation at any Size");
-                    png.Gif = !apng;
-                    png.Name = kind == Animation.GifFrames ? Export.FramesName(stem, r.Profile.Id, connection, apng) : Export.LoopName(stem, r.Profile.Id, kind, connection, apng);
-                    png.Make = into =>
-                    {
-                        AnimationResult made = MainWindow.MakeAnimation(into, picture, 0, r, Signal.ForRender(s, signal), kind, apng, fit.Multiplier.Value, js.TvPixels, fx, signal,
-                            js.LoopFrames, js.LoopFps, null, job.Stop.Token);
-                        // Stop while the frames were put together: still no file
-                        job.Stop.Token.ThrowIfCancellationRequested();
-                        png.Width = made.Width;
-                        png.Height = made.Height;
-                        png.Frames = made.Frames;
-                    };
-                }
-                else
-                    using (var bytes = new MemoryStream())
-                    {
-                        if (job.Wallpaper == null)
-                        {
-                            int m = job.Settings.Multiplier;
-                            Export.WritePng(bytes, r, m, tv, fx, out png.Width, out png.Height, through);
-                            png.Name = Export.FileName(stem, r.Profile.Id, r.Width, r.Height, m, tv, Export.WithFx(fx, m), connection);
-                        }
-                        else
-                        {
-                            Export.WriteWallpaper(bytes, r, job.Wallpaper.Width, job.Wallpaper.Height, tv, fx, through);
-                            png.Width = job.Wallpaper.Width;
-                            png.Height = job.Wallpaper.Height;
-                            png.Name = Export.WallpaperName(stem, r.Profile.Id, job.Wallpaper.Id);
-                        }
-                        png.Bytes = bytes.ToArray();
-                    }
-                outputs.Add(png);
                 string missing = null;
-                string format = r.Profile.EmulatorFormats.FirstOrDefault();
-                if (job.MachineFile && format != null)
-                {
-                    // A screen file (.scr, .koa) can't hold see-through pixels: with them kept it's
-                    // made on black, as Save for an emulator makes it. Tiles keep them as colour 0.
-                    Rendered forFile = r;
-                    if (format != "chr" && s.Background == Backgrounds.Transparent && picture.Source.HasAlpha)
-                    {
-                        DeresSettings onBlack = s.Clone();
-                        onBlack.Background = Backgrounds.Black;
-                        forFile = engine.Render(onBlack);
-                    }
-                    if (forFile.EmulatorFile != null) outputs.Add(new Output { Name = Export.EmulatorFileName(stem, r.Profile.Id, forFile.EmulatorFile.Format), Bytes = forFile.EmulatorFile.Data });
-                    else missing = "its ." + format + " file didn't come out";
-                }
+                List<Output> outputs = VideoFile.LooksLikeVideo(file) ? new List<Output> { VideoOutput(job, file) } : PictureOutputs(job, file, out missing);
                 names = Reserve(job, outputs);
                 for (int i = 0; i < outputs.Count; i++)
                 {
@@ -505,6 +448,163 @@ namespace B0r3dDeRes
                 Fail(job, file, name + ": " + (memory ? "there isn't enough memory free for it" : why is PictureException ? why.Message : why.Message.TrimEnd('.')));
             }
             lock (job) job.Done++;
+        }
+
+        // A picture's files: its PNG, wallpaper, GIF or APNG, and the machine's own file when
+        // asked (`missing`: why that didn't come out, or null).
+        static List<Output> PictureOutputs(Job job, string file, out string missing)
+        {
+            missing = null;
+            LoadedPicture picture = Pictures.Load(file);
+            var engine = new Deres();
+            engine.SetSource(picture.Source);
+            DeresSettings s = job.Settings.Deres;
+            SignalSettings signal = job.Settings.SignalOn;
+            Rendered r = engine.Render(Signal.ForRender(s, signal));
+            string stem = Export.BaseName(picture.Name);
+            bool tv = job.Settings.TvPixels && !r.Geometry.SquarePixels;
+            FxSettings fx = job.Settings.ExportScreen;
+            // through the signal when it's on (always kept), its connection in the name (an
+            // animation makes its own frames of it)
+            SignalImage through = signal != null && job.Animated == null ? Signal.Run(r, r.Profile.Id, signal, 0) : null;
+            string connection = signal != null ? Signal.Connection(signal.Mode, Signal.Machine(r.Profile.Id, r.Width)) : null;
+            var outputs = new List<Output>();
+            var png = new Output();
+            if (job.Animated != null)
+            {
+                // an animated GIF's own frames, any other picture the loop picked under Export,
+                // at the Size or the biggest that fits; made as it's written (once its name is
+                // the picture's: a skipped one isn't made)
+                bool apng = job.Animated.Value;
+                Settings js = job.Settings;
+                string kind = picture.Animation != null ? Animation.GifFrames : js.AnimationStyle;
+                Geometry g = r.Geometry;
+                AnimationFit fit = Animation.FitFor(g.Width, g.Height, g.ParX, g.ParY, js.TvPixels, js.Multiplier, kind, signal != null ? js.LoopFrames : (int?)null, AnimationLimits.Pc);
+                if (fit.Multiplier == null) throw new AnimationException("it's too big for an animation at any Size");
+                png.Gif = !apng;
+                png.Name = kind == Animation.GifFrames ? Export.FramesName(stem, r.Profile.Id, connection, apng) : Export.LoopName(stem, r.Profile.Id, kind, connection, apng);
+                png.Make = into =>
+                {
+                    AnimationResult made = MainWindow.MakeAnimation(into, picture, 0, r, Signal.ForRender(s, signal), kind, apng, fit.Multiplier.Value, js.TvPixels, fx, signal,
+                        js.LoopFrames, js.LoopFps, null, job.Stop.Token);
+                    // Stop while the frames were put together: still no file
+                    job.Stop.Token.ThrowIfCancellationRequested();
+                    png.Width = made.Width;
+                    png.Height = made.Height;
+                    png.Frames = made.Frames;
+                };
+            }
+            else
+                using (var bytes = new MemoryStream())
+                {
+                    if (job.Wallpaper == null)
+                    {
+                        int m = job.Settings.Multiplier;
+                        Export.WritePng(bytes, r, m, tv, fx, out png.Width, out png.Height, through);
+                        png.Name = Export.FileName(stem, r.Profile.Id, r.Width, r.Height, m, tv, Export.WithFx(fx, m), connection);
+                    }
+                    else
+                    {
+                        Export.WriteWallpaper(bytes, r, job.Wallpaper.Width, job.Wallpaper.Height, tv, fx, through);
+                        png.Width = job.Wallpaper.Width;
+                        png.Height = job.Wallpaper.Height;
+                        png.Name = Export.WallpaperName(stem, r.Profile.Id, job.Wallpaper.Id);
+                    }
+                    png.Bytes = bytes.ToArray();
+                }
+            outputs.Add(png);
+            string format = r.Profile.EmulatorFormats.FirstOrDefault();
+            if (job.MachineFile && format != null)
+            {
+                // A screen file (.scr, .koa) can't hold see-through pixels: with them kept it's
+                // made on black, as Save for an emulator makes it. Tiles keep them as colour 0.
+                Rendered forFile = r;
+                if (format != "chr" && s.Background == Backgrounds.Transparent && picture.Source.HasAlpha)
+                {
+                    DeresSettings onBlack = s.Clone();
+                    onBlack.Background = Backgrounds.Black;
+                    forFile = engine.Render(onBlack);
+                }
+                if (forFile.EmulatorFile != null) outputs.Add(new Output { Name = Export.EmulatorFileName(stem, r.Profile.Id, forFile.EmulatorFile.Format), Bytes = forFile.EmulatorFile.Data });
+                else missing = "its ." + format + " file didn't come out";
+            }
+            return outputs;
+        }
+
+        // A video's file, made straight into it: the whole video through the look, at its own
+        // frame rate or the slower one picked under Export, as an MP4 with its sound (at the Size,
+        // or the biggest an MP4 holds) or a GIF or APNG of its frames (the biggest that fits).
+        Output VideoOutput(Job job, string file)
+        {
+            VideoFile video;
+            try
+            {
+                video = VideoFile.Open(file);
+            }
+            catch (VideoException x)
+            {
+                throw new PictureException(x.Message.TrimEnd('.'));
+            }
+            Settings js = job.Settings;
+            SignalSettings signal = js.SignalOn;
+            DeresSettings s = Signal.ForRender(js.Deres, signal);
+            // its first frame through the look gives the size
+            Rendered first;
+            using (VideoReader reader = video.Frames())
+            {
+                VideoFrame f = reader.Next() ?? throw new PictureException("Windows found no frames in it");
+                var engine = new Deres();
+                engine.SetSource(new PictureSource(f.Bgra, f.Width, f.Height));
+                first = engine.Render(s);
+            }
+            Geometry g = first.Geometry;
+            bool tv = js.TvPixels && !g.SquarePixels;
+            string connection = signal != null ? Signal.Connection(signal.Mode, Signal.Machine(first.Profile.Id, first.Width)) : null;
+            string name = Path.GetFileName(file), stem = Export.BaseName(name);
+            var o = new VideoExportOptions
+            {
+                File = video, From = 0, To = video.Duration, Fps = js.VideoFps(video.Fps), Settings = s, Tv = js.TvPixels, Fx = js.ExportScreen, Signal = signal, Sound = js.VideoSound,
+                Lanes = job.VideoLanes, Limits = AnimationLimits.Pc, Cancel = job.Stop.Token,
+                // how far it's got, in the line under the list
+                Progress = (done, total, note) => Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (busy && !stopping) ShowProgress(job, job.Total, name + ": " + (note ?? "frame " + done.ToString("N0") + " of " + total.ToString("N0")));
+                })),
+            };
+            var output = new Output();
+            if (job.Animated == null)
+            {
+                int? m = null;
+                foreach (int k in Export.Multipliers)
+                {
+                    Export.Size(g.Width, g.Height, g.ParX, g.ParY, k, tv, out int w, out int h);
+                    VideoExport.Mp4Size(w, h, out int mw, out int mh);
+                    if (k <= js.Multiplier && Mp4Writer.Fits(mw, mh) && (m == null || k > m)) m = k;
+                }
+                if (m == null) throw new AnimationException("it's too big for an MP4 at any Size");
+                o.Multiplier = m.Value;
+                output.Name = Path.ChangeExtension(Export.FramesName(stem, first.Profile.Id, connection, false), ".mp4");
+                output.Mp4 = true;
+                output.Sound = o.Sound && video.HasSound;
+            }
+            else
+            {
+                AnimationFit fit = Animation.FitFor(g.Width, g.Height, g.ParX, g.ParY, js.TvPixels, js.Multiplier, Animation.GifFrames, signal != null ? js.LoopFrames : (int?)null, AnimationLimits.Pc);
+                if (fit.Multiplier == null) throw new AnimationException("it's too big for an animation at any Size");
+                o.Multiplier = fit.Multiplier.Value;
+                output.Gif = !job.Animated.Value;
+                output.Name = Export.FramesName(stem, first.Profile.Id, connection, job.Animated.Value);
+            }
+            output.Make = into =>
+            {
+                AnimationResult made = output.Mp4 ? VideoExport.Mp4(into, o) : VideoExport.Animation(into, o, job.Animated.Value);
+                // Stop while it was put together: still no file
+                job.Stop.Token.ThrowIfCancellationRequested();
+                output.Width = made.Width;
+                output.Height = made.Height;
+                output.Frames = made.Frames;
+            };
+            return output;
         }
 
         // Names for one picture's files, numbered together ("photo-…-4x (2).png" beside
@@ -555,6 +655,8 @@ namespace B0r3dDeRes
         {
             Func<string> elsewhere = job.Clash == Clash.Replace ? null : (Func<string>)(() => NextFree(job, output.Name));
             if (output.Make == null) return Exports.Write(path, stream => stream.Write(output.Bytes, 0, output.Bytes.Length), elsewhere);
+            // (Windows writes an MP4 going back in the file, so it isn't summed on the way)
+            if (output.Mp4) return Exports.Write(path, output.Make, elsewhere);
             return Exports.Write(path, stream =>
             {
                 var summed = new Summed(stream);
@@ -580,9 +682,19 @@ namespace B0r3dDeRes
         // A file read back from the disk: the same bytes, and a PNG that Windows reads as its size
         // (its header: the pixels are the bytes checked). An animation, too big to hold perhaps, is
         // read through once: the bytes summed as they were going in, and a GIF or APNG of its size
-        // and frames, whole to its end. Why not, or null.
+        // and frames, whole to its end. An MP4 is opened as a video, every frame read, and its
+        // sound found. Why not, or null.
         static string ReadBack(string path, Output output)
         {
+            if (output.Mp4)
+            {
+                VideoFile video = VideoFile.Open(path);
+                int frames = 0;
+                using (VideoReader reader = video.Frames())
+                    while (reader.Next() != null) frames++;
+                return video.Width == output.Width && video.Height == output.Height && frames == output.Frames && video.HasSound == output.Sound ? null
+                    : "didn't read back as a " + output.Width + "×" + output.Height + " MP4 of " + output.Frames + " frames" + (output.Sound ? " with its sound" : "");
+            }
             if (output.Make != null)
                 using (var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20))
                 {

@@ -20,10 +20,24 @@ namespace B0r3dDeRes.Engine
         public double Colour = 1;       // colour after decoding, 1 = as decoded
         public double Sharpen = 0.25;   // composite pre-emphasis
         public string Decoder = SignalModes.Notch;  // how the TV split colour from brightness
+        // the PC's own: engine settings changed by hand, by ntsc-rs's names (a number or true/false
+        // each), on top of what the connection makes; and how many times the tape is copied
+        public SortedDictionary<string, object> Engine = new SortedDictionary<string, object>(StringComparer.Ordinal);
+        public int Dubs;
 
-        public SignalSettings Clone() => (SignalSettings)MemberwiseClone();
+        public const int MaxDubs = 9;
 
-        public bool SameAs(SignalSettings o) => Mode == o.Mode && Wear == o.Wear && Colour == o.Colour && Sharpen == o.Sharpen && Decoder == o.Decoder;
+        public SignalSettings Clone()
+        {
+            var copy = (SignalSettings)MemberwiseClone();
+            copy.Engine = new SortedDictionary<string, object>(Engine, StringComparer.Ordinal);
+            return copy;
+        }
+
+        public bool SameAs(SignalSettings o) => Mode == o.Mode && Wear == o.Wear && Colour == o.Colour && Sharpen == o.Sharpen && Decoder == o.Decoder && Dubs == o.Dubs && EngineText == o.EngineText;
+
+        // the engine changes as one line of JSON ("{}" for none), the way they're kept and compared
+        public string EngineText => "{" + string.Join(",", System.Linq.Enumerable.Select(Engine, kv => Json.Quote(kv.Key) + ":" + (kv.Value is bool b ? (b ? "true" : "false") : Json.Number((double)kv.Value)))) + "}";
     }
 
     // How a machine's picture went out on the wire.
@@ -228,79 +242,93 @@ namespace B0r3dDeRes.Engine
         // settings file, where each number is JavaScript's shortest text for it and the engine
         // reads that text straight to a float, then holds it to the setting's range.
 
-        public static NtscSettings EngineSettings(string connection, SignalSettings s, int lines)
+        // each connection's own settings over the engine's defaults (the website's PRESETS)
+        static readonly Dictionary<string, Dictionary<string, object>> presets = new Dictionary<string, Dictionary<string, object>>
         {
-            // the engine's defaults, as the website reads them back from its settings file
-            double compositeNoise = 0.05, lumaNoise = 0.01, chromaNoise = 0.1, snow = 0.00025, phaseNoise = 0.001, trackingWave = 15,
-                trackingSnow = 0.025, trackingNoise = 0.25, headShift = 72, edgeWave = 0.5, chromaLoss = 0.000025;
-            int tapeSpeed = 2;
-            bool vhs = true;
-            switch (connection)
-            {
-                case SignalModes.Composite:
-                    vhs = false;
-                    break;
-                case SignalModes.Rf:
-                    vhs = false;
-                    snow = 0.004;
-                    compositeNoise = 0.12;
-                    lumaNoise = 0.03;
-                    chromaNoise = 0.25;
-                    phaseNoise = 0.004;
-                    break;
-                case SignalModes.VhsSp:
-                    tapeSpeed = 1;
-                    edgeWave = 0.5;
-                    break;
-                case SignalModes.VhsLp:
-                    tapeSpeed = 2;
-                    edgeWave = 0.8;
-                    chromaLoss = 0.0002;
-                    snow = 0.001;
-                    break;
-                case SignalModes.VhsEp:
-                    tapeSpeed = 3;
-                    trackingWave = 25;
-                    trackingSnow = 0.1;
-                    edgeWave = 1.2;
-                    chromaLoss = 0.0005;
-                    snow = 0.002;
-                    compositeNoise = 0.1;
-                    chromaNoise = 0.2;
-                    phaseNoise = 0.003;
-                    break;
-            }
-            // the wear scales the noises: 0 = none of it, 0.5 = the connection's own, 1 = double
+            { SignalModes.Composite, new Dictionary<string, object> { { "vhs_settings", false }, { "head_switching", false }, { "tracking_noise", false } } },
+            { SignalModes.Rf, new Dictionary<string, object>
+                {
+                    { "vhs_settings", false }, { "head_switching", false }, { "tracking_noise", false }, { "snow_intensity", 0.004 }, { "composite_noise_intensity", 0.12 },
+                    { "luma_noise_intensity", 0.03 }, { "chroma_noise_intensity", 0.25 }, { "chroma_phase_noise_intensity", 0.004 },
+                } },
+            { SignalModes.VhsSp, new Dictionary<string, object>
+                {
+                    { "vhs_settings", true }, { "vhs_tape_speed", 1.0 }, { "head_switching", true }, { "tracking_noise", true }, { "vhs_edge_wave_enabled", true }, { "vhs_edge_wave", 0.5 },
+                } },
+            { SignalModes.VhsLp, new Dictionary<string, object>
+                {
+                    { "vhs_settings", true }, { "vhs_tape_speed", 2.0 }, { "head_switching", true }, { "tracking_noise", true }, { "vhs_edge_wave_enabled", true }, { "vhs_edge_wave", 0.8 },
+                    { "vhs_chroma_loss", 0.0002 }, { "snow_intensity", 0.001 },
+                } },
+            { SignalModes.VhsEp, new Dictionary<string, object>
+                {
+                    { "vhs_settings", true }, { "vhs_tape_speed", 3.0 }, { "head_switching", true }, { "tracking_noise", true }, { "tracking_noise_wave_intensity", 25.0 },
+                    { "tracking_noise_snow_intensity", 0.1 }, { "vhs_edge_wave_enabled", true }, { "vhs_edge_wave", 1.2 }, { "vhs_chroma_loss", 0.0005 }, { "snow_intensity", 0.002 },
+                    { "composite_noise_intensity", 0.1 }, { "chroma_noise_intensity", 0.2 }, { "chroma_phase_noise_intensity", 0.003 },
+                } },
+        };
+
+        // the settings the wear scales (0 = none of it, 0.5 = the connection's own, 1 = double)
+        static readonly string[] wearKeys =
+        {
+            "composite_noise_intensity", "luma_noise_intensity", "chroma_noise_intensity", "snow_intensity", "chroma_phase_noise_intensity", "tracking_noise_wave_intensity",
+            "tracking_noise_snow_intensity", "tracking_noise_noise_intensity", "head_switching_horizontal_shift", "vhs_edge_wave", "vhs_chroma_loss",
+        };
+
+        // The settings file the website would hand the engine for this connection, as JavaScript
+        // numbers (and true/false): the engine's defaults, the connection's own, the wear, and what
+        // the website always sends; then the PC's own changes on top.
+        public static Dictionary<string, object> EngineValues(string connection, SignalSettings s, int lines)
+        {
+            Dictionary<string, object> v = NtscSettings.DefaultValues();
+            if (presets.TryGetValue(connection, out Dictionary<string, object> preset))
+                foreach (var kv in preset) v[kv.Key] = kv.Value;
             double wear = Math.Min(1, Math.Max(0, s.Wear)) * 2;
-            float Worn(double v, float lo, float hi) => Clamp(JsonFloat(v * wear), lo, hi);
+            foreach (string key in wearKeys) if (v[key] is double d) v[key] = d * wear;
             // up to 288 lines is one field a frame (a console's 240p); taller pictures are interlaced
             bool progressive = lines <= 288;
-            return new NtscSettings
-            {
-                Interlaced = !progressive,
-                Comb = s.Decoder == SignalModes.Comb,
-                CompositePreemphasis = Clamp(JsonFloat(Math.Min(1, Math.Max(0, s.Sharpen))), -1, 2),
-                CompositeNoise = Worn(compositeNoise, 0, 1),
-                Snow = Worn(snow, 0, 100),
-                HeadSwitching = vhs,
-                HeadSwitchingShift = Worn(headShift, -100, 100),
-                TrackingNoise = vhs,
-                TrackingWave = Worn(trackingWave, -50, 50),
-                TrackingSnow = Worn(trackingSnow, 0, 1),
-                TrackingNoiseIntensity = Worn(trackingNoise, 0, 1),
-                LumaNoise = Worn(lumaNoise, 0, 1),
-                ChromaNoise = Worn(chromaNoise, 0, 1),
-                ChromaPhaseNoise = Worn(phaseNoise, 0, 1),
-                Vhs = vhs,
-                TapeSpeed = tapeSpeed,
-                ChromaLoss = Worn(chromaLoss, 0, 1),
-                EdgeWave = Worn(edgeWave, 0, 20),
-                VerticalScale = Clamp(JsonFloat((progressive ? lines : lines / 2.0) / 240), 0.125f, 8.8f),
-            };
+            v["random_seed"] = 0.0;
+            // a machine doesn't notch-filter its own output (the engine's default does, for camera video)
+            v["input_luma_filter"] = 0.0;
+            v["composite_preemphasis"] = Math.Min(1, Math.Max(0, s.Sharpen));
+            v["chroma_demodulation"] = s.Decoder == SignalModes.Comb ? 3.0 : 1.0;
+            v["use_field"] = progressive ? 3.0 : 4.0;
+            v["scale_settings"] = true;
+            v["scale_with_video_size"] = false;
+            // the input is already in samples at the engine's own rate
+            v["bandwidth_scale"] = 1.0;
+            v["vertical_scale"] = (progressive ? lines : lines / 2.0) / 240;
+            if (s.Engine != null)
+                foreach (var kv in s.Engine)
+                    if (NtscSettings.Find(kv.Key) != null && (kv.Value is double || kv.Value is bool)) v[kv.Key] = kv.Value;
+            return v;
         }
 
-        // Rust's f32::clamp
-        static float Clamp(float v, float lo, float hi) => v < lo ? lo : v > hi ? hi : v;
+        // those values as the engine reads them
+        public static NtscSettings EngineSettings(string connection, SignalSettings s, int lines) => NtscSettings.FromValues(EngineValues(connection, s, lines));
+
+        // The PC's own engine changes that the engine takes, each checked on its own (a change it
+        // wouldn't read is dropped; a number is held to its setting's range later, as the engine holds it).
+        public static SortedDictionary<string, object> CheckEngine(object loaded)
+        {
+            var kept = new SortedDictionary<string, object>(StringComparer.Ordinal);
+            if (!(loaded is Dictionary<string, object> changes)) return kept;
+            var scratch = new NtscSettings();
+            foreach (var kv in changes)
+            {
+                if (NtscSettings.Find(kv.Key) == null || !(kv.Value is double || kv.Value is bool)) continue;
+                if (kv.Value is double d && (double.IsNaN(d) || double.IsInfinity(d))) continue;
+                try
+                {
+                    scratch.Set(kv.Key, kv.Value);
+                    kept[kv.Key] = kv.Value;
+                }
+                catch (FormatException)
+                {
+                }
+            }
+            return kept;
+        }
 
         // A double as the engine reads it from JavaScript's settings file: JSON.stringify writes
         // the shortest digits that read back as the double, and the engine reads those straight
@@ -360,7 +388,9 @@ namespace B0r3dDeRes.Engine
             byte[] input = Input(r, machine, out int width);
             NtscSettings settings = EngineSettings(connection, s, r.Height);
             float colour = (float)(Math.Max(0, s.Colour) * (machine.Colour ?? 1));
-            byte[] rgb = Ntsc.Frame(input, width, r.Height, unchecked((uint)frame), settings, colour, machine.LineLocked, Pad);
+            byte[] rgb = s.Dubs > 0
+                ? Ntsc.Dub(input, width, r.Height, unchecked((uint)frame), settings, colour, machine.LineLocked, Pad, Math.Min(SignalSettings.MaxDubs, s.Dubs) + 1)
+                : Ntsc.Frame(input, width, r.Height, unchecked((uint)frame), settings, colour, machine.LineLocked, Pad);
             return new SignalImage { Rgb = rgb, Width = width, Height = r.Height, Alpha = Alpha(r, width) };
         }
 
@@ -422,7 +452,8 @@ namespace B0r3dDeRes.Engine
         public static DeresSettings ForRender(DeresSettings d, SignalSettings s)
         {
             if (s == null || s.Mode == SignalModes.Off || !Machine(d.ProfileId, 0).CgaArtifact) return d;
-            string key = string.Join("|", d.ProfileId, s.Mode, s.Colour.ToString("R", CultureInfo.InvariantCulture), s.Sharpen.ToString("R", CultureInfo.InvariantCulture), s.Decoder);
+            string key = string.Join("|", d.ProfileId, s.Mode, s.Colour.ToString("R", CultureInfo.InvariantCulture), s.Sharpen.ToString("R", CultureInfo.InvariantCulture), s.Decoder,
+                s.EngineText, s.Dubs.ToString(CultureInfo.InvariantCulture));
             string[] colours;
             lock (artifactLock)
             {
@@ -527,10 +558,11 @@ namespace B0r3dDeRes.Engine
             }
         }
 
-        // the settings checked field by field (kept settings, share links and look files)
+        // The settings checked field by field (kept settings, share links and look files). No
+        // settings at all (a look file from before the Signal) leaves them all as they were.
         public static SignalSettings Check(object loaded, SignalSettings b)
         {
-            var s = loaded as Dictionary<string, object> ?? new Dictionary<string, object>();
+            if (!(loaded is Dictionary<string, object> s)) return b.Clone();
             object Get(string key) => s.TryGetValue(key, out object v) ? v : null;
             double Num(object v, double lo, double hi, double fallback) => v is double d && !double.IsNaN(d) && !double.IsInfinity(d) ? Math.Min(hi, Math.Max(lo, d)) : fallback;
             return new SignalSettings
@@ -540,6 +572,10 @@ namespace B0r3dDeRes.Engine
                 Colour = Num(Get("colour"), 0, 1.5, b.Colour),
                 Sharpen = Num(Get("sharpen"), 0, 1, b.Sharpen),
                 Decoder = Get("decoder") is string dec && (dec == SignalModes.Comb || dec == SignalModes.Notch) ? dec : b.Decoder,
+                // the PC's own, which the website neither writes nor reads: engine changes and copies of
+                // the tape (none, when a link or look file has none: one from the website looks as it does there)
+                Engine = CheckEngine(Get("engine")),
+                Dubs = Get("dubs") is double n && !double.IsNaN(n) ? (int)Math.Min(SignalSettings.MaxDubs, Math.Max(0, Math.Truncate(n))) : 0,
             };
         }
     }
