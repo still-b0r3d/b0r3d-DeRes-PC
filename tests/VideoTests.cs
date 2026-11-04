@@ -148,6 +148,23 @@ namespace B0r3dDeRes.Tests
                 }
                 if (why.Count > 0) wrong.Add(name + ": " + string.Join(", ", why));
             }
+            // (how this Windows times the sound of an MP4 with edit lists, from its start and after
+            // going somewhere: GitHub's Windows Server differs from Windows 11 here)
+            {
+                VideoFile v = VideoFile.Open(Clip("h264-aac.mp4"));
+                string Times(Action<VideoReader> go)
+                {
+                    using (VideoReader r = v.Sound())
+                    {
+                        go(r);
+                        var times = new List<string>();
+                        for (int i = 0; i < 3 && r.NextSound(out long at) is short[] s; i++) times.Add((at / 1e4).ToString("0.0") + " ms (" + s.Length / 2 + ")");
+                        return string.Join(", ", times);
+                    }
+                }
+                Console.WriteLine("      sound of h264-aac.mp4 (edit lists: the sound's " + (v.SoundShift / 1e4).ToString("0.0") + " ms, the picture's " + (v.VideoShift / 1e4).ToString("0.0") + " ms): from the start " +
+                    Times(r => { }) + "; gone to 0 " + Times(r => r.SeekSound(0)) + "; gone to 1 s " + Times(r => r.SeekSound(VideoFile.Second)));
+            }
             Check(wrong.Count == 0, string.Join("; ", wrong));
         }
 

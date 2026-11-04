@@ -395,7 +395,8 @@ namespace B0r3dDeRes
             {
                 using (VideoReader reader = c.File.Sound())
                 {
-                    reader.SeekSound(r.Start);
+                    // (from the start it's read as it comes: see VideoExport.Mp4)
+                    if (r.Start > 0) reader.SeekSound(r.Start);
                     // in samples from where it starts: the stop, and how far it's queued
                     long end = (c.To - r.Start) * VideoReader.SampleRate / VideoFile.Second, queued = 0;
                     while (queued < end && r.Room())

@@ -211,7 +211,9 @@ namespace B0r3dDeRes.Video
                     if (sound)
                     {
                         soundReader = o.File.Sound();
-                        soundReader.SeekSound(o.From);
+                        // (from its start it's read as it comes: some Windows time the sound otherwise
+                        // after going somewhere, an MP4's edit list then applied after all)
+                        if (o.From > 0) soundReader.SeekSound(o.From);
                     }
                     using (var mp4 = new Mp4Writer(output, w, h, o.Fps, sound))
                     {
