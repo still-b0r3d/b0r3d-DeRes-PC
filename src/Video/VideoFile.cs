@@ -123,8 +123,10 @@ namespace B0r3dDeRes.Video
                 var times = new System.Collections.Generic.List<long>();
                 for ((long Time, long Duration)? f; times.Count < 13 && (f = reader.NextTime()) != null;) times.Add(f.Value.Time);
                 if (times.Count == 0) throw new VideoException("Windows found no frames in it.");
-                // an edit list Windows did apply after all would put the first frame before the start
-                if (times[0] - videoShift < -v.FrameLength / 2) videoShift = soundShift = 0;
+                // An edit list Windows did apply after all would put the first frame before the start.
+                // Each track's is judged on its own: some Windows apply the picture's and not the
+                // sound's (GitHub's Windows Server 2025 does), the sound's is judged below.
+                if (times[0] - videoShift < -v.FrameLength / 2) videoShift = 0;
                 v.VideoShift = videoShift;
                 v.SoundShift = soundShift;
                 v.Start = times[0] - videoShift;
@@ -147,7 +149,12 @@ namespace B0r3dDeRes.Video
             if (v.HasSound)
                 try
                 {
-                    using (var sound = new VideoReader(v, VideoReader.Purpose.Sound)) { }
+                    using (var sound = new VideoReader(v, VideoReader.Purpose.Sound))
+                    {
+                        // the sound's edit list, applied by Windows after all, puts its first stretch
+                        // well before its start (Windows' own time below 0)
+                        if (v.SoundShift > 0 && sound.NextSound(out long first) != null && first + v.SoundShift + v.Start < -v.SoundShift / 2) v.SoundShift = 0;
+                    }
                 }
                 catch (VideoException)
                 {
@@ -215,8 +222,10 @@ namespace B0r3dDeRes.Video
         }
 
         // Windows' video objects live on the free-threaded side: they're made and used there, so a
-        // call from the window's thread goes over to a worker for as long as it takes
-        internal static T Mta<T>(Func<T> f) => Thread.CurrentThread.GetApartmentState() != ApartmentState.STA ? f() : Task.Run(f).GetAwaiter().GetResult();
+        // call from the window's thread goes over to a thread of its own for as long as it takes
+        // (not a shared one: on two cores those can all be waiting on this very call)
+        internal static T Mta<T>(Func<T> f) => Thread.CurrentThread.GetApartmentState() != ApartmentState.STA ? f()
+            : Task.Factory.StartNew(f, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).GetAwaiter().GetResult();
 
         internal static void Mta(Action a) => Mta(() =>
         {

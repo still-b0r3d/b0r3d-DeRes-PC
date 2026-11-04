@@ -107,6 +107,12 @@ namespace B0r3dDeRes.Tests
                 {
                     v = VideoFile.Open(Clip(name));
                 }
+                catch (VideoException x) when (name == "mpeg2.mpg" && x.Message == "Windows can't decode its picture (MPEG-2).")
+                {
+                    // Windows Server (GitHub's machine) comes without a working MPEG-2 decoder
+                    Console.WriteLine("      MPEG-2: this Windows can't decode it, so mpeg2.mpg isn't checked here");
+                    continue;
+                }
                 catch (VideoException x)
                 {
                     wrong.Add(name + " didn't open: " + x.Message);
@@ -275,12 +281,23 @@ namespace B0r3dDeRes.Tests
                 Signal = new SignalSettings { Mode = SignalModes.Rf }, Lanes = 2,
             };
             var wrong = new List<string>();
+            // how long each step takes, in the output (a slow machine shows where its time goes)
+            var lap = System.Diagnostics.Stopwatch.StartNew();
+            void Took(string what)
+            {
+                Console.WriteLine("      " + what + ": " + (lap.ElapsedMilliseconds / 1000.0).ToString("0.0") + " s");
+                lap.Restart();
+            }
             // at its own speed and at a retro 15 a second: every frame through the NES on RF, the sound kept
             foreach (double fps in new[] { 30.0, 15.0 })
             {
                 string path = Path.Combine(Work, "export-" + fps + ".mp4");
                 AnimationResult result = null;
-                Exports.Write(path, stream => result = VideoExport.Mp4(stream, Options(fps)));
+                VideoExportOptions options = Options(fps);
+                // (the first one says how far it's got, every 12 frames)
+                if (fps == 30) options.Progress = (done, total, note) => { if (done % 12 == 0 || note != null) Console.WriteLine("        frame " + done + " of " + total + (note != null ? ", " + note : "") + ": " + (lap.ElapsedMilliseconds / 1000.0).ToString("0.0") + " s"); };
+                Exports.Write(path, stream => result = VideoExport.Mp4(stream, options));
+                Took("MP4 at " + fps + " a second, made");
                 VideoFile back = VideoFile.Open(path);
                 List<VideoFrame> frames = AllFrames(back);
                 int expected = (int)Math.Round(2 * fps);
@@ -298,6 +315,7 @@ namespace B0r3dDeRes.Tests
                     if (Math.Abs(beep - 1) > 0.003) why.Add("the beep at " + beep.ToString("0.####") + " s");
                 }
                 if (why.Count > 0) wrong.Add(fps + " fps: " + string.Join(", ", why));
+                Took("MP4 at " + fps + " a second, read back");
             }
             // part of it, without its sound
             {
@@ -310,6 +328,7 @@ namespace B0r3dDeRes.Tests
                 VideoFile back = VideoFile.Open(path);
                 List<VideoFrame> frames = AllFrames(back);
                 if (frames.Count != 30 || back.HasSound || frames.FindIndex(f => Brightness(f) > 200) != 15) wrong.Add("0.5 s to 1.5 s: " + frames.Count + " frames, the flash on frame " + frames.FindIndex(f => Brightness(f) > 200) + (back.HasSound ? ", sound" : ""));
+                Took("MP4 of part of it, made and read back");
             }
             // GIF and APNG of it
             foreach (bool apng in new[] { false, true })
@@ -323,6 +342,7 @@ namespace B0r3dDeRes.Tests
                     bool ok = apng ? ApngInfo.Shape(file, out w, out h, out n) : GifInfo.Shape(file, out w, out h, out n);
                     if (!ok || w != 512 || h != 480 || n != 30) wrong.Add((apng ? "APNG" : "GIF") + ": " + w + "×" + h + ", " + n + " frames");
                 }
+                Took(apng ? "APNG" : "GIF");
             }
             // PNG frames, numbered
             {
@@ -332,6 +352,7 @@ namespace B0r3dDeRes.Tests
                 List<string> files = VideoExport.PngFrames(folder, "clip-nes", o, (p, write) => Exports.Write(p, write));
                 if (files.Count != 20 || !File.Exists(Path.Combine(folder, "clip-nes-00001.png")) || !File.Exists(Path.Combine(folder, "clip-nes-00020.png")))
                     wrong.Add("PNG frames: " + files.Count + " (" + string.Join(", ", files.Take(2).Select(Path.GetFileName)) + ")");
+                Took("PNG frames");
             }
             // stopped part way: no file
             {

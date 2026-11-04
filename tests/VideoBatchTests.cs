@@ -32,10 +32,14 @@ namespace B0r3dDeRes.Tests
             Check(batch.PicturesLine.Text == "1 picture and 2 videos from " + folder &&
                 batch.MakeLine.Text.EndsWith(" A video goes out whole as an MP4 with its sound, at 2× or the biggest Size an MP4 holds, at its own frame rate.", StringComparison.Ordinal),
                 "the batch's lines: " + batch.PicturesLine.Text + " / " + batch.MakeLine.Text);
+            var lap = System.Diagnostics.Stopwatch.StartNew();
             void MakeAll(string outcome)
             {
                 batch.Make(Clash.Number);
                 Pump(() => batch.Running.IsCompleted, 60000);
+                // how long it took, in the output (a slow machine shows where its time goes)
+                Console.WriteLine("      a batch made in " + (lap.ElapsedMilliseconds / 1000.0).ToString("0.0") + " s: " + batch.LastOutcome);
+                lap.Restart();
                 Check(batch.Running.IsCompleted && batch.LastOutcome == outcome,
                     "the batch came out " + batch.LastOutcome + ", not " + outcome + ": " + batch.StatusLine.Text + " " + string.Join(" ", batch.OutcomeList.Items.OfType<TextBlock>().Select(t => t.Text)));
             }

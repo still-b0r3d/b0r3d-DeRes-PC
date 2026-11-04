@@ -42,7 +42,7 @@ The sixth stage: video.
   all the same.
 - The Signal's line: "The noise moves when a GIF or a video plays, and in the animations and
   videos under Export."
-- The self-test writes an MP4 beside its report and reads it back. The tests run in eight parts.
+- The self-test writes an MP4 beside its report and reads it back. The tests run in nine parts.
 
 ## 0.5 (not released yet)
 

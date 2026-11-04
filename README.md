@@ -264,9 +264,9 @@ takes any 10.0 one); the program itself runs on .NET Framework 4.8, which comes 
 and 11. Double-click
 `build.cmd`, or run `build.cmd test` to build and run the tests. The exe lands in
 `bin\b0r3dDeRes.exe`. The tests print a PASS or FAIL line each, and a run stops itself after 90
-seconds; `build.cmd test` runs them in eight parts (`--part engine`, `animation`, `gifs`,
-`frames`, `signal`, `video`, `videobatch`, then `window`) so each stays within that on a
-two-core machine too. The video tests use short clips in `tests\video`, made with ffmpeg.
+seconds; `build.cmd test` runs them in nine parts (`--part engine`, `animation`, `gifs`,
+`frames`, `signal`, `video`, `videosave`, `videobatch`, then `window`) so each stays within that
+on a two-core machine too. The video tests use short clips in `tests\video`, made with ffmpeg.
 `bin\tests\b0r3dDeResTests.exe --shots <folder>` draws the windows to PNG files.
 
 ## Licence

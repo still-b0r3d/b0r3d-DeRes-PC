@@ -23,8 +23,8 @@ namespace B0r3dDeRes.Tests
     // Runs every test and prints a PASS, FAIL or SKIP line for each. It never shows a dialog:
     // whatever goes wrong ends as a line, and a watchdog stops the run after 90 seconds.
     //   b0r3dDeResTests.exe                        run the tests
-    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|signal|video|videobatch|window   run one part of them
-    //                                              (build.cmd test runs the eight in turn, each
+    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|signal|video|videosave|videobatch|window   run one part of them
+    //                                              (build.cmd test runs the nine in turn, each
     //                                              within its 90 seconds on a 2-core CI machine too)
     //   b0r3dDeResTests.exe --shots <folder>       draw the windows to PNG files (see Shots.cs)
     static partial class TestMain
@@ -55,6 +55,9 @@ namespace B0r3dDeRes.Tests
                 app.ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
                 App.OnProblem = e => { Console.WriteLine("FAIL  a window threw: " + e); Environment.Exit(3); };
                 SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+                // (by hand, DERES_POOL=2: no more shared threads at the ready than a 2-core machine
+                // has, as on GitHub's; .NET Framework counts every core even with the affinity set)
+                if (int.TryParse(Environment.GetEnvironmentVariable("DERES_POOL"), out int pool) && pool > 0) ThreadPool.SetMinThreads(pool, pool);
                 Fresh(Work);
                 DataFolder.Reset(Path.Combine(Work, "data"));
 
@@ -64,10 +67,10 @@ namespace B0r3dDeRes.Tests
                     TryDelete(Work);
                     return shot;
                 }
-                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videobatch", "window" }.Contains(args[1])) only = args[1];
+                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videosave", "videobatch", "window" }.Contains(args[1])) only = args[1];
                 else if (args.Length > 0)
                 {
-                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videobatch|window] [--shots <folder>]");
+                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videosave|videobatch|window] [--shots <folder>]");
                     return 2;
                 }
 
@@ -158,9 +161,11 @@ namespace B0r3dDeRes.Tests
                 Run("video: HLG HDR (an iPhone's) in normal colour, close to the picture it was made from; the whole clip where Windows can decode HEVC", HdrVideosInNormalColour);
                 if (Environment.GetEnvironmentVariable("DERES_MEASURE") == "hlg") Run("measure: an HLG frame of 4K into normal colour", MeasureHlg);
                 Run("video: MP4s written (H.264 and AAC) read back with every frame, upright, at their speed (29.97 too), the sound in step with the picture", Mp4sWriteAndReadBack);
-                Run("video: a clip through the NES on RF saved as MP4 with its sound (its own speed and 15 a second, part of it without sound), GIF, APNG and PNG frames; Stop leaves no file", VideosSaveThroughTheLook);
                 Run("window: a video opens with its timeline; a frame on and back and the slider make that frame the picture; start and stop; saved as MP4 at a Size and frame rate; it plays and pauses", VideoInTheWindow);
                 Run("window: a video plays with its sound to its end when the sound stops first, the sound where its times put it, and on from where the slider's moved while it plays; the clock's words, GIF and APNG frame rates", VideoPlaysWithItsSound);
+
+                part = "videosave";
+                Run("video: a clip through the NES on RF saved as MP4 with its sound (its own speed and 15 a second, part of it without sound), GIF, APNG and PNG frames; Stop leaves no file", VideosSaveThroughTheLook);
 
                 part = "videobatch";
                 Run("batch: videos as MP4s through the look with their sound (none for one without), at the biggest Size an MP4 holds, a GIF and an APNG of a video's frames at 10 a second, a picture beside them, every file read back", VideoBatches);
