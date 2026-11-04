@@ -398,14 +398,14 @@ namespace B0r3dDeRes
                     // (from the start it's read as it comes: see VideoExport.Mp4)
                     if (r.Start > 0) reader.SeekSound(r.Start);
                     // in samples from where it starts: the stop, and how far it's queued
-                    long end = (c.To - r.Start) * VideoReader.SampleRate / VideoFile.Second, queued = 0;
+                    long end = (c.To - r.Start) * VideoReader.SampleRate / VideoFile.Second, queued = 0, next = long.MinValue;
                     while (queued < end && r.Room())
                     {
                         short[] samples = reader.NextSound(out long time);
                         if (samples == null) break;
-                        long at = (long)Math.Round((time - r.Start) / (double)VideoFile.Second * VideoReader.SampleRate);
-                        if (Math.Abs(at - queued) <= VideoExport.SoundSlack) at = queued;
-                        long count = samples.Length / 2;
+                        // right after the stretch before, unless its time leaves a gap (VideoExport.SoundPlace)
+                        long at = VideoExport.SoundPlace(time, r.Start, next), count = samples.Length / 2;
+                        next = at + count;
                         while (at > queued)
                         {
                             // silence up to it, a tenth of a second at a time

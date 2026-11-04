@@ -120,6 +120,12 @@ namespace B0r3dDeRes.Tests
                 VideoExport.AnimationFps(120, true) == 60 && VideoExport.AnimationFps(240, false) == 48,
                 "a GIF's and an APNG's frame rates: " + VideoExport.AnimationFps(60, false) + " / " + VideoExport.AnimationFps(50.3, false) + " / " + VideoExport.AnimationFps(120, true));
 
+            // where stretches of sound go: right after the one before, a wobbling time or the same time
+            // twice (as Windows Server gives the first two) carrying on; a time past it is a gap
+            long ms = VideoFile.Second / 1000;
+            Check(VideoExport.SoundPlace(-213333, 0, long.MinValue) == -1024 && VideoExport.SoundPlace(-213333, 0, 0) == 0 && VideoExport.SoundPlace(20 * ms, 0, 1024) == 1024 &&
+                VideoExport.SoundPlace(100 * ms, 0, 1024) == 4800, "where stretches of sound go: " + VideoExport.SoundPlace(-213333, 0, 0) + ", " + VideoExport.SoundPlace(100 * ms, 0, 1024));
+
             // 2 s of frames, the sound only for the first 1.2 s, with a beep at 0.5 s
             string path = Path.Combine(Work, "short-sound.mp4");
             using (FileStream file = File.Create(path))

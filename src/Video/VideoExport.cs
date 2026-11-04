@@ -220,7 +220,7 @@ namespace B0r3dDeRes.Video
                         long soundEnd = o.To - o.From;   // the sound stops with the picture
                         long soundWritten = 0;           // samples (a left and a right each) written
                         short[] pending = null;
-                        long pendingTime = 0;
+                        long pendingAt = 0, soundNext = long.MinValue;
                         int done = 0;
                         foreach (AnimFrame[] window in Windows(total, o.Lanes, o.Cancel, maker.Frame))
                         {
@@ -229,7 +229,7 @@ namespace B0r3dDeRes.Video
                                 long time = TimeOf(done, o.From, o.Fps) - o.From, end = TimeOf(done + 1, o.From, o.Fps) - o.From;
                                 mp4.AddFrame(Bgra(f, maker.Width, maker.Height, w, h), time, end - time);
                                 // the sound up to this frame's end, from where it was read to
-                                if (soundReader != null) WriteSound(mp4, soundReader, Math.Min(end, soundEnd), ref soundWritten, ref pending, ref pendingTime, o.From);
+                                if (soundReader != null) WriteSound(mp4, soundReader, Math.Min(end, soundEnd), ref soundWritten, ref pending, ref pendingAt, ref soundNext, o.From);
                                 done++;
                             }
                             o.Progress?.Invoke(done, total, null);
@@ -247,14 +247,25 @@ namespace B0r3dDeRes.Video
             }
         }
 
-        // How far a stretch of sound may start from where the one before ended and still carry
-        // straight on: containers keep times to the millisecond, and a stretch's own samples are
-        // continuous, so going by the times to the sample would cut or pad a little at every join.
+        // How far past the end of the stretch of sound before a stretch's own time must be to leave
+        // a gap (silence) there; nearer than that, or before it, the stretch carries straight on.
         public const long SoundSlack = VideoReader.SampleRate * 4 / 1000;
 
+        // Where a stretch of sound goes, in samples after the start: right after the one before
+        // (`next`), unless its own time leaves a gap after that (the first goes by its time). The
+        // sound's own samples are continuous, while the times wobble at joins (containers keep
+        // them to the millisecond) and some Windows give the first two stretches the same time
+        // (GitHub's Windows Server does): going by them would cut or repeat sound.
+        public static long SoundPlace(long time, long from, long next)
+        {
+            long labelled = (long)Math.Round((time - from) / (double)VideoFile.Second * VideoReader.SampleRate);
+            return next == long.MinValue || labelled > next + SoundSlack ? labelled : next;
+        }
+
         // The sound from where it's been written to up to `until` (the file's own time after its
-        // start), as 48 kHz samples, a stretch at a time; what was read past it waits for the next frame.
-        static void WriteSound(Mp4Writer mp4, VideoReader reader, long until, ref long written, ref short[] pending, ref long pendingTime, long from)
+        // start), as 48 kHz samples, a stretch at a time; what was read past it waits for the next
+        // frame (at `pendingAt`). `next`: where the stretch after the last one read goes on.
+        static void WriteSound(Mp4Writer mp4, VideoReader reader, long until, ref long written, ref short[] pending, ref long pendingAt, ref long next, long from)
         {
             long wantSamples = until * VideoReader.SampleRate / VideoFile.Second;
             while (written < wantSamples)
@@ -270,15 +281,13 @@ namespace B0r3dDeRes.Video
                         written = wantSamples;
                         return;
                     }
-                    pendingTime = t - from;
+                    pendingAt = SoundPlace(t, from, next);
+                    next = pendingAt + pending.Length / 2;
                 }
-                // where this stretch starts, in samples after the start (right after the one before, when it's that near)
-                long at = (long)Math.Round(pendingTime / (double)VideoFile.Second * VideoReader.SampleRate);
-                if (Math.Abs(at - written) <= SoundSlack) at = written;
-                long count = pending.Length / 2;
+                long at = pendingAt, count = pending.Length / 2;
                 if (at + count <= written)
                 {
-                    // all before what's written (before the start, or a repeat)
+                    // all before the start
                     pending = null;
                     continue;
                 }
@@ -301,7 +310,7 @@ namespace B0r3dDeRes.Video
                     var rest = new short[(count - skip - take) * 2];
                     Array.Copy(pending, (skip + take) * 2, rest, 0, rest.Length);
                     pending = rest;
-                    pendingTime += (skip + take) * VideoFile.Second / VideoReader.SampleRate;
+                    pendingAt += skip + take;
                 }
             }
         }
