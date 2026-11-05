@@ -27,6 +27,14 @@ namespace B0r3dDeRes
         // the tests check it against Website.SelfTestGif)
         internal const string RukusGif = "24928182a5d65f11597832d9f3e8a428f984a3079d353681bcaf0d89abd0481c";
 
+        // the website's own art of the Rukus sample as the ASCII studio starts, and its picture of
+        // the sample as Teletext 33 columns wide in 16 colours at 2× (their SHA-256; the tests
+        // check them against WebsiteAscii.cs)
+        internal const string RukusArt = "60b7aa1abe97328070130d140e9443e72badf42c5255859bec06055cfbc1ee89";
+        internal const string RukusTeletext = "ee419be2f1f1d55782e2dbd4c47b96db5577058d37a745e0283cd7f10c02ea25";
+        // every letter of the website's font as Chromium draws it, 16 rows each in code point order
+        internal const string VgaLetters = "12d9ab6682bb36099543f2c94c26e4c8fc5099222190981a4f1bcfa00141b7d8";
+
         public static int Run(string reportPath)
         {
             var lines = new List<string>();
@@ -127,6 +135,33 @@ namespace B0r3dDeRes
                 }
                 lines.Add("gif=" + (animated ? "ok" : "failed"));
                 ok &= animated;
+
+                // the ASCII studio: the Rukus sample's art as the website makes it (the sample read
+                // as the website's canvas reads it), its Teletext picture at 2× as Chromium's canvas
+                // draws it, and every letter of the font file inside the exe as Chromium draws it
+                bool ascii;
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                {
+                    string Hash(byte[] bytes) => string.Concat(sha.ComputeHash(bytes).Select(b => b.ToString("x2")));
+                    AsciiArt art = Ascii.Generate(rukus.Source, new AsciiSettings());
+                    var cells = new MemoryStream();
+                    foreach (int c in art.Chars) cells.Write(BitConverter.GetBytes((uint)c), 0, 4);
+                    cells.Write(art.Fg, 0, art.Fg.Length);
+                    cells.Write(art.Bg, 0, art.Bg.Length);
+                    cells.Write(art.Extra, 0, art.Extra.Length);
+                    ascii = Hash(cells.ToArray()) == RukusArt;
+                    AsciiArt teletext = Ascii.Generate(rukus.Source, new AsciiSettings { Mode = AsciiModes.Teletext, ColorMode = AsciiColours.Ansi16, Columns = 33 });
+                    ascii &= Hash(AsciiRender.Rgb(teletext, 2)) == RukusTeletext;
+                    var letters = new MemoryStream();
+                    foreach (int c in VgaFont.Characters.OrderBy(c => c))
+                    {
+                        byte[] rows = AsciiRender.Letter(c);
+                        letters.Write(rows, 0, rows.Length);
+                    }
+                    ascii &= Hash(letters.ToArray()) == VgaLetters && Ascii.AnsBytes(art).Length > 0;
+                }
+                lines.Add("ascii=" + (ascii ? "ok" : "failed"));
+                ok &= ascii;
 
                 // a share link, made and read back (with the signal in it)
                 Settings shared = Settings.Defaults();

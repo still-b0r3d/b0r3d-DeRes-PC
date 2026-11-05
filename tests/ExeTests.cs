@@ -12,6 +12,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using B0r3dDeRes.Engine;
 
 namespace B0r3dDeRes.Tests
 {
@@ -72,6 +73,14 @@ namespace B0r3dDeRes.Tests
                 Check(found.TryGetValue("signal", out string signal) && signal == "ok", "the signal inside the exe should make the website's very frame: " + all);
                 Check(SelfTest.RukusGif == Website.SelfTestGif, "the self-test's GIF isn't the website's (make the test files again, and copy its hash into SelfTest.cs)");
                 Check(found.TryGetValue("gif", out string gif) && gif == "ok", "the GIF sample inside the exe should read as the website reads it and make the website's very GIF: " + all);
+                Check(SelfTest.RukusArt == WebsiteAscii.Cases.First(c => c.Input == "rukus" && c.Settings.Key == new AsciiSettings().Key).Art, "the self-test's art isn't the website's (make the test files again, and copy its hash into SelfTest.cs)");
+                string teletext = new AsciiSettings { Mode = AsciiModes.Teletext, ColorMode = AsciiColours.Ansi16, Columns = 33 }.Key;
+                Check(SelfTest.RukusTeletext == WebsiteAscii.TeletextPngs.First(p => WebsiteAscii.Cases[p.Case].Input == "rukus" && WebsiteAscii.Cases[p.Case].Settings.Key == teletext && p.M == 2).Rgb,
+                    "the self-test's Teletext picture isn't the website's (copy its hash into SelfTest.cs)");
+                string rows = WebsiteAscii.FontRows;
+                Check(SelfTest.VgaLetters == Sha(Enumerable.Range(0, rows.Length / 2).Select(i => Convert.ToByte(rows.Substring(i * 2, 2), 16)).ToArray()),
+                    "the self-test's letters aren't the website's (copy their hash into SelfTest.cs)");
+                Check(found.TryGetValue("ascii", out string ascii) && ascii == "ok", "the ASCII studio inside the exe should make the website's very art, its Teletext picture and its letters: " + all);
                 Check(found.TryGetValue("video", out string video) && video == (B0r3dDeRes.Video.Mf.Available ? "ok" : "none"), "an MP4 should go through Windows' video system and back inside the exe: " + all);
                 Check(found["bits"] == "64", "the exe ran as a " + found["bits"] + "-bit program; only 64-bit does the website's sums to the last bit");
                 Check(found["dpi"] == "per-monitor-v2", "the exe follows the screens' scaling as \"" + found["dpi"] + "\", not per-monitor-v2 (is the manifest in?)");

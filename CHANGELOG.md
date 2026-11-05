@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.7 (not released yet)
+
+The seventh stage: the ASCII / ANSI studio.
+
+- A second tab, ASCII / ANSI Studio, with the website's sections: Image, Mode & Columns,
+  Character Ramp, Teletext Options, Colour Profile, Adjustments, and Export & Clipboard. It
+  takes the same picture as the DeRes tab, on the same frame of a GIF or a video.
+- Every mode: half blocks, character ramps (Standard, Detailed, Blocks, Katakana, Binary, or
+  your own, inverted too), PETSCII on a C64's 40 × 25 screen, and Teletext mosaics with the
+  Ceefax header and separated mosaics; 40, 80 or 132 columns or 20 to 200 in steps of 2, 2:1
+  cells or square;
+  every colour profile (ANSI 16, C64, Teletext, green, amber, mono, truecolour); Contrast,
+  Brightness and Gamma. The same art as the website's, character for character and colour for
+  colour (162 cases checked against its engine), its readout in the website's words.
+- The art shows as its picture, from the VGA font's own 8 × 16 letters (the website's font file,
+  inside the exe), with zoom, full screen and the website's scanlines; the dial-up modem types it
+  out at 300 to 28.8k baud, a cursor blinking where the next character goes.
+- Copy as plain text, Markdown, ANSI escapes or HTML (Ctrl+C on the tab: the text). Save .ANS
+  with its SAUCE record, PETSCII as a C64 .SEQ stream or a .PRG that shows it on a C64, Teletext
+  as a .TXT, and the picture as a PNG at 1×, 2× or 4×, named as the website names them. The
+  text files are the website's byte for byte; the pictures of half blocks and Teletext are its
+  pixel for pixel, while a ramp's or PETSCII's are drawn from the font's own letters, crisp,
+  where the browser smooths them.
+- An animated GIF plays as art (its play bar under the art); its every frame goes out as an
+  ANSImation, a GIF or an APNG (exactly the art's colours when there are 256 or fewer): the
+  website's very ANSImation, and its very GIF and APNG of half blocks and Teletext. A video
+  plays as art on its timeline, and its every frame from its start
+  to its stop goes out as an ANSImation, a GIF, an APNG, or an MP4 with its sound in step, at its
+  own frame rate or a slower one. Frames are made on several cores, with the time left and Stop.
+- See-through pictures are read as the website's canvas holds them, so their art is the website's
+  too; Teletext's pictures are drawn as Chromium's canvas draws them, pixel for pixel.
+- The File, Edit and View menus follow the tab: the studio's saves, copies and scanlines show on
+  its tab; Save PNG, GIF, APNG and MP4, Copy, the zoom, full screen and Play act on it. Reset
+  settings (the button, or the Edit menu) puts back the studio's own settings only.
+- The studio's settings are kept with the others (a typed-in ramp too, any character, and the
+  PNG's size). A ramp pasted with line breaks comes in on one line, as the website's box takes it.
+- The Hardware section's Surprise me button's access key is now M (U is the studio's tab).
+- The self-test makes the website's art of the Rukus sample, its Teletext picture and the font's
+  every letter (`ascii=ok`).
+- The tests run in ten parts (`ascii` is new); `--shots <folder>` takes a set: `light`, `dark`
+  or `ascii`.
+
 ## 0.6 (not released yet)
 
 The sixth stage: video.

@@ -36,6 +36,9 @@ namespace B0r3dDeRes
         // Export, for a video: the frame rate it goes out at (0: the video's own), and whether an MP4 keeps its sound
         public int VideoRate;
         public bool VideoSound = true;
+        // the ASCII / ANSI studio's settings (the website keeps them in the browser), and the size its picture is saved at
+        public AsciiSettings Ascii = new AsciiSettings();
+        public int AsciiScale = 1;
 
         public static readonly int[] LoopFrameCounts = { 16, 32, 48 }, LoopSpeeds = { 15, 30 };
         // the slower frame rates a video can go out at (each only below its own)
@@ -53,6 +56,7 @@ namespace B0r3dDeRes
             copy.Deres = Deres.Clone();
             copy.Signal = Signal.Clone();
             copy.Fx = Fx.Clone();
+            copy.Ascii = Ascii.Clone();
             return copy;
         }
 
@@ -80,6 +84,10 @@ namespace B0r3dDeRes
             }
             DeresSettings d = s.Deres;
             string dither = null;
+            // the studio's, checked together at the end as the website checks what it kept
+            string asciiMode = null, asciiRamp = null, asciiCustom = null, asciiColours = null;
+            double? asciiColumns = null, asciiContrast = null, asciiBrightness = null, asciiGamma = null;
+            bool? asciiInvert = null, asciiAspect = null, asciiSeparated = null, asciiHeader = null;
             foreach (string line in lines)
             {
                 int eq = line.IndexOf('=');
@@ -213,6 +221,52 @@ namespace B0r3dDeRes
                     case "video_sound":
                         if (value == "on" || value == "off") s.VideoSound = value == "on";
                         break;
+                    case "ascii_mode":
+                        asciiMode = value;
+                        break;
+                    case "ascii_ramp":
+                        asciiRamp = value;
+                        break;
+                    case "ascii_colours":
+                        asciiColours = value;
+                        break;
+                    case "ascii_custom_ramp":
+                        // (kept as JSON text: a ramp can hold any character)
+                        try
+                        {
+                            asciiCustom = Json.Parse(value) as string;
+                        }
+                        catch (FormatException)
+                        {
+                        }
+                        break;
+                    case "ascii_columns":
+                        if (Number(value, out double asciiCols)) asciiColumns = asciiCols;
+                        break;
+                    case "ascii_contrast":
+                        if (Number(value, out double ac)) asciiContrast = ac;
+                        break;
+                    case "ascii_brightness":
+                        if (Number(value, out double ab)) asciiBrightness = ab;
+                        break;
+                    case "ascii_gamma":
+                        if (Number(value, out double ag)) asciiGamma = ag;
+                        break;
+                    case "ascii_invert":
+                        asciiInvert = OnOff(value);
+                        break;
+                    case "ascii_aspect":
+                        asciiAspect = OnOff(value);
+                        break;
+                    case "ascii_teletext_separated":
+                        asciiSeparated = OnOff(value);
+                        break;
+                    case "ascii_teletext_header":
+                        asciiHeader = OnOff(value);
+                        break;
+                    case "ascii_size":
+                        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int scale) && AsciiRender.Scales.Contains(scale)) s.AsciiScale = scale;
+                        break;
                 }
             }
             // a machine's dither when the one kept isn't one there is
@@ -220,6 +274,7 @@ namespace B0r3dDeRes
             // The Colours slider starts at a machine's own count whenever one is picked, so a kept
             // count only stays for the Custom machine, as on the website.
             if (d.ProfileId != Profiles.CustomId) d.CustomCount = null;
+            s.Ascii = AsciiSettings.Check(asciiMode, asciiColumns, asciiRamp, asciiCustom, asciiInvert, asciiColours, asciiContrast, asciiBrightness, asciiGamma, asciiAspect, asciiSeparated, asciiHeader);
             return s;
         }
 
@@ -228,6 +283,22 @@ namespace B0r3dDeRes
             double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && !double.IsNaN(value) && !double.IsInfinity(value);
 
         static double Clamp(double v, double lo, double hi) => Math.Min(hi, Math.Max(lo, v));
+
+        // text as a JSON string of plain ASCII (everything else escaped as a UTF-16 unit), so it reads back exactly
+        static string AsciiText(string text)
+        {
+            const char Backslash = (char)92;
+            var b = new StringBuilder("\"");
+            foreach (char c in text)
+            {
+                if (c == '"' || c == Backslash) b.Append(Backslash).Append(c);
+                else if (c < 0x20 || c > 0x7e) b.Append(Backslash).Append('u').Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+                else b.Append(c);
+            }
+            return b.Append('"').ToString();
+        }
+
+        static bool? OnOff(string value) => value == "on" ? true : value == "off" ? false : (bool?)null;
 
         // "1280x800", or "1280x800 maximized"
         static void ReadWindow(Settings s, string value)
@@ -287,6 +358,19 @@ namespace B0r3dDeRes
             Line("pixel_shape", TvPixels ? "tv" : "raw");
             Line("size", Multiplier.ToString(CultureInfo.InvariantCulture));
             Line("screen_in_export", ExportFx ? "on" : "off");
+            Line("ascii_mode", Ascii.Mode);
+            Line("ascii_columns", N(Ascii.Columns));
+            Line("ascii_ramp", Ascii.RampPreset);
+            Line("ascii_custom_ramp", AsciiText(Ascii.CustomRamp ?? ""));
+            Line("ascii_invert", Ascii.InvertRamp ? "on" : "off");
+            Line("ascii_colours", Ascii.ColorMode);
+            Line("ascii_contrast", N(Ascii.Contrast));
+            Line("ascii_brightness", N(Ascii.Brightness));
+            Line("ascii_gamma", N(Ascii.Gamma));
+            Line("ascii_aspect", Ascii.TwoToOneAspect ? "on" : "off");
+            Line("ascii_teletext_header", Ascii.TeletextHeader ? "on" : "off");
+            Line("ascii_teletext_separated", Ascii.TeletextSeparated ? "on" : "off");
+            Line("ascii_size", AsciiScale.ToString(CultureInfo.InvariantCulture));
             return text.ToString();
         }
 

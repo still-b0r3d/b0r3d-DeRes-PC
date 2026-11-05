@@ -88,7 +88,9 @@ namespace B0r3dDeRes
             AnimHint.Text = hint;
             AnimHint.Visibility = picture != null && hint.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             bool idle = animating == null;
-            SaveGifButton.IsEnabled = SaveApngButton.IsEnabled = SaveGifMenu.IsEnabled = SaveApngMenu.IsEnabled = picture != null && fits && idle;
+            SaveGifButton.IsEnabled = SaveApngButton.IsEnabled = picture != null && fits && idle;
+            // (the menu's lines are the studio's on its tab)
+            if (!AsciiActive) SaveGifMenu.IsEnabled = SaveApngMenu.IsEnabled = SaveGifButton.IsEnabled;
             StopAnimationButton.Visibility = idle ? Visibility.Collapsed : Visibility.Visible;
             PlayMenu.IsEnabled = player.Animated || video;
         }
@@ -118,8 +120,8 @@ namespace B0r3dDeRes
 
         void OnPlayMenu(object sender, RoutedEventArgs e)
         {
-            if (picture?.Video != null) videoPlayer.Toggle();
-            else player.Toggle();
+            if (picture?.Video != null) (AsciiActive ? asciiVideoPlayer : videoPlayer).Toggle();
+            else (AsciiActive ? asciiPlayer : player).Toggle();
         }
 
         // ---- playing ----
@@ -238,8 +240,17 @@ namespace B0r3dDeRes
         bool closeAfterAnimation;   // the window was closed while one was made: it closes once that's stopped
         internal bool Animating => animating != null;
 
-        void OnSaveGif(object sender, RoutedEventArgs e) => AskAndSaveAnimation(false);
-        void OnSaveApng(object sender, RoutedEventArgs e) => AskAndSaveAnimation(true);
+        void OnSaveGif(object sender, RoutedEventArgs e)
+        {
+            if (AsciiActive) AskAndSaveAsciiFrames(AsciiFramesOut.Gif);
+            else AskAndSaveAnimation(false);
+        }
+
+        void OnSaveApng(object sender, RoutedEventArgs e)
+        {
+            if (AsciiActive) AskAndSaveAsciiFrames(AsciiFramesOut.Apng);
+            else AskAndSaveAnimation(true);
+        }
 
         void OnStopAnimation(object sender, RoutedEventArgs e) => StopAnimation();
 

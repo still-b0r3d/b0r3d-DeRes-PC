@@ -60,7 +60,7 @@ namespace B0r3dDeRes.Video
         // The source frame showing at each time asked for, from one reader going forwards: frames
         // asked out of order within a window come from what's been read; an earlier one than
         // that starts the reader again (a GIF made twice reads the video twice).
-        sealed class Frames : IDisposable
+        internal sealed class Frames : IDisposable
         {
             readonly VideoFile file;
             readonly long from;
@@ -198,12 +198,18 @@ namespace B0r3dDeRes.Video
 
         public static AnimationResult Mp4(Stream output, VideoExportOptions o)
         {
+            using (var maker = new Maker(o)) return Mp4Of(output, o, maker.Width, maker.Height, maker.Frame);
+        }
+
+        // An MP4 of frames out `width` × `height` made by `frame` (frame k on a lane), with the
+        // video's sound from its start to its stop (the ASCII studio's art goes out this way too).
+        internal static AnimationResult Mp4Of(Stream output, VideoExportOptions o, int width, int height, Func<int, int, AnimFrame> frame)
+        {
             int total = FrameCount(o.From, o.To, o.Fps);
-            using (var maker = new Maker(o))
             {
-                Mp4Size(maker.Width, maker.Height, out int w, out int h);
+                Mp4Size(width, height, out int w, out int h);
                 if (!Mp4Writer.Fits(w, h))
-                    throw new AnimationException("At this Size the frames are " + maker.Width + "×" + maker.Height + ", more than an MP4 can hold (4096×2304). Pick a smaller Size, or save PNG frames.");
+                    throw new AnimationException("At this Size the frames are " + width + "×" + height + ", more than an MP4 can hold (4096×2304). Pick a smaller Size, or save PNG frames.");
                 bool sound = o.Sound && o.File.HasSound;
                 VideoReader soundReader = null;
                 try
@@ -222,12 +228,12 @@ namespace B0r3dDeRes.Video
                         short[] pending = null;
                         long pendingAt = 0, soundNext = long.MinValue;
                         int done = 0;
-                        foreach (AnimFrame[] window in Windows(total, o.Lanes, o.Cancel, maker.Frame))
+                        foreach (AnimFrame[] window in Windows(total, o.Lanes, o.Cancel, frame))
                         {
                             foreach (AnimFrame f in window)
                             {
                                 long time = TimeOf(done, o.From, o.Fps) - o.From, end = TimeOf(done + 1, o.From, o.Fps) - o.From;
-                                mp4.AddFrame(Bgra(f, maker.Width, maker.Height, w, h), time, end - time);
+                                mp4.AddFrame(Bgra(f, width, height, w, h), time, end - time);
                                 // the sound up to this frame's end, from where it was read to
                                 if (soundReader != null) WriteSound(mp4, soundReader, Math.Min(end, soundEnd), ref soundWritten, ref pending, ref pendingAt, ref soundNext, o.From);
                                 done++;

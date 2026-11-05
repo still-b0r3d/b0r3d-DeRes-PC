@@ -8,13 +8,14 @@ stay on your PC: it never goes online, and it never keeps them.
 
 It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install.
 
-**Being built.** This is version 0.6, the sixth of nine stages: the program itself, opening
+**Being built.** This is version 0.7, the seventh of nine stages: the program itself, opening
 pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
 Signal (every one of its engine's settings, presets and dubbed tapes), the screen effects, the
 preview, saving, copying and dragging out PNGs, wallpapers, animated GIFs playing, GIF and APNG
 loops, videos (playing, and saved as MP4s with their sound, GIFs, APNGs and PNG frames),
 batches, DeRes the screen, the machines' own files for emulators, palette files, look files and
-share links. The ASCII / ANSI studio comes next, then the EXIF tools.
+share links, and the ASCII / ANSI studio (its art of pictures, GIFs and videos, and every file
+it makes). The EXIF tools come next.
 
 ## Make a picture
 
@@ -164,6 +165,32 @@ videos' too. **Save GIF…** and **Save APNG…** make an animation of its frame
 got and the time left, and **Stop** leaves no file. Windows' "N" editions come without its video
 parts: there b0r3d DeRes says what to install, and pictures work as ever.
 
+## The ASCII / ANSI studio
+
+The second tab, **ASCII / ANSI Studio**, turns the picture (the same one, on the same frame)
+into BBS-style text art, as the website's studio does: **half blocks** (▀, two pixels a
+character, so twice the detail top to bottom), a **character ramp** (Standard, Detailed, Blocks, Katakana,
+Binary, or your own typed in, darkest first, and inverted if you like), **PETSCII** (always a
+C64's 40 × 25 screen) or **Teletext** mosaics (with the Ceefax page header, and the gaps of
+separated mosaics), in 40, 80 or 132 columns or 20 to 200 in steps of 2, with the 2:1 cells of a
+terminal or square ones. The colours come from a profile: ANSI's 16, the C64's, Teletext's 8,
+a green or amber screen, grey, or every colour there is; Contrast, Brightness and Gamma adjust
+the picture first. The art shows as its picture, drawn from the VGA font's own 8 × 16 letters
+(the website's font file, inside the exe), with the website's readout under it, the zoom, full
+screen and the scanlines over it; the **modem** types it out at a baud rate, from 300 to 28.8k,
+as it came down a phone line.
+
+**Copy** it as plain text, a Markdown code block, ANSI escapes or an HTML `<pre>` (Ctrl+C on
+the tab copies the text), or save it: a **.ANS** with its SAUCE record, PETSCII as a C64
+**.SEQ** stream or a **.PRG** that shows it on a C64 (LOAD it, then RUN), Teletext as a **.TXT**,
+and its picture as a **PNG** at 1×, 2× or 4×. An animated GIF plays as art, and its every frame
+goes out as an **ANSImation** (each frame drawn over the last, in one .ans), a **GIF** or an
+**APNG**; a video's every frame from its start to its stop, as those or as an **MP4** with its
+sound. The website's file names, and its settings kept as the website keeps them (the PNG's
+size too). The text files are the website's byte for byte, and so are the pictures of half
+blocks and Teletext, pixel for pixel; a ramp's or PETSCII's picture is drawn from the font's own
+letters, crisp (see below).
+
 ## Batches
 
 **File → Batch** (Ctrl+B), or a folder or several pictures or videos dropped on the window, runs
@@ -244,8 +271,17 @@ website reads them, frame by frame; the GIF and APNG writers make the website's 
 byte for byte, APNGs chunk for chunk, as with PNGs); and every loop style, with the screen
 effect, the signal and see-through pixels, and animated GIFs' own frames through many machines,
 come out as the website's own files. The self-test makes one of those GIFs on the PC it runs on.
-Share links and look files write and read numbers exactly as JavaScript does. The test files
-are made from the website at the version named at the top of `tests/WebsiteCases.cs`.
+Share links and look files write and read numbers exactly as JavaScript does. The ASCII
+studio's engine is the website's too: 162 pictures' art (every mode, ramp, colour profile,
+column count, adjustment and Teletext option) comes out the same, character for character and
+colour for colour, with its text, Markdown, ANSI escapes, HTML, .ans, .seq, .prg and .txt byte
+for byte; half-block pictures pixel for pixel; Teletext's pictures as Chromium's canvas draws
+them (the soft edges where its blocks fall between pixels included), pixel for pixel; the GIF
+sample's every frame as art, and its ANSImation, GIFs and APNGs, as the website's own files. A
+picture with see-through parts is read as the website's canvas holds it (all 65,536 of its
+colour levels checked against Chromium), so the Rukus sample makes the website's very art. The
+self-test makes some of that art on the PC it runs on. The test files are made from the website
+at the version named at the top of `tests/WebsiteCases.cs`.
 
 The tests start from the decoded picture. Windows reads the sample photos to the same pixels
 as Chromium, and an sRGB colour profile leaves them as they are, as in browsers. Two things can
@@ -253,7 +289,12 @@ still differ from a browser by a level here and there: a photo over 2048 pixels,
 website shrinks first and b0r3d DeRes uses whole (a little more exact; the grabber takes the
 whole photo's colours too), and the part-see-through edges of a picture, which browsers keep
 premultiplied. Two more on purpose: a Game Boy Color picture too small for one 8×8 tile stops
-the website with an error; here it comes out black. And a GIF or APNG with a side past 65,535
+the website with an error; here it comes out black. In the ASCII studio, the picture of a ramp
+or of PETSCII is drawn from the font's own 8 × 16 letters, crisp, where the browser smooths
+them as it draws text (on Windows, ClearType-style); the six quarter blocks PETSCII uses aren't
+in the font, so they're the font's own half blocks quartered (the browser borrows another
+font), and characters the font lacks (the katakana ramp, odd typed-in ones) come from Windows'
+fonts, as the browser's do, so those look alike but aren't pixel for pixel. And a GIF or APNG with a side past 65,535
 pixels, which the website writes as a broken GIF, is too big here: it comes out at a smaller
 Size.
 
@@ -264,16 +305,18 @@ takes any 10.0 one); the program itself runs on .NET Framework 4.8, which comes 
 and 11. Double-click
 `build.cmd`, or run `build.cmd test` to build and run the tests. The exe lands in
 `bin\b0r3dDeRes.exe`. The tests print a PASS or FAIL line each, and a run stops itself after 90
-seconds; `build.cmd test` runs them in nine parts (`--part engine`, `animation`, `gifs`,
-`frames`, `signal`, `video`, `videosave`, `videobatch`, then `window`) so each stays within that
-on a two-core machine too. The video tests use short clips in `tests\video`, made with ffmpeg.
-`bin\tests\b0r3dDeResTests.exe --shots <folder>` draws the windows to PNG files.
+seconds; `build.cmd test` runs them in ten parts (`--part engine`, `animation`, `gifs`,
+`frames`, `signal`, `video`, `videosave`, `videobatch`, `ascii`, then `window`) so each stays
+within that on a two-core machine too. The video tests use short clips in `tests\video`, made
+with ffmpeg. `bin\tests\b0r3dDeResTests.exe --shots <folder> light` (or `dark`, or `ascii` for
+the studio in both looks) draws the windows to PNG files.
 
 ## Licence
 
 MIT with the Commons Clause, licensor b0r3d.org: free to use, change and share, not to sell.
 See [LICENSE](LICENSE). The cube root, power, sine, cosine and exponential routines come from
 fdlibm, through the V8 JavaScript engine; the Signal is ntsc-rs by valadaptive (MIT), with
-maths routines from Rust's libm (MIT, from musl and FreeBSD); their notices are in
-[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) and in Help → About. The licence covers the
-code, not the b0r3d name or the cup.
+maths routines from Rust's libm (MIT, from musl and FreeBSD); the ASCII studio's font is
+WebPlus IBM VGA 8x16 from VileR's Ultimate Oldschool PC Font Pack (CC BY-SA 4.0, the file
+itself in `assets\fonts`). Their notices are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)
+and in Help → About. The licence covers the code, not the b0r3d name or the cup.

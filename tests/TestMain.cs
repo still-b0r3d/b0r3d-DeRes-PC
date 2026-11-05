@@ -23,10 +23,10 @@ namespace B0r3dDeRes.Tests
     // Runs every test and prints a PASS, FAIL or SKIP line for each. It never shows a dialog:
     // whatever goes wrong ends as a line, and a watchdog stops the run after 90 seconds.
     //   b0r3dDeResTests.exe                        run the tests
-    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|signal|video|videosave|videobatch|window   run one part of them
-    //                                              (build.cmd test runs the nine in turn, each
+    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|window   run one part of them
+    //                                              (build.cmd test runs the ten in turn, each
     //                                              within its 90 seconds on a 2-core CI machine too)
-    //   b0r3dDeResTests.exe --shots <folder>       draw the windows to PNG files (see Shots.cs)
+    //   b0r3dDeResTests.exe --shots <folder> light|dark|ascii   draw the windows to PNG files (see Shots.cs), a set at a time
     static partial class TestMain
     {
         static int passed, failed, skipped;
@@ -61,16 +61,16 @@ namespace B0r3dDeRes.Tests
                 Fresh(Work);
                 DataFolder.Reset(Path.Combine(Work, "data"));
 
-                if (args.Length == 2 && args[0] == "--shots")
+                if (args.Length == 3 && args[0] == "--shots" && new[] { "light", "dark", "ascii" }.Contains(args[2]))
                 {
-                    int shot = TakeShots(args[1]);
+                    int shot = TakeShots(args[1], args[2]);
                     TryDelete(Work);
                     return shot;
                 }
-                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videosave", "videobatch", "window" }.Contains(args[1])) only = args[1];
+                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videosave", "videobatch", "ascii", "window" }.Contains(args[1])) only = args[1];
                 else if (args.Length > 0)
                 {
-                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videosave|videobatch|window] [--shots <folder>]");
+                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|window] [--shots <folder> light|dark|ascii]");
                     return 2;
                 }
 
@@ -169,6 +169,21 @@ namespace B0r3dDeRes.Tests
 
                 part = "videobatch";
                 Run("batch: videos as MP4s through the look with their sound (none for one without), at the biggest Size an MP4 holds, a GIF and an APNG of a video's frames at 10 a second, a picture beside them, every file read back", VideoBatches);
+
+                part = "ascii";
+                Run("ASCII: " + WebsiteAscii.Cases.Length + " pictures' art as the website makes it, every mode, ramp, colour profile, column count, adjustment and Teletext option: the cells, colours and counts, and the text, Markdown, ANSI escapes, HTML, .ans, .seq, .prg and .txt byte for byte", AsciiLikeTheWebsite);
+                Run("ASCII: the ramps, mosaics, palettes and C64 screen codes are the website's, and kept settings are checked as it checks them", AsciiTablesLikeTheWebsite);
+                Run("ASCII: half-block pictures pixel for pixel, Teletext's as Chromium's canvas draws them, characters as the font's own letters, PNGs and names", AsciiPicturesLikeTheWebsite);
+                Run("ASCII: the VGA font's " + WebsiteAscii.FontPoints.Split(',').Length + " letters as Chromium draws them, from the website's own font file; the quarter blocks it lacks", VgaFontLikeChromium);
+                Run("ASCII: see-through pixels' colours as the website's canvas gives them back (65,536 of them), and the Rukus sample's art from its own file", CanvasLevelsLikeChromium);
+                Run("ASCII: the GIF sample's every frame as art, its ANSImation byte for byte, GIFs byte for byte and APNGs by their parts", AsciiAnimationsLikeTheWebsite);
+                Run("ASCII: SAUCE records, their fields and the title cut to 35 bytes", SauceRecords);
+                Run("window: the ASCII studio makes the website's art of the Rukus sample in every mode, every control makes the engine's art, the menus follow the tab, and Reset settings", AsciiStudioInTheWindow);
+                Run("window: the studio's .ans, PNGs at 1×, 2× and 4×, .seq, .prg and Teletext .txt are the engine's files", AsciiSavesInTheWindow);
+                Run("window: the GIF sample plays as art and pauses on the website's art of the frame, the other tab opens there, and its every frame goes out as the website's GIF, APNG and ANSImation; Stop leaves no file", AsciiGifInTheWindow);
+                Run("window: a video's art goes out as an MP4 with its sound in step, a GIF and an ANSImation, at its own speed or slower", AsciiVideoInTheWindow);
+                Run("window: the dial-up modem types the art at its baud rate, hangs up and dials on, types new art from the start, and never while a GIF plays", AsciiModemInTheWindow);
+                Run("settings: the studio's settings are kept (an odd typed-in ramp too), odd ones fall back, and the window starts with them", AsciiSettingsKept);
 
                 part = "window";
                 Run("look: the three colour sets match, and every colour used is in them", ThemesMatch);

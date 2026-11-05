@@ -16,6 +16,38 @@ namespace B0r3dDeRes
         // a whole number, rounded as the website rounds (halves up)
         static string Whole(double v) => JsMath.Round(v).ToString(CultureInfo.InvariantCulture);
 
+        // ---- the ASCII / ANSI studio's (its ui/ascii-controls.ts and ascii-stage.ts) ----
+
+        // a contrast or brightness slider's value: "+25%", "0%", "-40%"
+        public static string AsciiPercent(double v) => (v > 0 ? "+" : "") + JsNumber.Text(v) + "%";
+
+        // the readout under the art: "80×30 cells · 9 ANSI colours · half-block"
+        public static string AsciiReadout(AsciiArt art)
+        {
+            AsciiSettings s = art.Settings;
+            string colours = s.ColorMode == AsciiColours.Ansi16 ? art.ColourCount + " ANSI colours"
+                : s.ColorMode == AsciiColours.Truecolor ? art.ColourCount + " colours (RGB)"
+                : s.ColorMode == AsciiColours.C64 ? "16 C64 VIC-II colours"
+                : s.ColorMode == AsciiColours.Teletext ? "8 Teletext colours"
+                : s.ColorMode;
+            return art.Width + "×" + art.Height + " cells · " + colours + " · " + s.Mode;
+        }
+
+        // The line by the GIF and APNG buttons when they can't be made at the chosen size: what they
+        // come out at, and why ("" when they're made at it). `fit`: the size they're made at (null:
+        // none); `next`: the next size up that doesn't fit.
+        public static string AsciiAnimationHint(AsciiArt art, int chosen, int? fit, int? next)
+        {
+            if (next == null) return "";
+            if (fit == null)
+            {
+                AsciiRender.Size(art.Width, art.Height, next.Value, out int nw, out int nh);
+                return "GIF and APNG can't be made: even " + next + "× (" + nw + "×" + nh + " px) is too big for an animation. Pick fewer columns.";
+            }
+            AsciiRender.Size(art.Width, art.Height, fit.Value, out int w, out int h);
+            return "GIF and APNG come out at " + fit + "× (" + w + "×" + h + " px): " + (next == chosen ? next + "× is" : next + "× and up are") + " too big for an animation.";
+        }
+
         // The line under Resolution: the machine's own size, a custom size against it, and how many
         // of the photo's pixels go into each of the machine's (no picture: the first part only).
         public static string Resolution(Profile p, bool custom, Geometry g, double coverX, double coverY, bool hasPicture)

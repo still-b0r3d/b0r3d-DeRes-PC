@@ -17,9 +17,12 @@ namespace B0r3dDeRes
         public Rendered Picture;
         public byte[] Screen;
         public int ScreenWidth, ScreenHeight;
+        // the ASCII studio's frames: the art (no picture)
+        public AsciiArt Art;
 
-        // what keeping it costs, against the budget: the pixels it holds (the picture's own too)
-        public long Size => (Screen != null ? (long)ScreenWidth * ScreenHeight : 0) + (long)Picture.Width * Picture.Height;
+        // what keeping it costs, against the budget: the pixels it holds (the picture's own too);
+        // a cell of art costs as much as 3.5 pixels (14 bytes against 4, as on the website)
+        public long Size => (Screen != null ? (long)ScreenWidth * ScreenHeight : 0) + (Picture != null ? (long)Picture.Width * Picture.Height : 0) + (Art != null ? (long)Art.Cells * 14 / 4 : 0);
     }
 
     // Playing an animated GIF in the preview (the website's ui/player.ts). Each frame goes through

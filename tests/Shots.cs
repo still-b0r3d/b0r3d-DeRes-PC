@@ -22,11 +22,20 @@ namespace B0r3dDeRes.Tests
     // full screen, aren't in them.
     static partial class TestMain
     {
-        static int TakeShots(string folder)
+        // the set: "light" or "dark" (the DeRes tab's, a look each: together they take longer than
+        // the watchdog allows), or "ascii" (the ASCII / ANSI studio's, in both looks)
+        static int TakeShots(string folder, string set)
         {
-            running = "taking the screenshots";
+            running = "taking the screenshots (" + set + ")";
             Directory.CreateDirectory(folder);
-            foreach (Look look in new[] { Look.Light, Look.Dark })
+            if (set == "ascii")
+            {
+                foreach (Look look in new[] { Look.Light, Look.Dark }) AsciiShots(folder, look);
+                Theme.Set(Look.Light);
+                Console.WriteLine("pictures in " + folder);
+                return 0;
+            }
+            foreach (Look look in new[] { set == "dark" ? Look.Dark : Look.Light })
             {
                 Theme.Set(look);
                 string name = look.ToString().ToLowerInvariant();

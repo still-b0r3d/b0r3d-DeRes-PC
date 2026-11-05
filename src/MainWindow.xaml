@@ -29,16 +29,17 @@
     </Window.CommandBindings>
 
     <DockPanel x:Name="Root" Background="{DynamicResource Back}">
-        <!-- Access keys: F E V H on the bar, D for the tab; I W A T G N X for the sections; O, S, C,
-             B, L, U, K, R and P (Play) on buttons; each menu list has its own. -->
+        <!-- Access keys: F E V H on the bar, D and U for the tabs; on the DeRes tab I W A T G N X for
+             the sections, O, S, C, B, L, M (Surprise me), K, R and P (Play) on buttons; each menu
+             list has its own (each tab's lines unique among the lines it shows). -->
         <Menu x:Name="MenuBar" DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" />
                 <MenuItem x:Name="SamplesMenu" Header="Open a sa_mple" />
                 <MenuItem Header="DeRes the scree_n…" Command="{x:Static local:Commands.DeresScreen}" />
-                <MenuItem Header="_Batch: a folder or several pictures…" Command="{x:Static local:Commands.Batch}" />
-                <MenuItem Header="Open _look…" Click="OnOpenLook" />
-                <MenuItem Header="Open p_alette…" Click="OnLoadPalette" />
+                <MenuItem x:Name="BatchMenu" Header="_Batch: a folder or several pictures…" Command="{x:Static local:Commands.Batch}" />
+                <MenuItem x:Name="OpenLookMenu" Header="Open _look…" Click="OnOpenLook" />
+                <MenuItem x:Name="OpenPaletteMenu" Header="Open p_alette…" Click="OnLoadPalette" />
                 <Separator />
                 <MenuItem Header="_Save PNG…" Command="{x:Static local:Commands.SavePng}" />
                 <MenuItem x:Name="SaveGifMenu" Header="Save _GIF…" Click="OnSaveGif" />
@@ -47,18 +48,27 @@
                 <MenuItem x:Name="SaveFramesMenu" Header="Save PNG f_rames…" Click="OnSaveFrames" />
                 <MenuItem x:Name="WallpaperMenu" Header="Save _wallpaper" />
                 <MenuItem x:Name="EmulatorMenu" Header="Save for an _emulator…" Click="OnSaveEmulator" />
-                <MenuItem Header="Save loo_k…" Click="OnSaveLook" />
+                <MenuItem x:Name="SaveLookMenu" Header="Save loo_k…" Click="OnSaveLook" />
                 <MenuItem x:Name="SavePaletteMenu" Header="Save pale_tte…" Click="OnSavePalette" />
+                <!-- the ASCII studio's (on its tab) -->
+                <MenuItem x:Name="AsciiAnsMenu" Header="Save ._ANS with SAUCE…" Click="OnAsciiAnsMenu" Visibility="Collapsed" />
+                <MenuItem x:Name="AsciiAnsimationMenu" Header="Save ANS_Imation…" Click="OnAsciiAnsimationMenu" Visibility="Collapsed" />
+                <MenuItem x:Name="AsciiSeqMenu" Header="Save .SE_Q for a C64…" Click="OnAsciiSeqMenu" Visibility="Collapsed" />
+                <MenuItem x:Name="AsciiPrgMenu" Header="Save .P_RG for a C64…" Click="OnAsciiPrgMenu" Visibility="Collapsed" />
+                <MenuItem x:Name="AsciiTxtMenu" Header="Save Teletext as ._TXT…" Click="OnAsciiTxtMenu" Visibility="Collapsed" />
                 <Separator />
                 <MenuItem Header="E_xit" InputGestureText="Alt+F4" Click="OnExit" />
             </MenuItem>
             <MenuItem Header="_Edit">
-                <MenuItem Header="_Copy picture" Command="{x:Static local:Commands.CopyPicture}" InputGestureText="Ctrl+C" />
+                <MenuItem x:Name="CopyMenu" Header="_Copy picture" Command="{x:Static local:Commands.CopyPicture}" InputGestureText="Ctrl+C" />
+                <MenuItem x:Name="AsciiCopyMarkdownMenu" Header="Copy as _Markdown" Tag="markdown" Click="OnAsciiCopyMenu" Visibility="Collapsed" />
+                <MenuItem x:Name="AsciiCopyAnsiMenu" Header="Copy as A_NSI escapes" Tag="ansi" Click="OnAsciiCopyMenu" Visibility="Collapsed" />
+                <MenuItem x:Name="AsciiCopyHtmlMenu" Header="Copy as _HTML" Tag="html" Click="OnAsciiCopyMenu" Visibility="Collapsed" />
                 <MenuItem Header="_Paste picture or link" Command="{x:Static local:Commands.PastePicture}" InputGestureText="Ctrl+V" />
-                <Separator />
-                <MenuItem Header="Copy share _link" Click="OnCopyLink" />
+                <Separator x:Name="DeresEditLine" />
+                <MenuItem x:Name="CopyLinkMenu" Header="Copy share _link" Click="OnCopyLink" />
                 <MenuItem x:Name="GrabMenu" Header="_Grab palette" Click="OnGrabPalette" />
-                <MenuItem Header="S_urprise me" Click="OnSurprise" />
+                <MenuItem x:Name="SurpriseMenu" Header="S_urprise me" Click="OnSurprise" />
                 <Separator />
                 <MenuItem Header="_Reset settings…" Click="OnResetMenu" />
             </MenuItem>
@@ -69,6 +79,7 @@
                 <MenuItem Header="_1 screen pixel a pixel" Command="{x:Static local:Commands.ZoomOne}" />
                 <Separator />
                 <MenuItem x:Name="CompareMenu" Header="_Compare" Command="{x:Static local:Commands.Compare}" IsCheckable="False" />
+                <MenuItem x:Name="ScanlinesMenu" Header="_Scanlines over the art" Click="OnScanlinesMenu" Visibility="Collapsed" />
                 <MenuItem x:Name="FullScreenMenu" Header="F_ull screen" Command="{x:Static local:Commands.FullScreen}" />
                 <MenuItem x:Name="PlayMenu" Header="_Play or pause" Click="OnPlayMenu" />
                 <Separator />
@@ -171,7 +182,7 @@
 
                                     <Expander x:Name="HardwareSection" Style="{StaticResource Section}" Header="Hard_ware">
                                         <StackPanel>
-                                            <Button x:Name="SurpriseButton" Content="S_urprise me" Click="OnSurprise" HorizontalAlignment="Stretch" Margin="0,0,0,10"
+                                            <Button x:Name="SurpriseButton" Content="Surprise _me" Click="OnSurprise" HorizontalAlignment="Stretch" Margin="0,0,0,10"
                                                     ToolTip="A random machine, dither and adjustments" />
                                             <UniformGrid x:Name="Cards" Columns="2" Margin="0,0,-6,0" />
                                             <TextBlock x:Name="AboutLine" Style="{StaticResource Hint}" Margin="0,4,0,0" />
@@ -490,6 +501,220 @@
                                                Text="Hold the picture (or Space) to see the original." />
                                 </StackPanel>
                             </DockPanel>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
+                <!-- the ASCII / ANSI studio: the website's sections on the left, the art on the right.
+                     Access keys: U for the tab; I M R T L A X for the sections; O, S, C, P (Play) and G
+                     (Reset) on buttons, beside F E V H and D, which show on either tab. -->
+                <TabItem x:Name="AsciiTab" Header="ASCII / ANSI St_udio">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="370" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
+                            <ScrollViewer x:Name="AsciiScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <StackPanel Margin="20,10,20,20">
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0" FontFamily="Courier New"
+                                               Text="Your pictures as BBS-style text art. They stay on this PC." />
+
+                                    <Expander x:Name="AsciiImageSection" Style="{StaticResource Section}" Header="_Image" IsExpanded="True">
+                                        <StackPanel>
+                                            <Button x:Name="AsciiOpenButton" Content="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" HorizontalAlignment="Stretch" />
+                                            <TextBlock x:Name="AsciiSampleLine" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                       Text="Or drop a picture or a video on the window, or paste a picture." />
+                                            <TextBlock x:Name="AsciiPictureInfo" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="AsciiModeSection" Style="{StaticResource Section}" Header="_Mode &amp; Columns">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Label}" Margin="0,0,0,4" Text="Style" />
+                                            <UniformGrid x:Name="AsciiModeButtons" Columns="2" Margin="0,0,-6,0" />
+                                            <StackPanel x:Name="AsciiColumnsPanel">
+                                                <TextBlock Style="{StaticResource Label}" Text="Columns" />
+                                                <UniformGrid x:Name="AsciiColumnPresets" Columns="2" Margin="0,0,-6,0" />
+                                                <DockPanel Margin="0,8,0,0">
+                                                    <TextBlock x:Name="AsciiColumnsValue" DockPanel.Dock="Right" />
+                                                    <TextBlock Text="Columns width" Foreground="{DynamicResource Dim}" />
+                                                </DockPanel>
+                                                <Slider x:Name="AsciiColumnsSlider" Minimum="20" Maximum="200" SmallChange="2" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="2"
+                                                        ValueChanged="OnAsciiColumns" AutomationProperties.Name="Columns width" />
+                                            </StackPanel>
+                                            <TextBlock x:Name="AsciiC64Note" Style="{StaticResource Hint}" Visibility="Collapsed"
+                                                       Text="A C64 screen is 40 columns by 25 rows, so PETSCII always fits the picture into that." />
+                                            <CheckBox x:Name="AsciiAspectBox" Content="2:1 cell aspect ratio (terminal character compensation)" Margin="0,10,0,0" Checked="OnAsciiAspect" Unchecked="OnAsciiAspect" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="AsciiRampSection" Style="{StaticResource Section}" Header="Character _Ramp">
+                                        <StackPanel>
+                                            <UniformGrid x:Name="AsciiRamps" Columns="3" Margin="0,0,-6,0" />
+                                            <TextBlock Style="{StaticResource Label}" Text="Custom ramp" />
+                                            <TextBox x:Name="AsciiCustomRamp" FontFamily="Consolas" TextChanged="OnAsciiCustomRamp" AutomationProperties.Name="Custom ramp: the characters, darkest first"
+                                                     ToolTip="Enter characters for the ramp, darkest first" />
+                                            <CheckBox x:Name="AsciiInvertBox" Content="Invert character density (light on dark)" Margin="0,10,0,0" Checked="OnAsciiInvert" Unchecked="OnAsciiInvert" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="AsciiTeletextSection" Style="{StaticResource Section}" Header="_Teletext Options">
+                                        <StackPanel>
+                                            <CheckBox x:Name="AsciiHeaderBox" Content="Ceefax broadcast header (Page 100)" Checked="OnAsciiTeletext" Unchecked="OnAsciiTeletext" />
+                                            <CheckBox x:Name="AsciiSeparatedBox" Content="Separated mosaics (gap mode)" Margin="0,8,0,0" Checked="OnAsciiTeletext" Unchecked="OnAsciiTeletext" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="AsciiColourSection" Style="{StaticResource Section}" Header="Colour Profi_le">
+                                        <UniformGrid x:Name="AsciiColourModes" Columns="2" Margin="0,0,-6,0" />
+                                    </Expander>
+
+                                    <Expander x:Name="AsciiAdjustSection" Style="{StaticResource Section}" Header="_Adjustments">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <TextBlock x:Name="AsciiContrastValue" DockPanel.Dock="Right" />
+                                                <TextBlock Text="Contrast" Foreground="{DynamicResource Dim}" />
+                                            </DockPanel>
+                                            <Slider x:Name="AsciiContrastSlider" Minimum="-100" Maximum="100" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5" ValueChanged="OnAsciiAdjust" AutomationProperties.Name="Contrast" />
+                                            <DockPanel Margin="0,8,0,0">
+                                                <TextBlock x:Name="AsciiBrightnessValue" DockPanel.Dock="Right" />
+                                                <TextBlock Text="Brightness" Foreground="{DynamicResource Dim}" />
+                                            </DockPanel>
+                                            <Slider x:Name="AsciiBrightnessSlider" Minimum="-100" Maximum="100" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5" ValueChanged="OnAsciiAdjust" AutomationProperties.Name="Brightness" />
+                                            <DockPanel Margin="0,8,0,0">
+                                                <TextBlock x:Name="AsciiGammaValue" DockPanel.Dock="Right" />
+                                                <TextBlock Text="Gamma" Foreground="{DynamicResource Dim}" />
+                                            </DockPanel>
+                                            <Slider x:Name="AsciiGammaSlider" Minimum="5" Maximum="25" SmallChange="1" LargeChange="2" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnAsciiAdjust" AutomationProperties.Name="Gamma" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="AsciiExportSection" Style="{StaticResource Section}" Header="E_xport &amp; Clipboard">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Label}" Margin="0,0,0,4" Text="Copy to the clipboard" />
+                                            <UniformGrid Columns="2" Margin="0,0,-6,0">
+                                                <Button x:Name="AsciiCopyText" Content="_Copy Text" Click="OnAsciiCopy" Tag="text" Margin="0,0,6,6" />
+                                                <Button x:Name="AsciiCopyMarkdown" Content="Copy Markdown" Click="OnAsciiCopy" Tag="markdown" Margin="0,0,6,6" />
+                                                <Button x:Name="AsciiCopyAnsi" Content="Copy ANSI Escapes" Click="OnAsciiCopy" Tag="ansi" Margin="0,0,6,6" />
+                                                <Button x:Name="AsciiCopyHtml" Content="Copy HTML" Click="OnAsciiCopy" Tag="html" Margin="0,0,6,6" />
+                                            </UniformGrid>
+                                            <TextBlock Style="{StaticResource Label}" Text="BBS and vintage files" />
+                                            <Button x:Name="AsciiSaveAns" Content="Save .ANS (with SAUCE record)…" Click="OnAsciiSaveAns" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                                            <Button x:Name="AsciiSaveAnsimation" Click="OnAsciiSaveAnsimation" HorizontalAlignment="Stretch" Margin="0,0,0,6" Visibility="Collapsed"
+                                                    ToolTip="Every frame drawn over the last, in one .ans (it plays as fast as the viewer sends it)" />
+                                            <Button x:Name="AsciiSaveSeq" Content="Save .SEQ (PETSCII stream)…" Click="OnAsciiSaveSeq" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                                            <Button x:Name="AsciiSavePrg" Content="Save .PRG (runs on a C64)…" Click="OnAsciiSavePrg" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                                            <Button x:Name="AsciiSaveTxt" Content="Save .TXT (Teletext as text)…" Click="OnAsciiSaveTxt" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                                            <TextBlock Style="{StaticResource Label}" Text="The picture of it (font graphics)" />
+                                            <TextBlock Style="{StaticResource Label}" Margin="0,0,0,4" Text="Size" />
+                                            <UniformGrid x:Name="AsciiSizes" Rows="1" Margin="0,0,-6,0" />
+                                            <TextBlock x:Name="AsciiSizeLine" Margin="0,8,0,0" TextWrapping="Wrap" FontFamily="Consolas" />
+                                            <!-- a video's: the frame rate it goes out at, and its sound -->
+                                            <StackPanel x:Name="AsciiVideoRows" Visibility="Collapsed">
+                                                <TextBlock Style="{StaticResource Label}" Text="Frame rate" />
+                                                <UniformGrid x:Name="AsciiVideoRates" Columns="4" Margin="0,0,-6,0" />
+                                                <CheckBox x:Name="AsciiKeepSound" Content="Keep the sound" Margin="0,10,0,0" Checked="OnAsciiKeepSound" Unchecked="OnAsciiKeepSound"
+                                                          ToolTip="The MP4 keeps the video's sound, from its start to its stop" />
+                                            </StackPanel>
+                                            <WrapPanel Margin="0,12,0,0">
+                                                <Button x:Name="AsciiSavePng" Content="_Save PNG…" Command="{x:Static local:Commands.SavePng}" Margin="0,0,8,6" />
+                                                <Button x:Name="AsciiSaveMp4" Content="Save MP4…" Click="OnAsciiSaveMp4" Margin="0,0,8,6" Visibility="Collapsed" ToolTip="The video's art, frame by frame, from its start to its stop, with its sound" />
+                                                <Button x:Name="AsciiSaveGif" Content="Save GIF…" Click="OnAsciiSaveGif" Margin="0,0,8,6" Visibility="Collapsed" ToolTip="Every frame as the art's picture, as a GIF" />
+                                                <Button x:Name="AsciiSaveApng" Content="Save APNG…" Click="OnAsciiSaveApng" Margin="0,0,8,6" Visibility="Collapsed" ToolTip="Every frame as the art's picture, as an animated PNG" />
+                                                <Button x:Name="AsciiStopButton" Content="Stop" Click="OnStopAnimation" Margin="0,0,0,6" Visibility="Collapsed" AutomationProperties.Name="Stop making it" />
+                                            </WrapPanel>
+                                            <TextBlock x:Name="AsciiAnimHint" Style="{StaticResource Hint}" Margin="0,2,0,0" Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <!-- every setting back to how the studio starts (the picture stays) -->
+                                    <Button x:Name="AsciiResetButton" Content="Reset settin_gs" Click="OnAsciiResetButton" HorizontalAlignment="Right" Margin="0,18,0,0" MinWidth="150" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+
+                        <!-- the art -->
+                        <Grid x:Name="AsciiStageArea" Grid.Column="1" Margin="24,18,24,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="AsciiStage" Background="Black" CornerRadius="8" ClipToBounds="True">
+                                <Grid>
+                                    <local:PixelView x:Name="AsciiView" AutomationProperties.Name="The art" />
+                                    <!-- the website's scanlines over the art: a faint green line every 4 pixels -->
+                                    <Rectangle x:Name="AsciiScanlines" IsHitTestVisible="False" Visibility="Collapsed">
+                                        <Rectangle.Fill>
+                                            <DrawingBrush TileMode="Tile" Viewport="0,0,4,4" ViewportUnits="Absolute" Viewbox="0,0,4,4" ViewboxUnits="Absolute" Stretch="None">
+                                                <DrawingBrush.Drawing>
+                                                    <DrawingGroup>
+                                                        <GeometryDrawing Brush="#00000000" Geometry="M0,0 H4 V2 H0 Z" />
+                                                        <GeometryDrawing Brush="#1400FF78" Geometry="M0,2 H4 V4 H0 Z" />
+                                                    </DrawingGroup>
+                                                </DrawingBrush.Drawing>
+                                            </DrawingBrush>
+                                        </Rectangle.Fill>
+                                    </Rectangle>
+                                    <TextBlock x:Name="AsciiStageNote" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                                               TextWrapping="Wrap" MaxWidth="420" Margin="20" Foreground="#9D9D9D" FontFamily="Courier New" IsHitTestVisible="False" />
+                                </Grid>
+                            </Border>
+
+                            <!-- an animated GIF's play bar -->
+                            <DockPanel x:Name="AsciiPlayBar" Grid.Row="1" Margin="0,10,0,0" Visibility="Collapsed">
+                                <Button x:Name="AsciiPlayButton" DockPanel.Dock="Left" MinWidth="96" />
+                                <TextBlock x:Name="AsciiFrameCounter" DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" TextAlignment="Right" FontFamily="Consolas"
+                                           AutomationProperties.Name="Frame number" />
+                                <Slider x:Name="AsciiFrameSlider" Minimum="0" Maximum="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" TickFrequency="1" IsMoveToPointEnabled="True"
+                                        VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Frame" />
+                            </DockPanel>
+
+                            <!-- a video's timeline -->
+                            <StackPanel x:Name="AsciiVideoBar" Grid.Row="1" Margin="0,10,0,0" Visibility="Collapsed">
+                                <DockPanel>
+                                    <Button x:Name="AsciiVideoPlayButton" DockPanel.Dock="Left" MinWidth="96" />
+                                    <Button x:Name="AsciiStepBackButton" DockPanel.Dock="Left" Content="◀▮" MinWidth="34" Padding="0" Margin="6,0,0,0" ToolTip="A frame back" AutomationProperties.Name="A frame back" />
+                                    <Button x:Name="AsciiStepOnButton" DockPanel.Dock="Left" Content="▮▶" MinWidth="34" Padding="0" Margin="4,0,0,0" ToolTip="A frame on" AutomationProperties.Name="A frame on" />
+                                    <TextBlock x:Name="AsciiVideoTime" DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" TextAlignment="Right" FontFamily="Consolas" AutomationProperties.Name="Time" />
+                                    <Slider x:Name="AsciiTimeSlider" Minimum="0" Maximum="1" IsMoveToPointEnabled="True" VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Time in the video" />
+                                </DockPanel>
+                                <DockPanel Margin="0,6,0,0">
+                                    <CheckBox x:Name="AsciiVideoSoundBox" DockPanel.Dock="Right" Content="Sound" IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0"
+                                              ToolTip="Its sound while it plays (a save keeps the sound when Export says so)" />
+                                    <Button x:Name="AsciiSetStartButton" DockPanel.Dock="Left" Content="Start here" ToolTip="What's saved starts at the frame on screen" />
+                                    <Button x:Name="AsciiSetStopButton" DockPanel.Dock="Left" Content="Stop here" Margin="6,0,0,0" ToolTip="What's saved stops after the frame on screen" />
+                                    <Button x:Name="AsciiWholeButton" DockPanel.Dock="Left" Content="All of it" Margin="6,0,0,0" ToolTip="Save the whole video" />
+                                    <TextBlock x:Name="AsciiRangeText" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Dim}" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </StackPanel>
+
+                            <!-- the readout and the view, then the modem (a fixed height: the picture never moves) -->
+                            <StackPanel Grid.Row="2" Margin="0,10,0,0" Height="76">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <ToggleButton x:Name="AsciiScanlinesButton" Style="{StaticResource Toggle}" Content="Scanlines" Margin="0,0,10,0" Click="OnAsciiScanlines"
+                                                      ToolTip="Faint green lines over the art, as on an old monitor (the preview only)" />
+                                        <Button Content="Fit" MinWidth="0" Command="{x:Static local:Commands.ZoomFit}" ToolTip="See it all (Ctrl+0)" />
+                                        <Button Content="−" MinWidth="34" Padding="0" Margin="6,0,0,0" Command="{x:Static local:Commands.ZoomOut}" ToolTip="Zoom out (Ctrl+-)" AutomationProperties.Name="Zoom out" />
+                                        <TextBlock x:Name="AsciiZoomText" MinWidth="64" TextAlignment="Center" VerticalAlignment="Center" FontFamily="Consolas" />
+                                        <Button Content="+" MinWidth="34" Padding="0" Command="{x:Static local:Commands.ZoomIn}" ToolTip="Zoom in (Ctrl++)" AutomationProperties.Name="Zoom in" />
+                                        <Button Content="Full screen" Margin="10,0,0,0" Command="{x:Static local:Commands.FullScreen}" ToolTip="Just the art (F11; Esc to come back)" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="AsciiReadout" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontFamily="Consolas" AutomationProperties.LiveSetting="Polite" />
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Modem:" VerticalAlignment="Center" Foreground="{DynamicResource Dim}" Margin="0,0,6,0" />
+                                    <ComboBox x:Name="AsciiBaud" MinWidth="140" SelectionChanged="OnAsciiBaud" AutomationProperties.Name="Modem speed" />
+                                    <Button x:Name="AsciiDialButton" Content="Dial up" MinWidth="84" Margin="6,0,0,0" Click="OnAsciiDial" ToolTip="Type the art out at the modem's speed" />
+                                    <Button x:Name="AsciiRedialButton" Content="Redial" Margin="6,0,0,0" Click="OnAsciiRedial" ToolTip="Type it out again from the start" />
+                                    <TextBlock x:Name="AsciiBaudProgress" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{DynamicResource Dim}" />
+                                </StackPanel>
+                            </StackPanel>
                         </Grid>
                     </Grid>
                 </TabItem>

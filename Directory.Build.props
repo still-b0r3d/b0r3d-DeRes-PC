@@ -25,9 +25,9 @@
     <!-- The version: raise it here (and in CHANGELOG.md) for each batch of changes. The build is
          the commit GitHub builds from, or "dev" (build.cmd passes it in): the exe's Product
          version says "0.1 build abc1234", and the program shows "v0.1 · Build: abc1234". -->
-    <Version>0.6</Version>
-    <AssemblyVersion>0.6.0.0</AssemblyVersion>
-    <FileVersion>0.6.0.0</FileVersion>
+    <Version>0.7</Version>
+    <AssemblyVersion>0.7.0.0</AssemblyVersion>
+    <FileVersion>0.7.0.0</FileVersion>
     <BuildStamp Condition="'$(BuildStamp)' == ''">dev</BuildStamp>
     <InformationalVersion>$(Version) build $(BuildStamp)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>

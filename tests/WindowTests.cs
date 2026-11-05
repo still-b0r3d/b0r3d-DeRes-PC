@@ -342,17 +342,30 @@ namespace B0r3dDeRes.Tests
                 Check(twice.Count == 0, where + ": " + string.Join(", ", twice) + " used twice");
             }
             List<MenuItem> top = window.MenuBar.Items.OfType<MenuItem>().ToList();
-            Unique("the window", top.Select(m => Key(m.Header)).Concat(new[] { Key(window.DeresTab.Header) })
-                .Concat(new[] { window.ImageSection, window.HardwareSection, window.AdjustSection, window.DitherSection, window.ScreenSection, window.ExportSection }.Select(s => Key(s.Header)))
-                .Concat(new ContentControl[] { window.OpenButton, window.SaveButton, window.CopyButton }.Select(b => Key(b.Content))));
-            void Lists(MenuItem item)
+            // each tab with what it shows: the menu bar and both tabs' names are always there
+            foreach (bool ascii in new[] { false, true })
             {
-                List<MenuItem> lines = item.Items.OfType<MenuItem>().ToList();
-                if (lines.Count == 0) return;
-                Unique("the " + Key(item.Header) + " menu", lines.Select(l => Key(l.Header)));
-                lines.ForEach(Lists);
+                window.Tabs.SelectedItem = ascii ? window.AsciiTab : window.DeresTab;
+                Pump(() => false, 60);
+                string tab = ascii ? "the ASCII studio" : "the DeRes tab";
+                IEnumerable<HeaderedContentControl> sections = ascii
+                    ? new HeaderedContentControl[] { window.AsciiImageSection, window.AsciiModeSection, window.AsciiRampSection, window.AsciiTeletextSection, window.AsciiColourSection, window.AsciiAdjustSection, window.AsciiExportSection }
+                    : new HeaderedContentControl[] { window.ImageSection, window.HardwareSection, window.AdjustSection, window.DitherSection, window.ScreenSection, window.ExportSection };
+                IEnumerable<ContentControl> buttons = ascii
+                    ? new ContentControl[] { window.AsciiOpenButton, window.AsciiSavePng, window.AsciiCopyText, window.AsciiResetButton }
+                    : new ContentControl[] { window.OpenButton, window.SaveButton, window.CopyButton, window.SurpriseButton };
+                Unique(tab, top.Select(m => Key(m.Header)).Concat(new[] { Key(window.DeresTab.Header), Key(window.AsciiTab.Header) })
+                    .Concat(sections.Select(s => Key(s.Header))).Concat(buttons.Select(b => Key(b.Content))));
+                // every line of a list that shows has a key of its own
+                void Lists(MenuItem item)
+                {
+                    List<MenuItem> lines = item.Items.OfType<MenuItem>().Where(l => l.Visibility == Visibility.Visible).ToList();
+                    if (lines.Count == 0) return;
+                    Unique(tab + "'s " + Key(item.Header) + " menu", lines.Select(l => Key(l.Header)));
+                    lines.ForEach(Lists);
+                }
+                top.ForEach(Lists);
             }
-            top.ForEach(Lists);
         }
 
         // the width box's right-click menu is b0r3d DeRes's own, so it takes the light or dark look
@@ -377,7 +390,7 @@ namespace B0r3dDeRes.Tests
             Check(about.VersionText.Text == "v" + Program.Version + " · Build: " + Program.Build, "the version line: " + about.VersionText.Text);
             Check(NewMain(1, false).VersionRun.Text == "b0r3d DeRes v" + Program.Version + " · Build: " + Program.Build, "the window's corner should show the version and the build apart");
             string licences = about.Licences.Text;
-            foreach (string part in new[] { "Commons Clause", "MIT License", "Licensor: b0r3d.org", "Software: b0r3d DeRes", "fdlibm", "Sun Microsystems", "V8 project authors", "ntsc-rs", "Copyright © valadaptive", "Jorge Aparicio", "Rich Felker", "David Schultz" })
+            foreach (string part in new[] { "Commons Clause", "MIT License", "Licensor: b0r3d.org", "Software: b0r3d DeRes", "fdlibm", "Sun Microsystems", "V8 project authors", "ntsc-rs", "Copyright © valadaptive", "Jorge Aparicio", "Rich Felker", "David Schultz", "VileR", "CC BY-SA 4.0" })
                 Check(licences.Contains(part), "the licences don't mention " + part);
             Check(!licences.Contains("is missing from this build"), "a licence file is missing from the build");
             Check(about.FolderText.Text.StartsWith(DataFolder.Path), "the settings folder line: " + about.FolderText.Text);

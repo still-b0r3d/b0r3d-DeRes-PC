@@ -104,7 +104,8 @@ namespace B0r3dDeRes
             picture.Source = source;
             frameTime = time;
             frame = picture.Video.FrameNumber(time);
-            RenderSoon();
+            // (the tab showing makes it: a move can land after its own tab was left)
+            VideoFrameMoved(false);
             System.Windows.Input.CommandManager.InvalidateRequerySuggested();
         }
 
@@ -116,7 +117,8 @@ namespace B0r3dDeRes
             bool video = clip != null;
             VideoRows.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
             SaveMp4Button.Visibility = SaveFramesButton.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
-            SaveMp4Menu.Visibility = SaveFramesMenu.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
+            // (the menu's lines are the studio's on its tab)
+            if (!AsciiActive) SaveMp4Menu.Visibility = SaveFramesMenu.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
             if (!video) return;
             double own = clip.File.Fps;
             foreach (RadioButton b in VideoRates.Children)
@@ -145,8 +147,13 @@ namespace B0r3dDeRes
                     : "At this Size the frames are " + w + "×" + h + ": too big for an MP4 (4096×2304 at most). Pick a smaller Size, or save PNG frames.";
             }
             VideoHint.Text = hint;
-            SaveMp4Button.IsEnabled = SaveMp4Menu.IsEnabled = fits && idle;
-            SaveFramesButton.IsEnabled = SaveFramesMenu.IsEnabled = g != null && idle;
+            SaveMp4Button.IsEnabled = fits && idle;
+            SaveFramesButton.IsEnabled = g != null && idle;
+            if (!AsciiActive)
+            {
+                SaveMp4Menu.IsEnabled = SaveMp4Button.IsEnabled;
+                SaveFramesMenu.IsEnabled = SaveFramesButton.IsEnabled;
+            }
         }
 
         void OnVideoRate(object sender, RoutedEventArgs e)
@@ -165,7 +172,11 @@ namespace B0r3dDeRes
 
         // ---- saving a video
 
-        void OnSaveMp4(object sender, RoutedEventArgs e) => AskAndSaveVideo(VideoOut.Mp4);
+        void OnSaveMp4(object sender, RoutedEventArgs e)
+        {
+            if (AsciiActive) AskAndSaveAsciiFrames(AsciiFramesOut.Mp4);
+            else AskAndSaveVideo(VideoOut.Mp4);
+        }
         void OnSaveFrames(object sender, RoutedEventArgs e) => AskAndSaveVideo(VideoOut.Frames);
 
         internal enum VideoOut { Mp4, Gif, Apng, Frames }

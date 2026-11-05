@@ -75,7 +75,11 @@ namespace B0r3dDeRes
             {
                 if (WindowState != WindowState.Minimized && !fullScreen) maximized = WindowState == WindowState.Maximized;
                 // minimized, a GIF playing pauses rather than going on making frames nobody sees
-                if (WindowState == WindowState.Minimized) player?.Pause();
+                if (WindowState == WindowState.Minimized)
+                {
+                    player?.Pause();
+                    asciiPlayer?.Pause();
+                }
             };
 
             noteTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
@@ -102,12 +106,15 @@ namespace B0r3dDeRes
             player = new Player(PlayButton, FrameSlider, FrameCounter, PlayBar, PlayBudget, MakePlayed, ShowPlayed, OnPlayStarted, OnPlayPaused, Problem, () => picture);
             BuildVideo();
             BuildLists();
+            BuildAscii();
             OnTheme();
             ShowNote();
             ShowCup();
             ready = true;
             Sync();
+            SyncAscii();
             ShowStage();
+            RenderAsciiSoon();
             if (startWith != null) OpenFile(startWith);
             else if (sample) OpenSample("rukus");
         }
@@ -325,6 +332,8 @@ namespace B0r3dDeRes
                 EmulatorButton.IsEnabled = EmulatorMenu.IsEnabled = format != null && picture != null;
                 ExportNote.Text = p.ExportNote ?? "";
                 ExportNote.Visibility = p.ExportNote != null ? Visibility.Visible : Visibility.Collapsed;
+                // the studio's save buttons follow any save under way, DeRes's too
+                if (asciiPlayer != null) SyncAsciiExport();
             }
             finally
             {
@@ -598,9 +607,12 @@ namespace B0r3dDeRes
             Opening = true;
             // a GIF or a video playing stops where it is while the next picture opens (and if that
             // one won't, the frame it stopped on is the picture)
-            bool wasPlaying = player.Playing, videoWasPlaying = videoPlayer.Playing;
+            bool wasPlaying = player.Playing, videoWasPlaying = videoPlayer.Playing, asciiWasPlaying = asciiPlayer.Playing, asciiVideoWasPlaying = asciiVideoPlayer.Playing;
             player.Halt();
             videoPlayer.HaltForGood();
+            asciiPlayer.Halt();
+            asciiVideoPlayer.HaltForGood();
+            modem.HangUp();
             if (picture == null) ShowStage("Opening…");
             else Readout.Text = "Opening…";
             LoadedPicture loaded = null;
@@ -631,6 +643,8 @@ namespace B0r3dDeRes
                 else ShowReadout();
                 if (wasPlaying && picture?.Animation != null) OnPlayPaused(player.Frame);
                 if (videoWasPlaying && picture?.Video != null) OnVideoPaused(picture.Video.Time, picture.Video.Source);
+                if (asciiWasPlaying && picture?.Animation != null) OnAsciiPlayPaused(asciiPlayer.Frame);
+                if (asciiVideoWasPlaying && picture?.Video != null) OnAsciiVideoPaused(picture.Video.Time, picture.Video.Source);
                 return;
             }
             // the video that was open lets go of its file (unless it's the one opening again)
@@ -642,8 +656,13 @@ namespace B0r3dDeRes
             gifFramesChosen = true;
             player.SetAnimation(loaded.Animation?.DelaysMs);
             videoPlayer.SetVideo(loaded.Video);
+            asciiPlayer.SetAnimation(loaded.Animation?.DelaysMs);
+            asciiVideoPlayer.SetVideo(loaded.Video);
             Sync();
+            SyncAscii();
             RenderSoon();
+            // (the studio makes the new picture's art when its tab shows)
+            if (AsciiActive) RenderAsciiSoon();
         }
 
         internal bool Opening { get; private set; }
@@ -926,21 +945,24 @@ namespace B0r3dDeRes
 
         void WhenThereIsAPicture(object sender, CanExecuteRoutedEventArgs e)
         {
-            e.CanExecute = shown != null;
+            e.CanExecute = AsciiActive ? asciiShown != null : shown != null;
             e.Handled = true;
         }
 
         // Compare: not while a GIF plays (a moving frame has no original to show); it comes back on the paused frame
         void WhenThereIsAnOriginal(object sender, CanExecuteRoutedEventArgs e)
         {
-            e.CanExecute = shown != null && !AnythingPlays;
+            e.CanExecute = !AsciiActive && shown != null && !AnythingPlays;
             e.Handled = true;
         }
 
-        void OnZoomIn(object sender, ExecutedRoutedEventArgs e) => View.ZoomStep(1);
-        void OnZoomOut(object sender, ExecutedRoutedEventArgs e) => View.ZoomStep(-1);
-        void OnZoomFit(object sender, ExecutedRoutedEventArgs e) => View.ZoomToFit();
-        void OnZoomOne(object sender, ExecutedRoutedEventArgs e) => View.ZoomTo(1);
+        // the preview on the tab showing
+        PixelView ActiveView => AsciiActive ? AsciiView : View;
+
+        void OnZoomIn(object sender, ExecutedRoutedEventArgs e) => ActiveView.ZoomStep(1);
+        void OnZoomOut(object sender, ExecutedRoutedEventArgs e) => ActiveView.ZoomStep(-1);
+        void OnZoomFit(object sender, ExecutedRoutedEventArgs e) => ActiveView.ZoomToFit();
+        void OnZoomOne(object sender, ExecutedRoutedEventArgs e) => ActiveView.ZoomTo(1);
 
         void OnCompare(object sender, ExecutedRoutedEventArgs e)
         {
@@ -962,6 +984,10 @@ namespace B0r3dDeRes
         bool fullScreen;
         WindowState stateBefore;
         object contentBefore;
+        // the tab's stage that went full screen, where it came from, and its preview
+        Border fullStage;
+        Grid fullArea;
+        PixelView fullView;
 
         internal bool IsFullScreen => fullScreen;
 
@@ -975,11 +1001,14 @@ namespace B0r3dDeRes
             {
                 stateBefore = WindowState;
                 contentBefore = Content;
-                StageArea.Children.Remove(Stage);
-                Stage.CornerRadius = new CornerRadius(0);
-                Stage.Background = Brushes.Black;
-                Content = Stage;
-                View.SetBackground(Colors.Black);
+                fullStage = AsciiActive ? AsciiStage : Stage;
+                fullArea = AsciiActive ? AsciiStageArea : StageArea;
+                fullView = AsciiActive ? AsciiView : View;
+                fullArea.Children.Remove(fullStage);
+                fullStage.CornerRadius = new CornerRadius(0);
+                fullStage.Background = Brushes.Black;
+                Content = fullStage;
+                fullView.SetBackground(Colors.Black);
                 WindowStyle = WindowStyle.None;
                 if (WindowState == WindowState.Maximized) WindowState = WindowState.Normal;  // (so Windows covers the taskbar too)
                 WindowState = WindowState.Maximized;
@@ -987,9 +1016,10 @@ namespace B0r3dDeRes
             else
             {
                 Content = contentBefore;
-                StageArea.Children.Insert(0, Stage);
-                Stage.CornerRadius = new CornerRadius(8);
-                Stage.SetResourceReference(Border.BackgroundProperty, "Stage");
+                fullArea.Children.Insert(0, fullStage);
+                fullStage.CornerRadius = new CornerRadius(8);
+                // (the studio's stage is black in either look, as on the website)
+                if (fullStage == Stage) Stage.SetResourceReference(Border.BackgroundProperty, "Stage");
                 OnTheme();
                 // through Normal, or a window maximized before keeps the borderless size over the taskbar
                 WindowState = WindowState.Normal;
@@ -997,8 +1027,8 @@ namespace B0r3dDeRes
                 WindowState = stateBefore;
             }
             FullScreenMenu.IsChecked = on;
-            View.ZoomToFit();
-            View.Focus();
+            fullView.ZoomToFit();
+            fullView.Focus();
         }
 
         // ---------- keys ----------
@@ -1009,7 +1039,7 @@ namespace B0r3dDeRes
         void OnPreviewKeys(object sender, KeyEventArgs e)
         {
             bool inText = Keyboard.FocusedElement is TextBox;
-            if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.None && !TakesSpace(Keyboard.FocusedElement))
+            if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.None && !TakesSpace(Keyboard.FocusedElement) && !AsciiActive)
             {
                 e.Handled = true;
                 View.Hold(true);
@@ -1032,7 +1062,7 @@ namespace B0r3dDeRes
                 e.Handled = true;
                 Paste(data);
             }
-            else if (e.Key == Key.C && shown != null)
+            else if (e.Key == Key.C && (AsciiActive ? AsciiOnScreen != null : shown != null))
             {
                 e.Handled = true;
                 Commands.CopyPicture.Execute(null, this);
@@ -1089,6 +1119,11 @@ namespace B0r3dDeRes
 
         async void OnSavePng(object sender, ExecutedRoutedEventArgs e)
         {
+            if (AsciiActive)
+            {
+                AskAndSaveAsciiPng();
+                return;
+            }
             Rendered r = await Latest();
             if (r == null) return;
             int m = settings.Multiplier;
@@ -1198,6 +1233,12 @@ namespace B0r3dDeRes
 
         async void OnCopyPicture(object sender, ExecutedRoutedEventArgs e)
         {
+            // (the studio's art goes as text)
+            if (AsciiActive)
+            {
+                CopyAscii("text");
+                return;
+            }
             Rendered r = await Latest();
             if (r == null) return;
             Shared share = ToShare(r);
@@ -1719,6 +1760,12 @@ namespace B0r3dDeRes
 
         void OnResetMenu(object sender, RoutedEventArgs e)
         {
+            if (AsciiActive)
+            {
+                if (MessageBox.Show(this, "Put every setting of the ASCII / ANSI studio back to how it starts? The picture stays, and so do DeRes's settings.", Program.Name,
+                    MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes) ResetAscii();
+                return;
+            }
             if (MessageBox.Show(this, "Put every setting back to how b0r3d DeRes starts? The picture stays, and so do light or dark (View → Look) and the window.", Program.Name,
                 MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes) ResetSettings();
         }
@@ -1842,8 +1889,11 @@ namespace B0r3dDeRes
                 return;
             }
             player.Halt();
+            asciiPlayer.Halt();
+            modem.HangUp();
             // (no move still under way plays it on)
             videoPlayer.SetVideo(null);
+            asciiVideoPlayer.SetVideo(null);
             picture?.Video?.Dispose();
             if (fullScreen) SetFullScreen(false);
             saveTimer.Stop();

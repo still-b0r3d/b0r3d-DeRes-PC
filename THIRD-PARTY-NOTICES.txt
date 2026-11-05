@@ -176,3 +176,16 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
+
+===============================================================================
+
+WebPlus IBM VGA 8x16, the ASCII / ANSI studio's font
+From The Ultimate Oldschool PC Font Pack by VileR, https://int10h.org
+Outline (vector) version by VileR, 2020 (v2.2-2020-11)
+
+Licensed under the Creative Commons Attribution-ShareAlike 4.0 International
+licence (CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
+
+b0r3d DeRes carries the font file unchanged (assets/fonts/WebPlus_IBM_VGA_8x16.woff,
+the same file img.b0r3d.org uses) and draws the studio's characters from its letters.
+The licence above covers the font file only, not the rest of b0r3d DeRes.
