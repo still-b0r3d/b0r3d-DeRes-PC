@@ -203,6 +203,8 @@ namespace B0r3dDeRes.Video
         int soundRate, soundChannels;
         bool convertSound;
         bool ended;
+        bool readSince;                   // a sample's been asked for since Windows' reader was made
+        internal int Restarts;            // for the tests: times Windows' reader was made again for a seek
         // what this reader has read, for the trace's words
         int samplesRead, emptyReads, seeks;
         long lastSampleAt;
@@ -274,6 +276,7 @@ namespace B0r3dDeRes.Video
 
         void SetUp()
         {
+            readSince = false;
             try
             {
                 stream = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, FileOptions.RandomAccess);
@@ -463,6 +466,17 @@ namespace B0r3dDeRes.Video
 
         void SeekHere(long time)
         {
+            // A picture reader that has read frames is made again rather than sent back or on:
+            // after reading some way into a video, Windows' reader now and then never comes back
+            // from its first read after the seek (on two cores: on GitHub's runners about one open
+            // in seven of a 12.5 fps clip; going on a frame or a second later it didn't). A new one
+            // goes to the time as at the start, which it always does.
+            if (purpose == Purpose.Frames && readSince)
+            {
+                LetGoOfWindows();
+                SetUp();
+                Restarts++;
+            }
             var p = new PropVariant { Type = 20, Long = Math.Max(0, ToWindows(time)) };   // VT_I8
             Guid format = Guid.Empty;
             using (VideoTrace.In("SetCurrentPosition to " + VideoTrace.Seconds(time) + " in " + System.IO.Path.GetFileName(file.Path) + " by a " + purpose + " reader, " + Readings()))
@@ -544,6 +558,7 @@ namespace B0r3dDeRes.Video
             int hr;
             uint flags;
             IMFSample sample;
+            readSince = true;
             using (VideoTrace.In("ReadSample (picture) of " + System.IO.Path.GetFileName(file.Path) + " by a " + purpose + " reader, " + Readings()))
                 hr = Reader.ReadSample(FirstVideo, 0, out _, out flags, out time, out sample);
             if (hr >= 0)
@@ -780,7 +795,10 @@ namespace B0r3dDeRes.Video
         });
 
         // (twice does no harm)
-        public void Dispose() => Mta(() =>
+        public void Dispose() => Mta(LetGoOfWindows);
+
+        // Windows' reader and the file let go (a held frame too)
+        void LetGoOfWindows()
         {
             using (VideoTrace.In("releasing a reader of " + System.IO.Path.GetFileName(file.Path)))
             {
@@ -792,6 +810,6 @@ namespace B0r3dDeRes.Video
                 bytes = null;
                 stream = null;
             }
-        });
+        }
     }
 }

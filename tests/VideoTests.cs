@@ -185,6 +185,9 @@ namespace B0r3dDeRes.Tests
                 // and on from there, in order
                 VideoFrame next = r.Next();
                 Check(next != null && Math.Abs(next.Time / 1e7 - 31 / 30.0) < 0.002, "the frame after the flash comes next");
+                // every seek after the first came once frames had been read: Windows' reader was made
+                // again for each (sent back or on in place, it now and then never came back)
+                Check(r.Restarts == 6, "the reader was made again " + r.Restarts + " times for 6 seeks after reading, not 6");
             }
             // a variable frame rate: every frame at its own time (30 a second, then 10)
             VideoFile vfr = VideoFile.Open(Clip("vfr.mp4"));

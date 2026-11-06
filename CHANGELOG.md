@@ -41,6 +41,12 @@ The seventh stage: the ASCII / ANSI studio.
   every letter (`ascii=ok`).
 - The tests run in ten parts (`ascii` is new); `--shots <folder>` takes a set: `light`, `dark`
   or `ascii`.
+- Opening a video, scrubbing its timeline, a jump while it plays and a save from a later start no
+  longer stick now and then: once a reader has read frames, a seek makes Windows' reader again at
+  the new time. Sent back or on in place, Windows' reader sometimes never came back from its next
+  read (seen on GitHub's 2-core runners in about one test run in seven, and on this PC on two
+  cores, more rarely).
+- When a test is stopped by its watchdog, it names the Windows video calls that hadn't come back.
 
 ## 0.6 (not released yet)
 

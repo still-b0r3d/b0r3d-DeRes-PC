@@ -166,7 +166,7 @@ namespace B0r3dDeRes.Tests
 
                 part = "video";
                 Run("video: MP4, MKV, MPEG-2, WMV and AVI clips open upright at their own speed and length, every frame in order, the flash on its frame and the beep at 1 s, mono 44.1 kHz made 48 kHz stereo", VideosOpen);
-                Run("video: the frame at any time, forwards and back, and a variable frame rate's frames each at its own time", VideoFramesByTime);
+                Run("video: the frame at any time, forwards and back (a seek after reading makes the reader again), and a variable frame rate's frames each at its own time", VideoFramesByTime);
                 Run("video: HLG HDR (an iPhone's) in normal colour, close to the picture it was made from; the whole clip where Windows can decode HEVC", HdrVideosInNormalColour);
                 if (Environment.GetEnvironmentVariable("DERES_MEASURE") == "hlg") Run("measure: an HLG frame of 4K into normal colour", MeasureHlg);
                 Run("video: MP4s written (H.264 and AAC) read back with every frame, upright, at their speed (29.97 too), the sound in step with the picture", Mp4sWriteAndReadBack);
