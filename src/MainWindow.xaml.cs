@@ -107,6 +107,7 @@ namespace B0r3dDeRes
             BuildVideo();
             BuildLists();
             BuildAscii();
+            BuildExif();
             OnTheme();
             ShowNote();
             ShowCup();
@@ -617,6 +618,7 @@ namespace B0r3dDeRes
             else Readout.Text = "Opening…";
             LoadedPicture loaded = null;
             string problem = null;
+            PictureException failed = null;
             try
             {
                 loaded = await Task.Run(load);
@@ -624,6 +626,7 @@ namespace B0r3dDeRes
             catch (PictureException x)
             {
                 problem = x.Message;
+                failed = x;
             }
             catch (OutOfMemoryException)
             {
@@ -645,6 +648,8 @@ namespace B0r3dDeRes
                 if (videoWasPlaying && picture?.Video != null) OnVideoPaused(picture.Video.Time, picture.Video.Source);
                 if (asciiWasPlaying && picture?.Animation != null) OnAsciiPlayPaused(asciiPlayer.Frame);
                 if (asciiVideoWasPlaying && picture?.Video != null) OnAsciiVideoPaused(picture.Video.Time, picture.Video.Source);
+                // the EXIF tools still read a file Windows can't show (HEIC without its extension), as the website's do
+                if (failed?.FileBytes != null) SetExifFromFailed(name, failed.FileBytes, failed.FilePath);
                 return;
             }
             // the video that was open lets go of its file (unless it's the one opening again)
@@ -658,6 +663,7 @@ namespace B0r3dDeRes
             videoPlayer.SetVideo(loaded.Video);
             asciiPlayer.SetAnimation(loaded.Animation?.DelaysMs);
             asciiVideoPlayer.SetVideo(loaded.Video);
+            SetExifFrom(loaded);
             Sync();
             SyncAscii();
             RenderSoon();
@@ -700,10 +706,11 @@ namespace B0r3dDeRes
                 if (look != null) OpenLook(look);
                 if (palette != null) LoadPalette(palette);
                 string[] pictures = existing.Where(f => Pictures.LooksLikePicture(f) || VideoFile.LooksLikeVideo(f)).ToArray();
-                // a folder or several pictures: a batch
+                // a folder or several pictures: a batch (on the EXIF tools' tabs, theirs)
                 if (folders.Length > 0 || pictures.Length > 1)
                 {
-                    OpenBatch(folders.Concat(pictures).ToArray());
+                    if (ExifActive) AddToBatch(folders.Concat(pictures).ToArray());
+                    else OpenBatch(folders.Concat(pictures).ToArray());
                     return;
                 }
                 if (pictures.Length == 0 && (look != null || palette != null)) return;
@@ -945,14 +952,17 @@ namespace B0r3dDeRes
 
         void WhenThereIsAPicture(object sender, CanExecuteRoutedEventArgs e)
         {
-            e.CanExecute = AsciiActive ? asciiShown != null : shown != null;
+            // the EXIF tools' tabs: Ctrl+S saves their copy, Ctrl+C copies the coordinates; no picture to zoom
+            if (ExifActive)
+                e.CanExecute = e.Command == Commands.SavePng ? ExifCanSave : e.Command == Commands.CopyPicture && exifStage?.Shown?.Gps != null;
+            else e.CanExecute = AsciiActive ? asciiShown != null : shown != null;
             e.Handled = true;
         }
 
         // Compare: not while a GIF plays (a moving frame has no original to show); it comes back on the paused frame
         void WhenThereIsAnOriginal(object sender, CanExecuteRoutedEventArgs e)
         {
-            e.CanExecute = !AsciiActive && shown != null && !AnythingPlays;
+            e.CanExecute = !AsciiActive && !ExifActive && shown != null && !AnythingPlays;
             e.Handled = true;
         }
 
@@ -1039,7 +1049,7 @@ namespace B0r3dDeRes
         void OnPreviewKeys(object sender, KeyEventArgs e)
         {
             bool inText = Keyboard.FocusedElement is TextBox;
-            if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.None && !TakesSpace(Keyboard.FocusedElement) && !AsciiActive)
+            if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.None && !TakesSpace(Keyboard.FocusedElement) && !AsciiActive && !ExifActive)
             {
                 e.Handled = true;
                 View.Hold(true);
@@ -1062,7 +1072,7 @@ namespace B0r3dDeRes
                 e.Handled = true;
                 Paste(data);
             }
-            else if (e.Key == Key.C && (AsciiActive ? AsciiOnScreen != null : shown != null))
+            else if (e.Key == Key.C && (ExifActive ? exifStage?.Shown?.Gps != null : AsciiActive ? AsciiOnScreen != null : shown != null))
             {
                 e.Handled = true;
                 Commands.CopyPicture.Execute(null, this);
@@ -1119,6 +1129,11 @@ namespace B0r3dDeRes
 
         async void OnSavePng(object sender, ExecutedRoutedEventArgs e)
         {
+            if (ExifActive)
+            {
+                OnExifSaveMenu(sender, e);
+                return;
+            }
             if (AsciiActive)
             {
                 AskAndSaveAsciiPng();
@@ -1233,6 +1248,12 @@ namespace B0r3dDeRes
 
         async void OnCopyPicture(object sender, ExecutedRoutedEventArgs e)
         {
+            // (the EXIF tools' tabs copy the coordinates, as their button does)
+            if (ExifActive)
+            {
+                exifStage.CopyGps();
+                return;
+            }
             // (the studio's art goes as text)
             if (AsciiActive)
             {
@@ -1760,6 +1781,12 @@ namespace B0r3dDeRes
 
         void OnResetMenu(object sender, RoutedEventArgs e)
         {
+            if (ExifActive)
+            {
+                if (MessageBox.Show(this, "Put the EXIF Scrubber's options back to how they start (remove all metadata, keep the orientation)? The file and the batch stay.", Program.Name,
+                    MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes) ResetExif();
+                return;
+            }
             if (AsciiActive)
             {
                 if (MessageBox.Show(this, "Put every setting of the ASCII / ANSI studio back to how it starts? The picture stays, and so do DeRes's settings.", Program.Name,
@@ -1877,6 +1904,15 @@ namespace B0r3dDeRes
                 e.Cancel = true;
                 batch.StopThenCloseOwner();
                 Flash("Stopping the batch: the pictures under way finish, then b0r3d DeRes closes.", "Warn");
+                return;
+            }
+            // the EXIF tools' clean copies under way stop (leaving no half-written file), then the window closes
+            if (exifBusy)
+            {
+                e.Cancel = true;
+                closeAfterExif = true;
+                exifCancel?.Cancel();
+                Flash("Stopping the cleaning, then b0r3d DeRes closes.", "Warn");
                 return;
             }
             // an animation being made stops (leaving no file), then the window closes

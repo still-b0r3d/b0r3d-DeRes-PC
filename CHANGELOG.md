@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.8 (not released yet)
+
+The eighth stage: the EXIF tools.
+
+- Two more tabs, as on the website: **EXIF Scrubber** and **EXIF Injector**, with the website's
+  sections, and its inspector on the right of either. It reads the file open (the same one as on
+  the other tabs) as the website reads it, field for field and tag for tag: the picture, the
+  website's line about it, the place it was taken (with **Copy coordinates**, kept off Windows'
+  cloud clipboard and its history), an embedded thumbnail (shown: it may be the uncropped original), bytes after
+  the picture (a motion photo's video, Samsung's trailer, a gain map), AI markers and Content
+  Credentials, and the Summary or **All Tags** with its filter. JPEG, PNG, WebP and GIF are
+  cleaned; HEIC and AVIF are read (their pictures too where Windows has the extensions).
+- The Scrubber: remove all metadata or the location only, keep the orientation tag or not.
+  **Scrub & save a clean copy…** saves a new file, never over the original, and checks it as
+  it's read back from the disk: **Verified Clean**, or what's left. The clean copies are the
+  website's byte for byte.
+- A batch of any number of photos and videos, and whole folders (their own files, not those in
+  folders inside, nor ones OneDrive keeps only online): added with the buttons, File → Add…,
+  Ctrl+B, or dropped on the tab. Its table says each file's format, size, GPS and trailer, and
+  how cleaning it went; any row can be inspected (and edited in the Injector). It's cleaned into
+  a ZIP (the website's very ZIP, names and all) or into a folder (photo-clean.jpg, numbered:
+  nothing there is written over), every file checked. A file that can't be cleaned is said, on
+  its row and in the words at the end. **Stop** keeps what's cleaned and checked and leaves
+  nothing half-written or unchecked; a stopped ZIP leaves no ZIP.
+- Videos (the PC's own): MP4 and MOV from phones (Apple, Android, Samsung, GoPro) and ffmpeg.
+  Where they were filmed and on what (QuickTime's keys, user data, 3GPP's place, XMP, timed
+  metadata tracks, Content Credentials, bytes after the video) is shown and taken out byte by
+  byte, or the location only: the picture and sound are left untouched (checked byte for byte;
+  Windows plays the very same frames and sound), still turned the way the phone held it.
+  Removing all keeps only the picture and sound: every other track goes (metadata, a drone's
+  captions, the timecode), with the names and makers in the index and every byte of the picture
+  data no track uses (a dashcam's GPS between frames). A place written anywhere else (an unknown
+  box, padding) goes in location-only mode too, and the check reads the copy on its own for any
+  place left outside the picture and sound. Old QuickTime sound (PCM) is sized as players size
+  it. A video it can't be sure of is refused, with why: two indexes, made in pieces
+  (fragmented), its picture kept in another file, or damaged.
+- The Injector: the form starts with what the photo has, with the website's fields, checks and
+  messages (a field with a problem is marked), its device presets (filled in the way that device
+  writes them; injecting then drops the old camera's serial numbers and maker data), Reset to
+  photo, b0r3d Defaults (this program as the software), Clear fields, Now, the places, and the
+  XMP block taken out when it would contradict the new values. Only the fields changed are
+  written, into a new copy, the website's very file; the edited photo is then the one shown. It
+  writes into JPEG and PNG; a GIF, a HEIC or a video says why not.
+- The File, Edit and View menus follow the tab: Ctrl+S saves the tab's copy, Ctrl+C copies the
+  coordinates, Reset settings puts back the Scrubber's options (kept with the other settings).
+- An original is never written over, under any spelling of its path (a network drive's, a
+  junction's, a hard link's), nor by a batch's ZIP; a save is for the file it was started for (one
+  opened while the Save dialog was open isn't saved by mistake).
+- Saving over a file that's there (the Save dialog asks first) no longer carries the old file's
+  hidden streams onto the new one, a download's web address among them. This is every save in
+  the program.
+- Alt+B opens the EXIF Scrubber and Alt+J the Injector; the Hardware section's Grab palette
+  button has no access key now (the Edit menu's Grab palette has one).
+- The self-test reads the Rukus sample's EXIF, cleans it and writes into it: the website's very
+  files (`exif=ok`).
+- The tests run in eleven parts (`exif` is new); `--shots <folder> exif` draws the two tabs.
+
 ## 0.7 (not released yet)
 
 The seventh stage: the ASCII / ANSI studio.

@@ -16,6 +16,9 @@ namespace B0r3dDeRes
 
         // the PC hadn't the memory free for it (a batch tries it again on its own)
         public bool OutOfMemory;
+        // the file's bytes, when they were read (the EXIF tools still read a picture Windows can't show)
+        public byte[] FileBytes;
+        public string FilePath;
     }
 
     // An opened picture: the whole photo for the engine, and what the window says about it.
@@ -26,6 +29,10 @@ namespace B0r3dDeRes
         public int Frames = 1;          // images in the file (a GIF can hold many)
         public AnimatedGif Animation;   // an animated GIF's frames, or null for a still
         public VideoClip Video;         // a video (its paused frame is the picture), or null
+        // the file as it was opened, for the EXIF tools: its bytes (a picture's) and where it is
+        // (null for a sample, a pasted picture or the screen)
+        public byte[] FileBytes;
+        public string FilePath;
 
         // frame k of an animated GIF (a still has only its picture; a video, its paused frame)
         public PictureSource SourceAt(int frame) => Animation != null ? Animation.Frames[Math.Max(0, Math.Min(Animation.Frames.Length - 1, frame))] : Video != null ? Video.Source : Source;
@@ -97,7 +104,10 @@ namespace B0r3dDeRes
                 if (stream == null) throw new PictureException("the sample " + sample.Label + " is missing from this build");
                 var bytes = new MemoryStream();
                 stream.CopyTo(bytes);
-                return FromBytes(bytes.ToArray(), sample.File);
+                byte[] file = bytes.ToArray();
+                LoadedPicture p = FromBytes(file, sample.File);
+                p.FileBytes = file;
+                return p;
             }
         }
 
@@ -114,8 +124,24 @@ namespace B0r3dDeRes
             }
         }
 
-        // A picture file. Safe on any thread.
-        public static LoadedPicture Load(string path) => FromBytes(ReadFile(path), NameOf(path));
+        // A picture file (with its bytes, for the EXIF tools). Safe on any thread.
+        public static LoadedPicture Load(string path)
+        {
+            byte[] bytes = ReadFile(path);
+            try
+            {
+                LoadedPicture p = FromBytes(bytes, NameOf(path));
+                p.FileBytes = bytes;
+                p.FilePath = path;
+                return p;
+            }
+            catch (PictureException x)
+            {
+                x.FileBytes = bytes;
+                x.FilePath = path;
+                throw;
+            }
+        }
 
         // A picture of the screen (or a box of it), named for what it is ("screen.png").
         public static LoadedPicture FromScreen(BitmapSource shot, string name)
@@ -475,7 +501,9 @@ namespace B0r3dDeRes
                 {
                     try
                     {
-                        return FromBytes(bytes, "image.png");
+                        LoadedPicture p = FromBytes(bytes, "image.png");
+                        p.FileBytes = bytes;
+                        return p;
                     }
                     catch (PictureException) when (plain != null)
                     {

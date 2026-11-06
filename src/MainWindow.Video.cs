@@ -50,7 +50,7 @@ namespace B0r3dDeRes
                 using (VideoReader reader = file.Frames()) first = reader.Next();
                 if (first == null) throw new PictureException("Windows found no frames in it");
                 var clip = new VideoClip(file, first);
-                return new LoadedPicture { Source = clip.Source, Name = Path.GetFileName(path), Video = clip };
+                return new LoadedPicture { Source = clip.Source, Name = Path.GetFileName(path), Video = clip, FilePath = path };
             }
             catch (VideoException x)
             {

@@ -81,6 +81,10 @@ namespace B0r3dDeRes.Tests
                 Check(SelfTest.VgaLetters == Sha(Enumerable.Range(0, rows.Length / 2).Select(i => Convert.ToByte(rows.Substring(i * 2, 2), 16)).ToArray()),
                     "the self-test's letters aren't the website's (copy their hash into SelfTest.cs)");
                 Check(found.TryGetValue("ascii", out string ascii) && ascii == "ok", "the ASCII studio inside the exe should make the website's very art, its Teletext picture and its letters: " + all);
+                var rukusCase = L(ExifExpected["cases"]).Select(D).First(c => S(c["name"]) == "rukus.png");
+                Check(SelfTest.RukusScrubbed == S(D(rukusCase["scrub"])["all"]).Split(' ')[3] && SelfTest.RukusArtist == S(D(rukusCase["inject"])["artist"]).Split(' ')[2],
+                    "the self-test's EXIF files aren't the website's (make the test files again, and copy their hashes into SelfTest.cs)");
+                Check(found.TryGetValue("exif", out string exif) && exif == "ok", "the EXIF tools inside the exe should read the sample as the website does and make its very files: " + all);
                 Check(found.TryGetValue("video", out string video) && video == (B0r3dDeRes.Video.Mf.Available ? "ok" : "none"), "an MP4 should go through Windows' video system and back inside the exe: " + all);
                 Check(found["bits"] == "64", "the exe ran as a " + found["bits"] + "-bit program; only 64-bit does the website's sums to the last bit");
                 Check(found["dpi"] == "per-monitor-v2", "the exe follows the screens' scaling as \"" + found["dpi"] + "\", not per-monitor-v2 (is the manifest in?)");
@@ -110,6 +114,8 @@ namespace B0r3dDeRes.Tests
             { "mfreadwrite.dll", new[] { "MFCreateSourceReaderFromByteStream", "MFCreateSinkWriterFromURL" } },
             // a video's sound out of the speakers while it plays
             { "winmm.dll", new[] { "waveOutOpen", "waveOutPrepareHeader", "waveOutUnprepareHeader", "waveOutWrite", "waveOutGetPosition", "waveOutReset", "waveOutClose" } },
+            // which file a path is, so an original under another spelling of its path is never written over
+            { "kernel32.dll", new[] { "GetFileInformationByHandle" } },
         };
         static readonly string[] AllowedCom =
         {
@@ -131,6 +137,9 @@ namespace B0r3dDeRes.Tests
         static readonly string[] AllowedUriTakers = { "System.Windows.Application.LoadComponent", "System.Windows.Application.GetResourceStream" };
         // XAML's own namespace names, which are names, never fetched
         const string XamlNamespaces = "http://schemas.microsoft.com/winfx/2006/xaml";
+        // XMP's namespace names, which mark the XMP inside a JPEG (the EXIF tools look for them):
+        // names in photos, never fetched
+        static readonly string[] XmpNamespaces = { "http://ns.adobe.com/xap/1.0/", "http://ns.adobe.com/xmp/extension/" };
 
         static void ExeNeverGoesOnline()
         {
@@ -196,7 +205,7 @@ namespace B0r3dDeRes.Tests
                 }
                 foreach (string text in OwnStrings(pe, md))
                     foreach (Match address in Regex.Matches(text, Address))
-                        if (!AllowedAddresses.Contains(address.Value)) bad.Add("the address " + address.Value);
+                        if (!AllowedAddresses.Contains(address.Value) && !XmpNamespaces.Contains(address.Value.TrimEnd('\0'))) bad.Add("the address " + address.Value);
                 Check(bad.Count == 0, "the exe has " + string.Join(", ", bad.Distinct()));
                 Check(md.TypeReferences.Count > 50, "the scan saw almost nothing; is this the right file?");
                 Check(md.AssemblyReferences.All(h => new[] { "mscorlib", "System", "System.Core", "System.Numerics", "PresentationCore", "PresentationFramework", "WindowsBase", "System.Xaml" }

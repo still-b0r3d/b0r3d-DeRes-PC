@@ -311,6 +311,8 @@ namespace B0r3dDeRes
                 SaveGifMenu.Visibility = SaveApngMenu.Visibility = Visibility.Visible;
                 SaveMp4Menu.Visibility = picture?.Video != null ? Visibility.Visible : Visibility.Collapsed;
             }
+            // the EXIF tools' tabs have lines of their own, and none of these
+            SyncExifMenus();
         }
 
         // ---- the controls' events ----
@@ -541,6 +543,13 @@ namespace B0r3dDeRes
         void OnTabChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.OriginalSource != Tabs || !ready) return;
+            if (ExifActive)
+            {
+                ExifTabShown();
+                Sync();
+                SyncAscii();
+                return;
+            }
             bool ascii = AsciiActive;
             // whatever plays on the tab left stops where it is: that frame is the picture on the other
             if (ascii)

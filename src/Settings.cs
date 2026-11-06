@@ -39,6 +39,9 @@ namespace B0r3dDeRes
         // the ASCII / ANSI studio's settings (the website keeps them in the browser), and the size its picture is saved at
         public AsciiSettings Ascii = new AsciiSettings();
         public int AsciiScale = 1;
+        // the EXIF Scrubber's options (the website starts with these each visit; the PC keeps them)
+        public bool ScrubLocationOnly;
+        public bool ScrubOrientation = true;
 
         public static readonly int[] LoopFrameCounts = { 16, 32, 48 }, LoopSpeeds = { 15, 30 };
         // the slower frame rates a video can go out at (each only below its own)
@@ -267,6 +270,12 @@ namespace B0r3dDeRes
                     case "ascii_size":
                         if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int scale) && AsciiRender.Scales.Contains(scale)) s.AsciiScale = scale;
                         break;
+                    case "scrub_mode":
+                        if (value == "all" || value == "location_only") s.ScrubLocationOnly = value == "location_only";
+                        break;
+                    case "scrub_orientation":
+                        s.ScrubOrientation = OnOff(value) ?? s.ScrubOrientation;
+                        break;
                 }
             }
             // a machine's dither when the one kept isn't one there is
@@ -371,6 +380,8 @@ namespace B0r3dDeRes
             Line("ascii_teletext_header", Ascii.TeletextHeader ? "on" : "off");
             Line("ascii_teletext_separated", Ascii.TeletextSeparated ? "on" : "off");
             Line("ascii_size", AsciiScale.ToString(CultureInfo.InvariantCulture));
+            Line("scrub_mode", ScrubLocationOnly ? "location_only" : "all");
+            Line("scrub_orientation", ScrubOrientation ? "on" : "off");
             return text.ToString();
         }
 

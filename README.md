@@ -8,14 +8,15 @@ stay on your PC: it never goes online, and it never keeps them.
 
 It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install.
 
-**Being built.** This is version 0.7, the seventh of nine stages: the program itself, opening
+**Being built.** This is version 0.8, the eighth of nine stages: the program itself, opening
 pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
 Signal (every one of its engine's settings, presets and dubbed tapes), the screen effects, the
 preview, saving, copying and dragging out PNGs, wallpapers, animated GIFs playing, GIF and APNG
 loops, videos (playing, and saved as MP4s with their sound, GIFs, APNGs and PNG frames),
 batches, DeRes the screen, the machines' own files for emulators, palette files, look files and
-share links, and the ASCII / ANSI studio (its art of pictures, GIFs and videos, and every file
-it makes). The EXIF tools come next.
+share links, the ASCII / ANSI studio (its art of pictures, GIFs and videos, and every file it
+makes), and the EXIF tools (what photos and phone videos say about you, taken out or written
+in). Getting it ready to release comes next.
 
 ## Make a picture
 
@@ -191,6 +192,45 @@ size too). The text files are the website's byte for byte, and so are the pictur
 blocks and Teletext, pixel for pixel; a ramp's or PETSCII's picture is drawn from the font's own
 letters, crisp (see below).
 
+## The EXIF tools
+
+Photos keep more than their pixels: the camera or phone, when, often where (to a few metres),
+the photo's thumbnail from before it was cropped, and sometimes a phone's video after the
+picture. The **EXIF Scrubber** and **EXIF Injector** tabs show that and change it, as the
+website's do. On the right of either, the inspector shows the file open (the same one as on the
+other tabs) as the website reads it: a line about it ("Taken on a … at coordinates …"), the
+place it was taken (**Copy coordinates** puts the two numbers on the clipboard, kept off Windows'
+cloud clipboard), the embedded thumbnail, bytes after the picture, AI markers and Content
+Credentials, and the **Summary** or **All Tags**, with a filter. JPEG, PNG, WebP and GIF are
+cleaned; HEIC and AVIF are read.
+
+**Scrub & save a clean copy…** (Ctrl+S on the tab) takes out all of it, or the location only,
+keeping the orientation tag unless you untick it, and saves a new file (the original is never
+changed). The copy is read back from the disk and checked: **Verified Clean**, or what's left.
+Add photos and videos to a **batch** (the buttons, File → Add…, Ctrl+B for a folder, or drop
+several or a folder on the tab): a table says each one's format, size, GPS, trailer and how it
+went, and clicking a row inspects it. The batch is cleaned into a ZIP or into a folder
+(`photo-clean.jpg`, numbered; nothing already there is written over), every file checked;
+**Stop** keeps what's done and leaves nothing half-made.
+
+Videos too, MP4 and MOV: phones (Apple, Android, Samsung, GoPro) write where a video was filmed
+and on what, in several places; the scrubber shows them and takes them out byte by byte (or the
+location only), leaving the picture and sound exactly as they were, still turned the way the
+phone was held. Removing all keeps nothing but the picture and sound: other tracks (metadata, a
+drone's captions, the timecode), the names in the index and any bytes no track uses (a
+dashcam's GPS between frames) go too. The check reads the clean video back, compares every byte
+of its picture and sound with the original's, and looks through the rest for any place still
+written in it. A video it can't be sure of (in pieces, kept in another file, damaged) is
+refused, with why, rather than half cleaned.
+
+The **EXIF Injector** writes your own camera, date, place and creator into a JPEG or PNG: its
+form starts with what the photo has; change a field, empty one to remove it, pick a **device
+preset** (it fills in the camera, lens and exposure the way that device writes them, and drops
+the old camera's serial numbers and maker data), **b0r3d Defaults**, **Now** for the date, or a
+place. Only what you change is written, into a new copy; a photo's XMP block that would
+contradict the new values goes too, unless you untick it. A value it can't take is said, and its
+field marked.
+
 ## Batches
 
 **File → Batch** (Ctrl+B), or a folder or several pictures or videos dropped on the window, runs
@@ -228,7 +268,12 @@ website reads a link without them).
 - Pictures are never kept: no list of recent files, and the settings file never holds a
   picture or its name. Windows' own Open and Save dialogs are told not to add files to
   Windows' Recent items.
-- Copied pictures and links are kept off Windows' cloud clipboard.
+- Copied pictures, art, links and coordinates are kept off Windows' cloud clipboard (copied
+  coordinates off its history too).
+- The EXIF tools never change a file: clean and edited copies are always new files, and the
+  batch's originals stay as they were (under any spelling of their path).
+- A file saved over another (the Save dialog asks first) never takes on the old one's hidden
+  streams, such as the web address a download came from.
 
 ## Portable
 
@@ -282,6 +327,16 @@ picture with see-through parts is read as the website's canvas holds it (all 65,
 colour levels checked against Chromium), so the Rukus sample makes the website's very art. The
 self-test makes some of that art on the PC it runs on. The test files are made from the website
 at the version named at the top of `tests/WebsiteCases.cs`.
+The EXIF tools' engine is the website's as well: 748 files (88 photos, GIFs and HEICs of every
+kind, and 660 of them cut short or changed at random) are read as the website reads them, every
+field, tag row, AI marker and line; every clean copy (all metadata, without the orientation,
+location only) is the website's byte for byte with its Verified Clean report, and so is every
+injection (23 sets of edits), with the form's checks and messages, its dates and shutter speeds,
+and the batch's names and ZIPs. JavaScript's own ways with text (how it trims, decodes, and
+turns letters to capitals, Unicode's tables and all) are copied too. Videos are the PC's own:
+cleaned clips from phones are checked byte for byte and played back through Windows, frame for
+frame and sound for sound. The self-test cleans the Rukus sample and writes into it on the PC it
+runs on.
 
 The tests start from the decoded picture. Windows reads the sample photos to the same pixels
 as Chromium, and an sRGB colour profile leaves them as they are, as in browsers. Two things can
@@ -305,11 +360,11 @@ takes any 10.0 one); the program itself runs on .NET Framework 4.8, which comes 
 and 11. Double-click
 `build.cmd`, or run `build.cmd test` to build and run the tests. The exe lands in
 `bin\b0r3dDeRes.exe`. The tests print a PASS or FAIL line each, and a run stops itself after 90
-seconds; `build.cmd test` runs them in ten parts (`--part engine`, `animation`, `gifs`,
-`frames`, `signal`, `video`, `videosave`, `videobatch`, `ascii`, then `window`) so each stays
-within that on a two-core machine too. The video tests use short clips in `tests\video`, made
-with ffmpeg. `bin\tests\b0r3dDeResTests.exe --shots <folder> light` (or `dark`, or `ascii` for
-the studio in both looks) draws the windows to PNG files.
+seconds; `build.cmd test` runs them in eleven parts (`--part engine`, `animation`, `gifs`,
+`frames`, `signal`, `video`, `videosave`, `videobatch`, `ascii`, `exif`, then `window`) so each
+stays within that on a two-core machine too. The video tests use short clips in `tests\video`,
+made with ffmpeg. `bin\tests\b0r3dDeResTests.exe --shots <folder> light` (or `dark`, `ascii` for
+the studio or `exif` for the EXIF tools, in both looks) draws the windows to PNG files.
 
 ## Licence
 

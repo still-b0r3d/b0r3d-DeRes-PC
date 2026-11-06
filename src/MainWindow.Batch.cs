@@ -10,7 +10,12 @@ namespace B0r3dDeRes
 
         internal BatchWindow BatchShown => batch;
 
-        void OnBatch(object sender, ExecutedRoutedEventArgs e) => OpenBatch(null);
+        // (Ctrl+B on the EXIF tools' tabs adds a folder to their batch)
+        void OnBatch(object sender, ExecutedRoutedEventArgs e)
+        {
+            if (ExifActive) OnExifAddFolder(sender, e);
+            else OpenBatch(null);
+        }
 
         // the batch window (one at a time), with these pictures and folders added to it
         internal BatchWindow OpenBatch(IList<string> paths)

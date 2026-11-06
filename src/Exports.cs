@@ -13,16 +13,17 @@ namespace B0r3dDeRes
         // Writes the whole file or nothing: into a temporary file of its own beside it first (a
         // name nobody else uses), then into place. With `elsewhere`, a file at `path` by then (one
         // that came while this one was made) is never written over: this one goes where
-        // `elsewhere` says instead. The path it went to.
+        // `elsewhere` says instead. With `readBack`, `write` can read what it wrote (to check it
+        // before the file takes its name). The path it went to.
         public static void Write(string path, byte[] bytes) => Write(path, stream => stream.Write(bytes, 0, bytes.Length));
 
-        public static string Write(string path, Action<Stream> write, Func<string> elsewhere = null)
+        public static string Write(string path, Action<Stream> write, Func<string> elsewhere = null, bool readBack = false)
         {
             string full = Path.GetFullPath(path);
             string tmp = Path.Combine(Path.GetDirectoryName(full), "." + Path.GetFileName(full) + "." + Guid.NewGuid().ToString("N").Substring(0, 8) + ".tmp");
             try
             {
-                using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1 << 16)) write(stream);
+                using (var stream = new FileStream(tmp, FileMode.CreateNew, readBack ? FileAccess.ReadWrite : FileAccess.Write, FileShare.None, 1 << 16)) write(stream);
                 if (elsewhere != null)
                     while (true)
                         try
@@ -39,15 +40,29 @@ namespace B0r3dDeRes
                     File.Move(tmp, full);
                     return full;
                 }
+                // Over a file that's there (the Save dialog asked): it's moved aside, this one into
+                // its place, then it's deleted; put back if this one can't go there. Not Windows'
+                // ReplaceFile, which carries the old file's own hidden streams onto the new one (a
+                // download's web address among them: no clean copy may take that on).
+                string aside = Path.Combine(Path.GetDirectoryName(full), "." + Path.GetFileName(full) + "." + Guid.NewGuid().ToString("N").Substring(0, 8) + ".old");
+                File.Move(full, aside);
                 try
                 {
-                    File.Replace(tmp, full, null);
+                    File.Move(tmp, full);
                 }
-                catch (IOException)
+                catch
                 {
-                    // some USB sticks' file systems can't swap files: copy over instead
-                    File.Copy(tmp, full, true);
-                    File.Delete(tmp);
+                    try { File.Move(aside, full); } catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { }
+                    throw;
+                }
+                try
+                {
+                    File.SetAttributes(aside, FileAttributes.Normal);
+                    File.Delete(aside);
+                }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                {
+                    // (something else has it open: it stays beside the new one, its name starting with a dot)
                 }
                 return full;
             }

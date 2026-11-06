@@ -12,9 +12,11 @@ namespace B0r3dDeRes
     // b0r3dDeRes.exe --selftest <file>: no window shown. Opens a sample from inside the exe, makes
     // the picture, saves it as a PNG the way File → Save PNG does and reads that back through
     // Windows, makes it on every machine, through every screen effect and through the signal (the
-    // website's very frame), reads back a share link, writes an MP4 beside <file> and reads it
-    // back (then deletes it), builds the windows in both looks with the picture in them, and
-    // writes what it found to <file> as key=value lines; the exit code is 0 when it all worked.
+    // website's very frame), makes the ASCII studio's art, reads the sample's EXIF, cleans it and
+    // writes into it (the website's very files), reads back a share link, writes an MP4 beside
+    // <file> and reads it back (then deletes it), builds the windows in both looks with the
+    // picture in them, and writes what it found to <file> as key=value lines; the exit code is 0
+    // when it all worked.
     // The tests run it on the finished exe, on its own in a folder, to prove it works with
     // nothing beside it.
     static class SelfTest
@@ -34,6 +36,12 @@ namespace B0r3dDeRes
         internal const string RukusTeletext = "ee419be2f1f1d55782e2dbd4c47b96db5577058d37a745e0283cd7f10c02ea25";
         // every letter of the website's font as Chromium draws it, 16 rows each in code point order
         internal const string VgaLetters = "12d9ab6682bb36099543f2c94c26e4c8fc5099222190981a4f1bcfa00141b7d8";
+
+        // the website's clean copy of the Rukus sample (all of its metadata out), and the sample
+        // with "me" injected as its Artist (their SHA-256; the tests check them against the
+        // website's results in tests\website\exif)
+        internal const string RukusScrubbed = "d90f9881c17954eeb3bf0f535616cf6698302fec73c1d965ba927d9c615f0c61";
+        internal const string RukusArtist = "d6ab1702fef1cdc30dd45cd6f8e7fa91b344806791f24cd2f2f3dc5bdb3950bd";
 
         public static int Run(string reportPath)
         {
@@ -162,6 +170,22 @@ namespace B0r3dDeRes
                 }
                 lines.Add("ascii=" + (ascii ? "ok" : "failed"));
                 ok &= ascii;
+
+                // the EXIF tools: the Rukus sample's file inside the exe read as the website reads
+                // it, its clean copy the website's byte for byte and Verified Clean, and an Artist
+                // written into it the website's very file
+                bool exif;
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                {
+                    string Hash(byte[] bytes) => string.Concat(sha.ComputeHash(bytes).Select(b => b.ToString("x2")));
+                    Exif.ImageMetadata meta = Exif.ExifReader.Inspect(rukus.FileBytes);
+                    Exif.ScrubResult clean = Exif.Scrubber.Scrub(rukus.FileBytes);
+                    exif = meta.Make == "b0r3d optics" && meta.Gps != null && meta.HasThumbnail && Hash(clean.Data) == RukusScrubbed && clean.Report.IsClean &&
+                        Exif.Scrubber.Verify(meta, rukus.FileBytes.Length, clean.Data).IsClean;
+                    exif &= Hash(Exif.Injector.Inject(rukus.FileBytes, new Exif.ExifEdits { Artist = Exif.Edit<string>.To("me") })) == RukusArtist;
+                }
+                lines.Add("exif=" + (exif ? "ok" : "failed"));
+                ok &= exif;
 
                 // a share link, made and read back (with the signal in it)
                 Settings shared = Settings.Defaults();

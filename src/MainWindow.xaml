@@ -29,9 +29,10 @@
     </Window.CommandBindings>
 
     <DockPanel x:Name="Root" Background="{DynamicResource Back}">
-        <!-- Access keys: F E V H on the bar, D and U for the tabs; on the DeRes tab I W A T G N X for
-             the sections, O, S, C, B, L, M (Surprise me), K, R and P (Play) on buttons; each menu
-             list has its own (each tab's lines unique among the lines it shows). -->
+        <!-- Access keys: F E V H on the bar, D U B J for the tabs; on the DeRes tab I W A T G N X for
+             the sections, O, S, C, L, M (Surprise me), K, R and P (Play) on buttons (Grab palette
+             has none: B is the EXIF Scrubber's, and the Edit menu has it); each menu list has its
+             own (each tab's lines unique among the lines it shows). -->
         <Menu x:Name="MenuBar" DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" />
@@ -40,8 +41,11 @@
                 <MenuItem x:Name="BatchMenu" Header="_Batch: a folder or several pictures…" Command="{x:Static local:Commands.Batch}" />
                 <MenuItem x:Name="OpenLookMenu" Header="Open _look…" Click="OnOpenLook" />
                 <MenuItem x:Name="OpenPaletteMenu" Header="Open p_alette…" Click="OnLoadPalette" />
+                <!-- the EXIF tools' (on their tabs) -->
+                <MenuItem x:Name="ExifAddMenu" Header="_Add photos or videos to the batch…" Click="OnExifAddFiles" Visibility="Collapsed" />
+                <MenuItem x:Name="ExifFolderMenu" Header="Add a _folder to the batch…" InputGestureText="Ctrl+B" Click="OnExifAddFolder" Visibility="Collapsed" />
                 <Separator />
-                <MenuItem Header="_Save PNG…" Command="{x:Static local:Commands.SavePng}" />
+                <MenuItem x:Name="SavePngMenu" Header="_Save PNG…" Command="{x:Static local:Commands.SavePng}" />
                 <MenuItem x:Name="SaveGifMenu" Header="Save _GIF…" Click="OnSaveGif" />
                 <MenuItem x:Name="SaveApngMenu" Header="Save A_PNG…" Click="OnSaveApng" />
                 <MenuItem x:Name="SaveMp4Menu" Header="Save MP_4…" Click="OnSaveMp4" />
@@ -56,11 +60,16 @@
                 <MenuItem x:Name="AsciiSeqMenu" Header="Save .SE_Q for a C64…" Click="OnAsciiSeqMenu" Visibility="Collapsed" />
                 <MenuItem x:Name="AsciiPrgMenu" Header="Save .P_RG for a C64…" Click="OnAsciiPrgMenu" Visibility="Collapsed" />
                 <MenuItem x:Name="AsciiTxtMenu" Header="Save Teletext as ._TXT…" Click="OnAsciiTxtMenu" Visibility="Collapsed" />
+                <MenuItem x:Name="ExifSaveMenu" Header="_Save a clean copy…" InputGestureText="Ctrl+S" Click="OnExifSaveMenu" Visibility="Collapsed" />
+                <MenuItem x:Name="ExifZipMenu" Header="Clean the batch into a _ZIP…" Click="OnScrubZip" Visibility="Collapsed" />
+                <MenuItem x:Name="ExifIntoMenu" Header="Clean the batch into a folde_r…" Click="OnScrubInto" Visibility="Collapsed" />
+                <MenuItem x:Name="ExifClearMenu" Header="C_lear the batch" Click="OnExifClearBatch" Visibility="Collapsed" />
                 <Separator />
                 <MenuItem Header="E_xit" InputGestureText="Alt+F4" Click="OnExit" />
             </MenuItem>
             <MenuItem Header="_Edit">
                 <MenuItem x:Name="CopyMenu" Header="_Copy picture" Command="{x:Static local:Commands.CopyPicture}" InputGestureText="Ctrl+C" />
+                <MenuItem x:Name="ExifCopyGpsMenu" Header="_Copy coordinates" InputGestureText="Ctrl+C" Click="OnExifCopyGps" Visibility="Collapsed" />
                 <MenuItem x:Name="AsciiCopyMarkdownMenu" Header="Copy as _Markdown" Tag="markdown" Click="OnAsciiCopyMenu" Visibility="Collapsed" />
                 <MenuItem x:Name="AsciiCopyAnsiMenu" Header="Copy as A_NSI escapes" Tag="ansi" Click="OnAsciiCopyMenu" Visibility="Collapsed" />
                 <MenuItem x:Name="AsciiCopyHtmlMenu" Header="Copy as _HTML" Tag="html" Click="OnAsciiCopyMenu" Visibility="Collapsed" />
@@ -73,16 +82,16 @@
                 <MenuItem Header="_Reset settings…" Click="OnResetMenu" />
             </MenuItem>
             <MenuItem Header="_View">
-                <MenuItem Header="Zoom _in" Command="{x:Static local:Commands.ZoomIn}" InputGestureText="Ctrl++" />
-                <MenuItem Header="Zoom _out" Command="{x:Static local:Commands.ZoomOut}" InputGestureText="Ctrl+-" />
-                <MenuItem Header="_Fit" Command="{x:Static local:Commands.ZoomFit}" />
-                <MenuItem Header="_1 screen pixel a pixel" Command="{x:Static local:Commands.ZoomOne}" />
-                <Separator />
+                <MenuItem x:Name="ZoomInMenu" Header="Zoom _in" Command="{x:Static local:Commands.ZoomIn}" InputGestureText="Ctrl++" />
+                <MenuItem x:Name="ZoomOutMenu" Header="Zoom _out" Command="{x:Static local:Commands.ZoomOut}" InputGestureText="Ctrl+-" />
+                <MenuItem x:Name="FitMenu" Header="_Fit" Command="{x:Static local:Commands.ZoomFit}" />
+                <MenuItem x:Name="OneMenu" Header="_1 screen pixel a pixel" Command="{x:Static local:Commands.ZoomOne}" />
+                <Separator x:Name="ViewLine1" />
                 <MenuItem x:Name="CompareMenu" Header="_Compare" Command="{x:Static local:Commands.Compare}" IsCheckable="False" />
                 <MenuItem x:Name="ScanlinesMenu" Header="_Scanlines over the art" Click="OnScanlinesMenu" Visibility="Collapsed" />
                 <MenuItem x:Name="FullScreenMenu" Header="F_ull screen" Command="{x:Static local:Commands.FullScreen}" />
                 <MenuItem x:Name="PlayMenu" Header="_Play or pause" Click="OnPlayMenu" />
-                <Separator />
+                <Separator x:Name="ViewLine2" />
                 <MenuItem Header="_Look">
                     <MenuItem x:Name="LookWindows" Header="Like _Windows" IsCheckable="True" Tag="Windows" Click="OnLook" />
                     <MenuItem x:Name="LookLight" Header="_Light" IsCheckable="True" Tag="Light" Click="OnLook" />
@@ -202,7 +211,7 @@
                                                 </StackPanel>
                                                 <WrapPanel Margin="0,8,0,0">
                                                     <Button x:Name="LoadPaletteButton" Content="_Load palette…" Click="OnLoadPalette" Margin="0,0,8,6" ToolTip=".hex, .pal, .gpl or a palette .png" />
-                                                    <Button x:Name="GrabPaletteButton" Content="Gra_b palette" Click="OnGrabPalette" Margin="0,0,0,6" ToolTip="Pick the colours from the picture" />
+                                                    <Button x:Name="GrabPaletteButton" Content="Grab palette" Click="OnGrabPalette" Margin="0,0,0,6" ToolTip="Pick the colours from the picture" />
                                                 </WrapPanel>
                                             </StackPanel>
                                         </StackPanel>
@@ -716,6 +725,192 @@
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
+                    </Grid>
+                </TabItem>
+
+                <!-- the EXIF Scrubber: the website's sections on the left, the inspector on the right.
+                     Access keys: B for the tab; I T C for the sections; O L S Z R A M N P on its
+                     controls, beside F E V H and D U J, which show on every tab. -->
+                <TabItem x:Name="ScrubTab" Header="EXIF Scru_bber">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="370" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
+                            <ScrollViewer x:Name="ScrubScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <StackPanel Margin="20,10,20,20">
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0" FontFamily="Courier New" TextWrapping="Wrap"
+                                               Text="What your photos and videos say about you, and taking it out. They stay on this PC." />
+
+                                    <Expander x:Name="ScrubImageSection" Style="{StaticResource Section}" Header="_Image &amp; Batch" IsExpanded="True">
+                                        <StackPanel>
+                                            <Button x:Name="ScrubOpenButton" Content="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" HorizontalAlignment="Stretch" />
+                                            <UniformGrid Rows="1" Margin="0,8,0,0">
+                                                <Button x:Name="ScrubAddButton" Content="Add to the batch…" Click="OnExifAddFiles" Margin="0,0,4,0"
+                                                        ToolTip="Pictures or videos to clean together (Ctrl+click picks several)" />
+                                                <Button x:Name="ScrubFolderAddButton" Content="Add a fo_lder…" Click="OnExifAddFolder" Margin="4,0,0,0"
+                                                        ToolTip="A folder's own pictures and videos into the batch (Ctrl+B)" />
+                                            </UniformGrid>
+                                            <TextBlock x:Name="ScrubSampleLine" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                       Text="Or drop a photo or video on the window, or paste one. Drop several, or folders, for a batch." />
+                                            <TextBlock x:Name="ScrubPictureInfo" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                            <Button x:Name="ScrubClearBatchButton" Content="Cle_ar batch" Click="OnExifClearBatch" HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="ScrubOptionsSection" Style="{StaticResource Section}" Header="Scrubbing Op_tions">
+                                        <StackPanel>
+                                            <RadioButton x:Name="ScrubAllButton" GroupName="ScrubMode" Checked="OnScrubMode">
+                                                <StackPanel>
+                                                    <AccessText FontWeight="SemiBold" Text="Re_move all metadata (Recommended)" />
+                                                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                               Text="Strips camera, lens, GPS, timestamps, comments, thumbnails, and trailers. Retains orientation and colour profile. A video keeps its picture and sound, byte for byte." />
+                                                </StackPanel>
+                                            </RadioButton>
+                                            <RadioButton x:Name="ScrubLocationButton" GroupName="ScrubMode" Checked="OnScrubMode" Margin="0,10,0,0">
+                                                <StackPanel>
+                                                    <AccessText FontWeight="SemiBold" Text="Remove location o_nly" />
+                                                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                               Text="Wipes GPS coordinates and trailers, but keeps camera model, lens, exposure settings, and date." />
+                                                </StackPanel>
+                                            </RadioButton>
+                                            <CheckBox x:Name="ScrubOrientationBox" Margin="0,14,0,0" Checked="OnScrubOrientation" Unchecked="OnScrubOrientation">
+                                                <StackPanel>
+                                                    <AccessText FontWeight="SemiBold" Text="_Preserve orientation tag" />
+                                                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Ensures vertical phone photos render upright in image viewers." />
+                                                </StackPanel>
+                                            </CheckBox>
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="ScrubSaveSection" Style="{StaticResource Section}" Header="_Clean &amp; Save" IsExpanded="True">
+                                        <StackPanel>
+                                            <Button x:Name="ScrubSaveButton" Content="_Scrub &amp; save a clean copy…" Click="OnScrubSave" HorizontalAlignment="Stretch"
+                                                    ToolTip="A copy with the metadata out, beside the original or where you pick (Ctrl+S); the original stays as it is" />
+                                            <Button x:Name="ScrubZipButton" Content="Clean the batch into a _ZIP…" Click="OnScrubZip" HorizontalAlignment="Stretch" Visibility="Collapsed" />
+                                            <Button x:Name="ScrubIntoButton" Content="Clean the batch into a folde_r…" Click="OnScrubInto" HorizontalAlignment="Stretch" Margin="0,8,0,0" Visibility="Collapsed"
+                                                    ToolTip="Each file's clean copy into a folder you pick, named photo-clean.jpg; nothing there is written over" />
+                                            <Button x:Name="ScrubStopButton" Content="Stop" Click="OnExifStop" HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.Name="Stop cleaning" />
+                                            <TextBlock x:Name="ScrubStatus" Margin="0,10,0,0" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                                        </StackPanel>
+                                    </Expander>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                        <Border x:Name="ScrubStageSlot" Grid.Column="1" Margin="24,18,14,12" />
+                    </Grid>
+                </TabItem>
+
+                <!-- the EXIF Injector: the form on the left, the same inspector on the right. Access keys: J for
+                     the tab; P C L T G I for the sections; O R 0 A N Q K S on its buttons. -->
+                <TabItem x:Name="InjectTab" Header="EXIF In_jector">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="370" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
+                            <ScrollViewer x:Name="InjectScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <StackPanel Margin="20,10,20,20">
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0" FontFamily="Courier New" TextWrapping="Wrap"
+                                               Text="Write your own camera, date and place into a photo. The pixels stay as they are." />
+
+                                    <Expander x:Name="InjectPhotoSection" Style="{StaticResource Section}" Header="_Photo" IsExpanded="True">
+                                        <StackPanel>
+                                            <Button x:Name="InjectOpenButton" Content="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" HorizontalAlignment="Stretch" />
+                                            <TextBlock x:Name="InjectSampleLine" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Or drop a photo on the window, or paste one." />
+                                            <TextBlock x:Name="InjectPictureInfo" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="InjectFormatNote" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="InjectCameraSection" Style="{StaticResource Section}" Header="_Camera &amp; Creator">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0" TextWrapping="Wrap" Text="The fields start with what the photo has. Change any of them, or empty one to remove it." />
+                                            <TextBlock Style="{StaticResource Label}" Text="Device preset" />
+                                            <ComboBox x:Name="InjectPreset" SelectionChanged="OnInjectPreset" AutomationProperties.Name="Device preset" />
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                       Text="A preset fills in the camera, lens and exposure the way that device writes them; injecting then also drops the old camera's serial numbers and maker data. The date, place and creator stay as they are." />
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button x:Name="InjectResetButton" Content="_Reset to photo" Click="OnInjectReset" Margin="0,0,6,6" ToolTip="Put back what the photo has" />
+                                                <Button x:Name="InjectDefaultsButton" Content="b_0r3d Defaults" Click="OnInjectDefaults" Margin="0,0,6,6" />
+                                                <Button x:Name="InjectClearButton" Content="Cle_ar fields" Click="OnInjectClear" Margin="0,0,0,6" ToolTip="Empty every field (injecting then removes those tags)" />
+                                            </WrapPanel>
+                                            <UniformGrid Columns="2" Margin="0,4,-8,0">
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Camera Make" /><TextBox x:Name="InjectMake" Style="{StaticResource Placeheld}" AutomationProperties.Name="Camera Make" Tag="e.g. Nikon, Apple, b0r3d optics" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Camera Model" /><TextBox x:Name="InjectModel" Style="{StaticResource Placeheld}" AutomationProperties.Name="Camera Model" Tag="e.g. Z8, iPhone 15 Pro, Rukus-Cam" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Artist / Creator" /><TextBox x:Name="InjectArtist" Style="{StaticResource Placeheld}" AutomationProperties.Name="Artist / Creator" Tag="e.g. still_b0r3d" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Copyright" /><TextBox x:Name="InjectCopyright" Style="{StaticResource Placeheld}" AutomationProperties.Name="Copyright" Tag="e.g. (c) 2026 b0r3d.org" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Software" /><TextBox x:Name="InjectSoftware" Style="{StaticResource Placeheld}" AutomationProperties.Name="Software" Tag="e.g. b0r3d DeRes" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Orientation" /><ComboBox x:Name="InjectOrientation" AutomationProperties.Name="Orientation" /></StackPanel>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="InjectLensSection" Style="{StaticResource Section}" Header="_Lens &amp; Exposure">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Label}" Margin="0,0,0,4" Text="Lens Model" />
+                                            <TextBox x:Name="InjectLens" Style="{StaticResource Placeheld}" AutomationProperties.Name="Lens Model" Tag="e.g. b0r3d Prime 28mm f/1.4 Deluxe" />
+                                            <UniformGrid Columns="2" Margin="0,0,-8,0">
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Aperture (f-stop)" /><TextBox x:Name="InjectAperture" Style="{StaticResource Placeheld}" AutomationProperties.Name="Aperture (f-stop)" Tag="e.g. 1.4, 2.8" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Shutter Speed" /><TextBox x:Name="InjectShutter" Style="{StaticResource Placeheld}" AutomationProperties.Name="Shutter Speed" Tag="e.g. 1/250, 0.5, 2" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="ISO" /><TextBox x:Name="InjectIso" Style="{StaticResource Placeheld}" AutomationProperties.Name="ISO" Tag="e.g. 100, 400" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Text="Focal Length (mm)" /><TextBox x:Name="InjectFocal" Style="{StaticResource Placeheld}" AutomationProperties.Name="Focal Length (mm)" Tag="e.g. 28, 4.25" /></StackPanel>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="InjectTimeSection" Style="{StaticResource Section}" Header="_Timestamp &amp; Caption">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Label}" Margin="0,0,0,4" Text="Date &amp; Time" />
+                                            <DockPanel>
+                                                <Button x:Name="InjectNowButton" DockPanel.Dock="Right" Content="_Now" Margin="6,0,0,0" Click="OnInjectNow" ToolTip="Fill in the time now" />
+                                                <TextBox x:Name="InjectDateTime" Style="{StaticResource Placeheld}" AutomationProperties.Name="Date &amp; Time" Tag="YYYY:MM:DD HH:MM:SS" />
+                                            </DockPanel>
+                                            <TextBlock Style="{StaticResource Label}" Text="Description / Title" />
+                                            <TextBox x:Name="InjectDescription" Style="{StaticResource Placeheld}" AutomationProperties.Name="Description / Title" Tag="Photo title or description" />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="InjectGpsSection" Style="{StaticResource Section}" Header="_GPS Location">
+                                        <StackPanel>
+                                            <UniformGrid Columns="3" Margin="0,0,-8,0">
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Margin="0,0,0,4" Text="GPS Latitude" /><TextBox x:Name="InjectLat" Style="{StaticResource Placeheld}" AutomationProperties.Name="GPS Latitude" Tag="e.g. 41.8781" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Margin="0,0,0,4" Text="GPS Longitude" /><TextBox x:Name="InjectLon" Style="{StaticResource Placeheld}" AutomationProperties.Name="GPS Longitude" Tag="e.g. -87.6298" /></StackPanel>
+                                                <StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource Label}" Margin="0,0,0,4" Text="Altitude (m)" /><TextBox x:Name="InjectAlt" Style="{StaticResource Placeheld}" AutomationProperties.Name="Altitude (m)" Tag="e.g. 182" /></StackPanel>
+                                            </UniformGrid>
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Content="📍 Chicago H_Q" Click="OnInjectPlace" Tag="41.878113 -87.629799 182" Margin="0,0,6,6" ToolTip="Downtown Chicago, Illinois" />
+                                                <Button Content="📍 A_kihabara" Click="OnInjectPlace" Tag="35.6983 139.773 10" Margin="0,0,6,6" ToolTip="Akihabara Electric Town, Tokyo" />
+                                                <Button Content="📍 Null Island" Click="OnInjectPlace" Tag="0 0 0" Margin="0,0,6,6" ToolTip="0°N 0°E (Null Island)" />
+                                                <Button Content="Clear GPS" Click="OnInjectPlace" Tag="" Margin="0,0,0,6" />
+                                            </WrapPanel>
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" TextWrapping="Wrap" Text="A new location replaces all of the photo's GPS tags." />
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander x:Name="InjectSaveSection" Style="{StaticResource Section}" Header="_Inject &amp; Save" IsExpanded="True">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Hint}" Margin="0" TextWrapping="Wrap"
+                                                       Text="Only the fields you change are written; the rest of the photo's EXIF stays as it was. The pixels aren't touched." />
+                                            <CheckBox x:Name="InjectXmpBox" Margin="0,10,0,0" Visibility="Collapsed">
+                                                <StackPanel>
+                                                    <TextBlock FontWeight="SemiBold" Text="Remove the XMP block too" />
+                                                    <TextBlock x:Name="InjectXmpText" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </CheckBox>
+                                            <Button x:Name="InjectSaveButton" Content="Inject EXIF &amp; _save…" Click="OnInjectSave" HorizontalAlignment="Stretch" Margin="0,12,0,0"
+                                                    ToolTip="A new copy with your changes (Ctrl+S); the original stays as it is" />
+                                            <TextBlock x:Name="InjectStatus" Margin="0,10,0,0" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                                        </StackPanel>
+                                    </Expander>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                        <Border x:Name="InjectStageSlot" Grid.Column="1" Margin="24,18,14,12" />
                     </Grid>
                 </TabItem>
             </TabControl>

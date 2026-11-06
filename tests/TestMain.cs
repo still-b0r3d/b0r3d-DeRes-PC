@@ -26,7 +26,7 @@ namespace B0r3dDeRes.Tests
     //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|window   run one part of them
     //                                              (build.cmd test runs the ten in turn, each
     //                                              within its 90 seconds on a 2-core CI machine too)
-    //   b0r3dDeResTests.exe --shots <folder> light|dark|ascii   draw the windows to PNG files (see Shots.cs), a set at a time
+    //   b0r3dDeResTests.exe --shots <folder> light|dark|ascii|exif   draw the windows to PNG files (see Shots.cs), a set at a time
     static partial class TestMain
     {
         static int passed, failed, skipped;
@@ -70,16 +70,16 @@ namespace B0r3dDeRes.Tests
                 Fresh(Work);
                 DataFolder.Reset(Path.Combine(Work, "data"));
 
-                if (args.Length == 3 && args[0] == "--shots" && new[] { "light", "dark", "ascii" }.Contains(args[2]))
+                if (args.Length == 3 && args[0] == "--shots" && new[] { "light", "dark", "ascii", "exif" }.Contains(args[2]))
                 {
                     int shot = TakeShots(args[1], args[2]);
                     TryDelete(Work);
                     return shot;
                 }
-                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videosave", "videobatch", "ascii", "window" }.Contains(args[1])) only = args[1];
+                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videosave", "videobatch", "ascii", "exif", "window" }.Contains(args[1])) only = args[1];
                 else if (args.Length > 0)
                 {
-                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|window] [--shots <folder> light|dark|ascii]");
+                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|exif|window] [--shots <folder> light|dark|ascii|exif]");
                     return 2;
                 }
 
@@ -193,6 +193,28 @@ namespace B0r3dDeRes.Tests
                 Run("window: a video's art goes out as an MP4 with its sound in step, a GIF and an ANSImation, at its own speed or slower", AsciiVideoInTheWindow);
                 Run("window: the dial-up modem types the art at its baud rate, hangs up and dials on, types new art from the start, and never while a GIF plays", AsciiModemInTheWindow);
                 Run("settings: the studio's settings are kept (an odd typed-in ramp too), odd ones fall back, and the window starts with them", AsciiSettingsKept);
+
+                part = "exif";
+                // (the website's results are read only for this part)
+                bool exifPart = only == null || only == "exif";
+                string exifCases = exifPart ? L(ExifExpected["cases"]).Count + " files (" + L(ExifExpected["cases"]).Count(c => !D(c).ContainsKey("file")) + " of them cut short or changed at random)" : "the files";
+                string exifEdits = exifPart ? L(ExifExpected["edits"]).Count + " sets of edits" : "every set of edits";
+                Run("EXIF: " + exifCases + " read as the website reads them: every field, tag row, AI marker and line", ExifInspectsLikeTheWebsite);
+                Run("EXIF: every file scrubbed as the website scrubs it, byte for byte, with its Verified Clean report (all metadata, without the orientation, location only)", ExifScrubsLikeTheWebsite);
+                Run("EXIF: the injector's edits byte for byte (" + exifEdits + "), and its form filled from each file", ExifInjectsLikeTheWebsite);
+                Run("EXIF: the form's checks and messages, dates, shutter speeds, XMP locations and copies, and AI source types as the website reads them", ExifTypedValuesLikeTheWebsite);
+                Run("EXIF: ZIPs byte for byte (written whole or as they go), the batch's names, the device presets and the TIFF blocks", ExifZipsAndPresetsLikeTheWebsite);
+                Run("video: where and on what phones (Apple, Android, Samsung, GoPro) and ffmpeg say a video was filmed is found: keys, user data, 3GPP's place, XMP, timed metadata, credentials, bytes after it", VideoMetadataFound);
+                Run("video: cleaned of all of it, or just where it was filmed, byte by byte: nothing left, the rest kept, and Windows plays the very same frames and sound, still turned the same", VideoMetadataCleaned);
+                Run("video: a metadata track over the picture's bytes is refused, a file that isn't a video too, and a clean video goes into a ZIP as it's written", VideoCleanGuards);
+                Run("video: a dashcam's GPS between frames, places in unknown and free boxes, a drone's captions, a trailer like a box and the index's names all go; QuickTime PCM keeps its every byte; " +
+                    "two indexes, fragments, damage and impossible tables are refused at once; the check finds a place it wasn't told of", VideoCleanHardCases);
+                Run("ZIP64: 70,000 files, and big files and offsets (with ZIP64's limits lowered), read back by .NET's own ZIP reader; a file longer than it said is stopped, no directory after it", ZipsPastTheLimits);
+                Run("window: the EXIF Scrubber shows what the website reads (the sample, a phone photo and all its tags, a HEIC, an iPhone video), its clean copies are the website's in every mode, checked from the disk, never over the original", ScrubberInTheWindow);
+                Run("window: a batch into a ZIP that is the website's byte for byte in both modes, into a folder (numbered, nothing written over), a video with it, Stop leaving only whole checked files and no ZIP, files and folders dropped", ExifBatchInTheWindow);
+                Run("window: the EXIF Injector's form is the website's for each photo, and what it saves too (an edit, a device preset, the XMP block out or kept); a refused value is said and marked; what it can't write into says so", InjectorInTheWindow);
+                Run("window: the EXIF tabs' menus and Ctrl keys, with a batch and without, and the other tabs get theirs back", ExifMenusInTheWindow);
+                Run("settings: the scrubber's options are kept, odd ones fall back, and the window starts with them", ExifSettingsKept);
 
                 part = "window";
                 Run("look: the three colour sets match, and every colour used is in them", ThemesMatch);

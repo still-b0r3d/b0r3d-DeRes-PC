@@ -15,9 +15,13 @@
     <ProjectReference Include="..\src\b0r3dDeRes.csproj" />
     <!-- reads the exe's own metadata for the "never goes online" test -->
     <PackageReference Include="System.Reflection.Metadata" Version="10.0.0" />
+    <!-- .NET's own ZIP reader, to read back the EXIF tools' ZIPs (the tests only; the exe has its own writer) -->
+    <Reference Include="System.IO.Compression" />
     <!-- the pictures the website's engine started from (website\*.png), and the GIFs it read (website\*.gif) -->
     <None Include="website\*.png" CopyToOutputDirectory="PreserveNewest" LinkBase="website" />
     <None Include="website\*.gif" CopyToOutputDirectory="PreserveNewest" LinkBase="website" />
+    <!-- the EXIF tools' files, and what the website's engine made of them (expected.json) -->
+    <None Include="website\exif\*" CopyToOutputDirectory="PreserveNewest" LinkBase="website\exif" />
   </ItemGroup>
 
 </Project>

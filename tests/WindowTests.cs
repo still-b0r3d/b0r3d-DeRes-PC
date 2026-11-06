@@ -328,9 +328,10 @@ namespace B0r3dDeRes.Tests
         {
             MainWindow window = NewMain();
             WaitForPicture(window);
+            // (a radio button's or tick box's label is the AccessText first in it)
             string Key(object label)
             {
-                string text = label as string ?? (label as TextBlock)?.Text ?? "";
+                string text = label as string ?? (label as TextBlock)?.Text ?? (label as AccessText)?.Text ?? (label as Panel)?.Children.OfType<AccessText>().FirstOrDefault()?.Text ?? "";
                 int at = text.IndexOf('_');
                 return at >= 0 && at + 1 < text.Length ? char.ToUpperInvariant(text[at + 1]).ToString() : null;
             }
@@ -342,20 +343,36 @@ namespace B0r3dDeRes.Tests
                 Check(twice.Count == 0, where + ": " + string.Join(", ", twice) + " used twice");
             }
             List<MenuItem> top = window.MenuBar.Items.OfType<MenuItem>().ToList();
-            // each tab with what it shows: the menu bar and both tabs' names are always there
-            foreach (bool ascii in new[] { false, true })
+            TabItem[] tabs = { window.DeresTab, window.AsciiTab, window.ScrubTab, window.InjectTab };
+            // each tab with what it shows (the scrubber with a batch too): the menu bar and the tabs' names are always there
+            foreach (var (tabItem, batch) in new[] { (window.DeresTab, false), (window.AsciiTab, false), (window.ScrubTab, false), (window.InjectTab, false), (window.ScrubTab, true) })
             {
-                window.Tabs.SelectedItem = ascii ? window.AsciiTab : window.DeresTab;
+                if (batch)
+                {
+                    window.AddToBatch(new[] { Path.Combine(ExifFolder, "phone.jpg"), Path.Combine(ExifFolder, "rukus.png") });
+                    Pump(() => !window.ExifReading, 10000);
+                }
+                window.Tabs.SelectedItem = tabItem;
                 Pump(() => false, 60);
-                string tab = ascii ? "the ASCII studio" : "the DeRes tab";
-                IEnumerable<HeaderedContentControl> sections = ascii
-                    ? new HeaderedContentControl[] { window.AsciiImageSection, window.AsciiModeSection, window.AsciiRampSection, window.AsciiTeletextSection, window.AsciiColourSection, window.AsciiAdjustSection, window.AsciiExportSection }
+                string tab = tabItem == window.DeresTab ? "the DeRes tab" : tabItem == window.AsciiTab ? "the ASCII studio" : tabItem == window.ScrubTab ? "the EXIF Scrubber" + (batch ? " with a batch" : "") : "the EXIF Injector";
+                IEnumerable<HeaderedContentControl> sections =
+                    tabItem == window.AsciiTab ? new HeaderedContentControl[] { window.AsciiImageSection, window.AsciiModeSection, window.AsciiRampSection, window.AsciiTeletextSection, window.AsciiColourSection, window.AsciiAdjustSection, window.AsciiExportSection }
+                    : tabItem == window.ScrubTab ? new HeaderedContentControl[] { window.ScrubImageSection, window.ScrubOptionsSection, window.ScrubSaveSection }
+                    : tabItem == window.InjectTab ? new HeaderedContentControl[] { window.InjectPhotoSection, window.InjectCameraSection, window.InjectLensSection, window.InjectTimeSection, window.InjectGpsSection, window.InjectSaveSection }
                     : new HeaderedContentControl[] { window.ImageSection, window.HardwareSection, window.AdjustSection, window.DitherSection, window.ScreenSection, window.ExportSection };
-                IEnumerable<ContentControl> buttons = ascii
-                    ? new ContentControl[] { window.AsciiOpenButton, window.AsciiSavePng, window.AsciiCopyText, window.AsciiResetButton }
-                    : new ContentControl[] { window.OpenButton, window.SaveButton, window.CopyButton, window.SurpriseButton };
-                Unique(tab, top.Select(m => Key(m.Header)).Concat(new[] { Key(window.DeresTab.Header), Key(window.AsciiTab.Header) })
-                    .Concat(sections.Select(s => Key(s.Header))).Concat(buttons.Select(b => Key(b.Content))));
+                IEnumerable<ContentControl> buttons =
+                    tabItem == window.AsciiTab ? new ContentControl[] { window.AsciiOpenButton, window.AsciiSavePng, window.AsciiCopyText, window.AsciiResetButton }
+                    : tabItem == window.ScrubTab ? new ContentControl[] { window.ScrubOpenButton, window.ScrubFolderAddButton, window.ScrubClearBatchButton, window.ScrubAllButton, window.ScrubLocationButton,
+                        window.ScrubOrientationBox, window.ScrubSaveButton, window.ScrubZipButton, window.ScrubIntoButton }
+                    : tabItem == window.InjectTab ? new ContentControl[] { window.InjectOpenButton, window.InjectResetButton, window.InjectDefaultsButton, window.InjectClearButton, window.InjectNowButton, window.InjectSaveButton }
+                    : new ContentControl[] { window.OpenButton, window.SurpriseButton, window.LoadPaletteButton, window.SaveButton, window.CopyButton, window.ShareButton, window.ResetButton };
+                // and those with a key only when they have one (Grab palette has none: B is the scrubber's), which mustn't share it
+                IEnumerable<ContentControl> maybe =
+                    tabItem == window.ScrubTab ? new ContentControl[] { window.ScrubAddButton, window.ScrubStopButton }
+                    : tabItem == window.InjectTab ? LogicalChildren<Button>(window.InjectGpsSection).Cast<ContentControl>().Concat(new ContentControl[] { window.InjectXmpBox })
+                    : tabItem == window.DeresTab ? new ContentControl[] { window.GrabPaletteButton, window.SnipButton, window.BatchButton } : new ContentControl[0];
+                Unique(tab, top.Select(m => Key(m.Header)).Concat(tabs.Select(t => Key(t.Header))).Concat(sections.Select(s => Key(s.Header))).Concat(buttons.Select(b => Key(b.Content)))
+                    .Concat(maybe.Select(b => Key(b.Content)).Where(k => k != null)));
                 // every line of a list that shows has a key of its own
                 void Lists(MenuItem item)
                 {
@@ -366,6 +383,17 @@ namespace B0r3dDeRes.Tests
                 }
                 top.ForEach(Lists);
             }
+        }
+
+        // every T under `root` in the logical tree (a closed section's too)
+        static IEnumerable<T> LogicalChildren<T>(DependencyObject root) where T : DependencyObject
+        {
+            foreach (object child in LogicalTreeHelper.GetChildren(root))
+                if (child is DependencyObject d)
+                {
+                    if (d is T t) yield return t;
+                    foreach (T x in LogicalChildren<T>(d)) yield return x;
+                }
         }
 
         // the width box's right-click menu is b0r3d DeRes's own, so it takes the light or dark look

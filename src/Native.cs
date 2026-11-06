@@ -47,6 +47,35 @@ namespace B0r3dDeRes
         [DllImport("user32.dll")]
         static extern int GetAwarenessFromDpiAwarenessContext(IntPtr context);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool GetFileInformationByHandle(Microsoft.Win32.SafeHandles.SafeFileHandle file, out FileInformation information);
+
+        // (BY_HANDLE_FILE_INFORMATION: its times are FILETIMEs, two DWORDs each, so 4-byte packing)
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        struct FileInformation
+        {
+            public uint Attributes;
+            public long Created, Accessed, Written;
+            public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
+        }
+
+        // Which file a path is: its volume's serial number and its number on that volume (the same
+        // for every spelling of its path: a network drive's, a junction's, a hard link's), or null
+        // when it can't be opened.
+        public static (uint Volume, ulong Index)? FileIdentity(string path)
+        {
+            try
+            {
+                using (var file = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite | System.IO.FileShare.Delete, 1))
+                    if (GetFileInformationByHandle(file.SafeFileHandle, out FileInformation info)) return (info.Volume, ((ulong)info.IndexHigh << 32) | info.IndexLow);
+            }
+            catch (Exception x) when (x is System.IO.IOException || x is UnauthorizedAccessException || x is ArgumentException || x is NotSupportedException || x is System.Security.SecurityException) { }
+            catch (DllNotFoundException) { }
+            catch (EntryPointNotFoundException) { }
+            return null;
+        }
+
         static readonly IntPtr PerMonitorV2 = new IntPtr(-4);
 
         // how this thread follows the screens' scaling: "per-monitor-v2" when the manifest did its job
