@@ -46,7 +46,16 @@ namespace B0r3dDeRes.Tests
         static int Main(string[] args)
         {
             AppDomain.CurrentDomain.UnhandledException += (s, e) => { Console.WriteLine("FAIL  crashed: " + e.ExceptionObject); Environment.Exit(3); };
-            using (new Timer(_ => { Console.WriteLine("FAIL  still running after 90 seconds, so stopped (watchdog), during: " + running); Environment.Exit(4); }, null, 90000, Timeout.Infinite))
+            // the watchdog, 90 seconds (by hand, DERES_WATCHDOG can make it shorter, for a soak run):
+            // what's stuck, and any of Windows' video calls that haven't come back
+            int watchdog = int.TryParse(Environment.GetEnvironmentVariable("DERES_WATCHDOG"), out int limit) && limit > 0 && limit < 90 ? limit : 90;
+            void Stuck(object _)
+            {
+                string video = B0r3dDeRes.Video.VideoTrace.Now();
+                Console.WriteLine("FAIL  still running after " + watchdog + " seconds, so stopped (watchdog), during: " + running + (video.Length > 0 ? "; Windows' video calls not back: " + video : ""));
+                Environment.Exit(4);
+            }
+            using (new Timer(Stuck, null, watchdog * 1000, Timeout.Infinite))
             {
                 // the program's resources and styles, as when it runs; a window that throws is a FAIL line
                 var app = new App();

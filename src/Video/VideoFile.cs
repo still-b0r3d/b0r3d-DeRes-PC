@@ -203,6 +203,12 @@ namespace B0r3dDeRes.Video
         int soundRate, soundChannels;
         bool convertSound;
         bool ended;
+        // what this reader has read, for the trace's words
+        int samplesRead, emptyReads, seeks;
+        long lastSampleAt;
+
+        string Readings() => samplesRead + " read" + (samplesRead > 0 ? " (the last at Windows' " + VideoTrace.Seconds(lastSampleAt) + ")" : "") +
+            (emptyReads > 0 ? ", " + emptyReads + " empty" : "") + (seeks > 0 ? ", " + seeks + " seeks before" : "");
 
         public VideoReader(VideoFile file, Purpose purpose)
         {
@@ -240,7 +246,8 @@ namespace B0r3dDeRes.Video
                     done.SetException(x);
                 }
             });
-            return done.Task.GetAwaiter().GetResult();
+            using (VideoTrace.In("waiting for the video thread"))
+                return done.Task.GetAwaiter().GetResult();
         }
 
         // the calls waiting for the video thread, which is started with it
@@ -276,26 +283,29 @@ namespace B0r3dDeRes.Video
                 throw new VideoException("The file can't be opened: " + x.Message);
             }
             IMFAttributes attributes = null;
-            try
+            using (VideoTrace.In("opening a " + purpose + " reader of " + System.IO.Path.GetFileName(file.Path)))
             {
-                Mf.Check(Mf.MFCreateMFByteStreamOnStream(new StreamForMf(stream, false), out bytes), "Windows' video system can't read the file");
-                attributes = Mf.NewAttributes();
-                // the video processor: frames upright, in full colour (not for HLG: DeRes converts that itself)
-                if (purpose == Purpose.Frames && !hlg) Mf.SetU32(attributes, G.EnableAdvancedVideoProcessing, 1);
-                int hr = Mf.MFCreateSourceReaderFromByteStream(bytes, attributes, out Reader);
-                if (hr < 0) throw new VideoException("Windows can't read it as a video (" + Mf.Hr(hr) + ").");
-                Reader.SetStreamSelection(AllStreams, 0);
-                if (purpose == Purpose.Frames) SetUpFrames();
-                else if (purpose == Purpose.Sound) SetUpSound();
-            }
-            catch
-            {
-                Dispose();
-                throw;
-            }
-            finally
-            {
-                Mf.Release(attributes);
+                try
+                {
+                    Mf.Check(Mf.MFCreateMFByteStreamOnStream(new StreamForMf(stream, false), out bytes), "Windows' video system can't read the file");
+                    attributes = Mf.NewAttributes();
+                    // the video processor: frames upright, in full colour (not for HLG: DeRes converts that itself)
+                    if (purpose == Purpose.Frames && !hlg) Mf.SetU32(attributes, G.EnableAdvancedVideoProcessing, 1);
+                    int hr = Mf.MFCreateSourceReaderFromByteStream(bytes, attributes, out Reader);
+                    if (hr < 0) throw new VideoException("Windows can't read it as a video (" + Mf.Hr(hr) + ").");
+                    Reader.SetStreamSelection(AllStreams, 0);
+                    if (purpose == Purpose.Frames) SetUpFrames();
+                    else if (purpose == Purpose.Sound) SetUpSound();
+                }
+                catch
+                {
+                    Dispose();
+                    throw;
+                }
+                finally
+                {
+                    Mf.Release(attributes);
+                }
             }
         }
 
@@ -455,7 +465,9 @@ namespace B0r3dDeRes.Video
         {
             var p = new PropVariant { Type = 20, Long = Math.Max(0, ToWindows(time)) };   // VT_I8
             Guid format = Guid.Empty;
-            Mf.Check(Reader.SetCurrentPosition(ref format, ref p), "Windows couldn't go to that time in the video");
+            using (VideoTrace.In("SetCurrentPosition to " + VideoTrace.Seconds(time) + " in " + System.IO.Path.GetFileName(file.Path) + " by a " + purpose + " reader, " + Readings()))
+                Mf.Check(Reader.SetCurrentPosition(ref format, ref p), "Windows couldn't go to that time in the video");
+            seeks++;
             ended = false;
             LetGoHeld();
         }
@@ -529,7 +541,20 @@ namespace B0r3dDeRes.Video
         // the next sample of the picture (null: none this time, or the end), whether its kind changed
         IMFSample ReadVideoSample(out long time, out bool changed)
         {
-            int hr = Reader.ReadSample(FirstVideo, 0, out _, out uint flags, out time, out IMFSample sample);
+            int hr;
+            uint flags;
+            IMFSample sample;
+            using (VideoTrace.In("ReadSample (picture) of " + System.IO.Path.GetFileName(file.Path) + " by a " + purpose + " reader, " + Readings()))
+                hr = Reader.ReadSample(FirstVideo, 0, out _, out flags, out time, out sample);
+            if (hr >= 0)
+            {
+                if (sample != null)
+                {
+                    samplesRead++;
+                    lastSampleAt = time;
+                }
+                else emptyReads++;
+            }
             if (hr < 0)
             {
                 Mf.Release(sample);
@@ -637,7 +662,20 @@ namespace B0r3dDeRes.Video
             time = 0;
             while (!ended)
             {
-                int hr = Reader.ReadSample(FirstAudio, 0, out _, out uint flags, out time, out IMFSample sample);
+                int hr;
+                uint flags;
+                IMFSample sample;
+                using (VideoTrace.In("ReadSample (sound) of " + System.IO.Path.GetFileName(file.Path) + ", " + Readings()))
+                    hr = Reader.ReadSample(FirstAudio, 0, out _, out flags, out time, out sample);
+                if (hr >= 0)
+                {
+                    if (sample != null)
+                    {
+                        samplesRead++;
+                        lastSampleAt = time;
+                    }
+                    else emptyReads++;
+                }
                 if (hr < 0 || (flags & ErrorFlag) != 0)
                 {
                     Mf.Release(sample);
@@ -744,13 +782,16 @@ namespace B0r3dDeRes.Video
         // (twice does no harm)
         public void Dispose() => Mta(() =>
         {
-            LetGoHeld();
-            Mf.Release(Reader);
-            Mf.Release(bytes);
-            stream?.Dispose();
-            Reader = null;
-            bytes = null;
-            stream = null;
+            using (VideoTrace.In("releasing a reader of " + System.IO.Path.GetFileName(file.Path)))
+            {
+                LetGoHeld();
+                Mf.Release(Reader);
+                Mf.Release(bytes);
+                stream?.Dispose();
+                Reader = null;
+                bytes = null;
+                stream = null;
+            }
         });
     }
 }

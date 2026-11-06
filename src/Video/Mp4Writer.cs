@@ -31,6 +31,7 @@ namespace B0r3dDeRes.Video
             this.height = height;
             this.sound = sound;
             IMFAttributes attributes = null;
+            VideoTrace.Scope trace = VideoTrace.In("MP4: setting up the writer");
             try
             {
                 Mf.Check(Mf.MFCreateMFByteStreamOnStream(new StreamForMf(output, true), out bytes), "Windows' video system can't write the file");
@@ -100,6 +101,7 @@ namespace B0r3dDeRes.Video
             finally
             {
                 Mf.Release(attributes);
+                trace.Dispose();
             }
         }
 
@@ -130,7 +132,8 @@ namespace B0r3dDeRes.Video
                 sample.AddBuffer(buffer);
                 sample.SetSampleTime(time);
                 sample.SetSampleDuration(duration);
-                Mf.Check(writer.WriteSample(video, sample), "Windows' H.264 encoder stopped");
+                using (VideoTrace.In("MP4: WriteSample (picture at " + VideoTrace.Seconds(time) + ")"))
+                    Mf.Check(writer.WriteSample(video, sample), "Windows' H.264 encoder stopped");
             }
             finally
             {
@@ -156,7 +159,8 @@ namespace B0r3dDeRes.Video
                 sample.AddBuffer(buffer);
                 sample.SetSampleTime(time);
                 sample.SetSampleDuration((long)count / 2 * VideoFile.Second / VideoReader.SampleRate);
-                Mf.Check(writer.WriteSample(audio, sample), "Windows' AAC encoder stopped");
+                using (VideoTrace.In("MP4: WriteSample (sound at " + VideoTrace.Seconds(time) + ")"))
+                    Mf.Check(writer.WriteSample(audio, sample), "Windows' AAC encoder stopped");
             }
             finally
             {
@@ -169,14 +173,18 @@ namespace B0r3dDeRes.Video
         public void Finish()
         {
             if (finished) return;
-            Mf.Check(writer.FinalizeWriter(), "Windows couldn't finish the MP4");
+            using (VideoTrace.In("MP4: Finalize"))
+                Mf.Check(writer.FinalizeWriter(), "Windows couldn't finish the MP4");
             finished = true;
         }
 
         public void Dispose()
         {
-            Mf.Release(writer);
-            Mf.Release(bytes);
+            using (VideoTrace.In("MP4: releasing the writer"))
+            {
+                Mf.Release(writer);
+                Mf.Release(bytes);
+            }
         }
     }
 }
