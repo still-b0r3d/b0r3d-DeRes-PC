@@ -1,9 +1,9 @@
 # Changelog
 
 What changed in each version of b0r3d DeRes for Windows, the newest first. The versions before
-1.0 are its stages, built one after the other; none of them was released.
+1.0 are its stages, built one after the other; 0.8 is the first one released.
 
-## 0.8 (not released yet)
+## 0.8 (released 6 November 2026)
 
 The eighth stage: the EXIF tools.
 

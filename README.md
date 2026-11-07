@@ -10,7 +10,7 @@ It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install
 
 ![b0r3d DeRes as it starts: the Rukus sample on the Game Boy](docs/deres-game-boy.png)
 
-**Being built.** This is version 0.8, the eighth of nine stages: the program itself, opening
+**An early release.** This is version 0.8, the eighth of nine stages: the program itself, opening
 pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
 Signal (every one of its engine's settings, presets and dubbed tapes), the screen effects, the
 preview, saving, copying and dragging out PNGs, wallpapers, animated GIFs playing, GIF and APNG
@@ -18,11 +18,14 @@ loops, videos (playing, and saved as MP4s with their sound, GIFs, APNGs and PNG 
 batches, DeRes the screen, the machines' own files for emulators, palette files, look files and
 share links, the ASCII / ANSI studio (its art of pictures, GIFs and videos, and every file it
 makes), and the EXIF tools (what photos and phone videos say about you, taken out or written
-in). Getting it ready to release comes next.
+in). 1.0 comes after a full test run on a real PC.
 
 ## Make a picture
 
-Put `b0r3dDeRes.exe` in a folder of its own and double-click it. It opens with the Rukus
+Download `b0r3dDeRes.exe` from the
+[Releases page](https://github.com/still-b0r3d/b0r3d-DeRes-PC/releases), put it in a folder of
+its own and double-click it. Windows may say it protected your PC: click **More info**, then
+**Run anyway** (b0r3d DeRes isn't code-signed). It opens with the Rukus
 sample on the Game Boy, as the website does. Open a picture of your own with **File → Open
 picture or video…** (Ctrl+O), drop one anywhere on the window, paste one (Ctrl+V), or drop it on
 `b0r3dDeRes.exe` itself. PNG, JPEG, GIF (an animated one plays: see below), BMP and TIFF always
