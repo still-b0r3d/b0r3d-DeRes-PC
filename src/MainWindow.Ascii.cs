@@ -487,11 +487,15 @@ namespace B0r3dDeRes
             AsciiResetButton.ClearValue(ForegroundProperty);
         }
 
-        // every one of the studio's settings back to how it starts (the picture stays)
+        // every one of the studio's settings back to how it starts, a video's frame rate and Keep the
+        // sound too (shared with DeRes, whose rows follow when its tab shows); the picture stays
         internal void ResetAscii()
         {
-            settings.Ascii = new AsciiSettings();
-            settings.AsciiScale = 1;
+            Settings fresh = Settings.Defaults();
+            settings.Ascii = fresh.Ascii;
+            settings.AsciiScale = fresh.AsciiScale;
+            settings.VideoRate = fresh.VideoRate;
+            settings.VideoSound = fresh.VideoSound;
             quiet = true;
             AsciiCustomRamp.Text = "";
             quiet = false;

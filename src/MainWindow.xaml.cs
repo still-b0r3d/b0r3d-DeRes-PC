@@ -1789,7 +1789,7 @@ namespace B0r3dDeRes
             }
             if (AsciiActive)
             {
-                if (MessageBox.Show(this, "Put every setting of the ASCII / ANSI studio back to how it starts? The picture stays, and so do DeRes's settings.", Program.Name,
+                if (MessageBox.Show(this, "Put every setting of the ASCII / ANSI studio back to how it starts, a video's frame rate and Keep the sound included (DeRes shares those)? The picture stays, and so do DeRes's other settings.", Program.Name,
                     MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes) ResetAscii();
                 return;
             }
@@ -1797,8 +1797,9 @@ namespace B0r3dDeRes
                 MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes) ResetSettings();
         }
 
-        // Every setting back to how a first start has them (palettes grabbed or loaded go too); the
-        // picture stays, and so do the program's look and the window.
+        // Every setting back to how a first start has them (palettes grabbed or loaded go too, and a
+        // video's frame rate and Keep the sound, which the studio shares); the picture stays, and so
+        // do the program's look and the window.
         internal void ResetSettings()
         {
             Settings fresh = Settings.Defaults();
@@ -1811,6 +1812,8 @@ namespace B0r3dDeRes
             settings.LoopFrames = fresh.LoopFrames;
             settings.LoopFps = fresh.LoopFps;
             settings.AnimationStyle = fresh.AnimationStyle;
+            settings.VideoRate = fresh.VideoRate;
+            settings.VideoSound = fresh.VideoSound;
             Changed();
             saveTimer.Stop();
             SaveSettings();

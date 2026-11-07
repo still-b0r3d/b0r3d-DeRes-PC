@@ -133,7 +133,8 @@ namespace B0r3dDeRes.Tests
             window.AsciiSeparatedBox.IsChecked = true;
             Check(!window.Current.Ascii.TeletextHeader && window.Current.Ascii.TeletextSeparated, "Teletext's boxes");
             ArtIsTheEngines(window, "Teletext, separated, no header");
-            // Reset settings: two clicks, then the studio as it starts (DeRes's settings stay)
+            // Reset settings: two clicks, then the studio as it starts (DeRes's settings stay, but
+            // for a video's frame rate and Keep the sound, which the two share: see AsciiVideoInTheWindow)
             string deres = Looks.FileText(window.Current);
             window.AsciiResetButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
             Check(window.Current.Ascii.Mode == AsciiModes.Teletext, "one click reset it");
@@ -304,6 +305,12 @@ namespace B0r3dDeRes.Tests
             int slowHomes = 0;
             for (int i = 0; i + 2 < slowBytes.Length; i++) if (slowBytes[i] == 0x1b && slowBytes[i + 1] == (byte)'[' && slowBytes[i + 2] == (byte)'H') slowHomes++;
             Check(slowHomes == 30, "at 15 a second, " + slowHomes + " frames");
+            // the studio's Reset settings puts the frame rate and Keep the sound back too (it shares them with DeRes)
+            window.Current.VideoSound = false;
+            window.ResetAscii();
+            Check(window.Current.VideoRate == 0 && window.Current.VideoSound && window.AsciiKeepSound.IsChecked == true &&
+                window.AsciiVideoRates.Children.OfType<RadioButton>().First(b => (int)b.Tag == 0).IsChecked == true,
+                "the studio's Reset settings should put a video's frame rate and Keep the sound back: " + window.Current.VideoRate + (window.Current.VideoSound ? ", sound" : ", no sound"));
             window.Close();
         }
 

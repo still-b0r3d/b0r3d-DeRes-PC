@@ -100,6 +100,16 @@ namespace B0r3dDeRes.Tests
             WaitForTime(clip.Time / 1e7);
             Check(window.VideoPlayButton.Content as string == "▶ Play", "paused, the button says Play");
 
+            // Reset settings puts a video's frame rate (15 a second, from the save) and Keep the sound back too
+            window.VideoKeepSound.IsChecked = false;
+            Check(window.Current.VideoRate == 15 && !window.Current.VideoSound, "before Reset settings: " + window.Current.VideoRate + (window.Current.VideoSound ? ", sound" : ", no sound"));
+            window.ResetSettings();
+            WaitForPicture(window);
+            Check(window.Current.VideoRate == 0 && window.Current.VideoSound && window.VideoKeepSound.IsChecked == true &&
+                window.VideoRates.Children.OfType<RadioButton>().First(b => (int)b.Tag == 0).IsChecked == true &&
+                window.VideoHint.Text.Contains(" frames at 30 a second, with its sound."),
+                "Reset settings should put a video's frame rate and Keep the sound back: " + window.Current.VideoRate + (window.Current.VideoSound ? ", sound; " : ", no sound; ") + window.VideoHint.Text);
+
             // a picture opened after it: the timeline goes
             window.OpenSample("rukus");
             WaitForPicture(window);

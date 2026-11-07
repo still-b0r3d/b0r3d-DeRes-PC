@@ -98,8 +98,9 @@ The settings on the left fold out like the website's:
 </p>
 
 **Reset settings** at the bottom puts DeRes's settings back as a first start has them: the
-picture stays, and so do light or dark, the window, and a video's frame rate and Keep the sound.
-On the other tabs, Reset settings puts back that tab's own.
+picture stays, and so do light or dark and the window. On the other tabs, Reset settings puts
+back that tab's own. A video's frame rate and Keep the sound, which DeRes and the studio share,
+go back on either.
 
 The picture on the right is drawn at your screen's own pixels: every machine pixel is a sharp
 block of whole screen pixels, on a 150 % screen too. **Fit** shows it all; the mouse wheel,

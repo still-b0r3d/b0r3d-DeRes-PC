@@ -55,6 +55,8 @@ The eighth stage: the EXIF tools.
 - Saving over a file that's there (the Save dialog asks first) no longer carries the old file's
   hidden streams onto the new one, a download's web address among them. This is every save in
   the program.
+- Reset settings now puts a video's frame rate and Keep the sound back too, on the DeRes tab and
+  in the studio (the two share them).
 - Alt+B opens the EXIF Scrubber and Alt+J the Injector; the Hardware section's Grab palette
   button has no access key now (the Edit menu's Grab palette has one).
 - The self-test reads the Rukus sample's EXIF, cleans it and writes into it: the website's very
