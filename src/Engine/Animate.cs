@@ -20,7 +20,7 @@ namespace B0r3dDeRes.Engine
         // the website's: a phone has to hold them
         public static readonly AnimationLimits Website = new AnimationLimits { FramePixels = 1024 * 1024, Budget = 16L * 1024 * 1024, ExportPixels = 4096L * 4096 };
 
-        // The PC's, set by measuring (see PLAN.md, stage 5): a frame up to 4096 × 4096 (16 times the
+        // The PC's, set by measuring: a frame up to 4096 × 4096 (16 times the
         // website's), and 128 MP held at once (8 times; about 400 MB of frames): a 48-frame signal
         // loop up to 6× on the NES. An animated GIF's own frames past it are made twice instead.
         public static readonly AnimationLimits Pc = new AnimationLimits { FramePixels = 4096L * 4096, Budget = 128L * 1024 * 1024 };

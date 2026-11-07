@@ -10,8 +10,9 @@ namespace B0r3dDeRes.Tests
 {
     // The scrubber's videos (the PC's: the website has none): what phones write about where and on
     // what a video was filmed, found, and taken out byte by byte with the picture and sound the same
-    // bytes. The clips are deres-pc-plan\fixtures\make-video-meta.mjs's (Apple, Android and GoPro
-    // layouts on the test clips) and ffmpeg's own metadata writer's (make-video-clips.sh).
+    // bytes. The clips are make-video-meta.mjs's (Apple, Android and GoPro layouts on the test
+    // clips) and ffmpeg's own metadata writer's (make-video-clips.sh); both scripts are kept
+    // outside this repository.
     static partial class TestMain
     {
         static ImageMetadata InspectClip(string name) => VideoMeta.Inspect(Clip(name));

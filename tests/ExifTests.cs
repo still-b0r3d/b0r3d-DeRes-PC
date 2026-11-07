@@ -10,8 +10,9 @@ using B0r3dDeRes.Exif;
 namespace B0r3dDeRes.Tests
 {
     // Stage 8: the EXIF tools against the website's own engine (website\exif\expected.json, made by
-    // deres-pc-plan\fixtures\make-exif-files.mjs): everything the inspector reads, every scrub and
-    // injection byte for byte, the injector's form and every typed value, ZIPs and batch names.
+    // make-exif-files.mjs, kept outside this repository): everything the inspector reads, every
+    // scrub and injection byte for byte, the injector's form and every typed value, ZIPs and batch
+    // names.
     static partial class TestMain
     {
         static string ExifFolder => Path.Combine(TestsFolder, "website", "exif");

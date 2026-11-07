@@ -1,4 +1,4 @@
-// Made by _B0r3d.org\deres-pc-plan\fixtures\make-test-files.mjs from the website's own engine,
+// Made by make-test-files.mjs (kept outside this repository) from the website's own engine,
 // img.b0r3d.org v0.9.4 (commit 1bdc174). Don't edit: make it again when the website changes.
 using B0r3dDeRes.Engine;
 

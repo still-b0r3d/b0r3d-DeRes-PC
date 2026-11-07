@@ -1,4 +1,4 @@
-// Made by deres-pc-plan\fixtures\make-exif-files.mjs from Node 24.19.0 (Unicode 17.0). Don't edit: make it again.
+// Made by make-exif-files.mjs (kept outside this repository) from Node 24.19.0 (Unicode 17.0). Don't edit: make it again.
 namespace B0r3dDeRes.Exif
 {
     static partial class JsCase
