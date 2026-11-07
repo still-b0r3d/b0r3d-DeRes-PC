@@ -1,5 +1,8 @@
 # Changelog
 
+What changed in each version of b0r3d DeRes for Windows, the newest first. The versions before
+1.0 are its stages, built one after the other; none of them was released.
+
 ## 0.8 (not released yet)
 
 The eighth stage: the EXIF tools.
@@ -8,10 +11,11 @@ The eighth stage: the EXIF tools.
   sections, and its inspector on the right of either. It reads the file open (the same one as on
   the other tabs) as the website reads it, field for field and tag for tag: the picture, the
   website's line about it, the place it was taken (with **Copy coordinates**, kept off Windows'
-  cloud clipboard and its history), an embedded thumbnail (shown: it may be the uncropped original), bytes after
-  the picture (a motion photo's video, Samsung's trailer, a gain map), AI markers and Content
-  Credentials, and the Summary or **All Tags** with its filter. JPEG, PNG, WebP and GIF are
-  cleaned; HEIC and AVIF are read (their pictures too where Windows has the extensions).
+  cloud clipboard and its history), an embedded thumbnail (shown: it may be the uncropped
+  original), bytes after the picture (a motion photo's video, Samsung's trailer, a gain map), AI
+  markers and Content Credentials, and the Summary or **All Tags Tree** with its filter. JPEG, PNG,
+  WebP and GIF are cleaned; HEIC and AVIF are read (their pictures too where Windows has the
+  extensions).
 - The Scrubber: remove all metadata or the location only, keep the orientation tag or not.
   **Scrub & save a clean copy…** saves a new file, never over the original, and checks it as
   it's read back from the disk: **Verified Clean**, or what's left. The clean copies are the
@@ -56,6 +60,10 @@ The eighth stage: the EXIF tools.
 - The self-test reads the Rukus sample's EXIF, cleans it and writes into it: the website's very
   files (`exif=ok`).
 - The tests run in eleven parts (`exif` is new); `--shots <folder> exif` draws the two tabs.
+- The README shows the program in pictures. The licence notices (THIRD-PARTY-NOTICES.txt, and
+  Help → About) now also have Unicode's (the case mappings the EXIF tools follow), SciPy's (the
+  Signal's filters, through ntsc-rs) and Clatter's zlib licence in full. LICENSE says the
+  third-party parts stay under their own licences, without the Commons Clause.
 
 ## 0.7 (not released yet)
 
@@ -67,10 +75,10 @@ The seventh stage: the ASCII / ANSI studio.
 - Every mode: half blocks, character ramps (Standard, Detailed, Blocks, Katakana, Binary, or
   your own, inverted too), PETSCII on a C64's 40 × 25 screen, and Teletext mosaics with the
   Ceefax header and separated mosaics; 40, 80 or 132 columns or 20 to 200 in steps of 2, 2:1
-  cells or square;
-  every colour profile (ANSI 16, C64, Teletext, green, amber, mono, truecolour); Contrast,
-  Brightness and Gamma. The same art as the website's, character for character and colour for
-  colour (162 cases checked against its engine), its readout in the website's words.
+  cells or square; every colour profile (ANSI 16, C64, Teletext, green, amber, mono,
+  truecolour); Contrast, Brightness and Gamma. The same art as the website's, character for
+  character and colour for colour (162 cases checked against its engine), its readout in the
+  website's words.
 - The art shows as its picture, from the VGA font's own 8 × 16 letters (the website's font file,
   inside the exe), with zoom, full screen and the website's scanlines; the dial-up modem types it
   out at 300 to 28.8k baud, a cursor blinking where the next character goes.
@@ -83,9 +91,9 @@ The seventh stage: the ASCII / ANSI studio.
 - An animated GIF plays as art (its play bar under the art); its every frame goes out as an
   ANSImation, a GIF or an APNG (exactly the art's colours when there are 256 or fewer): the
   website's very ANSImation, and its very GIF and APNG of half blocks and Teletext. A video
-  plays as art on its timeline, and its every frame from its start
-  to its stop goes out as an ANSImation, a GIF, an APNG, or an MP4 with its sound in step, at its
-  own frame rate or a slower one. Frames are made on several cores, with the time left and Stop.
+  plays as art on its timeline, and its every frame from its start to its stop goes out as an
+  ANSImation, a GIF, an APNG, or an MP4 with its sound in step, at its own frame rate or a
+  slower one. Frames are made on several cores, with the time left and Stop.
 - See-through pictures are read as the website's canvas holds them, so their art is the website's
   too; Teletext's pictures are drawn as Chromium's canvas draws them, pixel for pixel.
 - The File, Edit and View menus follow the tab: the studio's saves, copies and scanlines show on
@@ -110,8 +118,9 @@ The seventh stage: the ASCII / ANSI studio.
 The sixth stage: video.
 
 - Videos open as pictures do (File → Open picture or video…, a drop, the command line): MP4,
-  MOV, MKV, AVI, WMV, MPEG and whatever else Windows has a decoder for, through Windows' own
-  video system, the right way up as the phone took them. An iPhone's HDR video (HLG) comes out
+  M4V, MOV, MKV, WebM, AVI, WMV, ASF, MPEG, TS, MTS, M2TS and 3GP, when Windows has a decoder
+  for what's in them, through Windows' own video system, the right way up as the phone took
+  them. An iPhone's HDR video (HLG) comes out
   in normal colour, converted by DeRes itself; other HDR through Windows' own conversion.
 - The timeline under the picture: Play / Pause with the sound, a frame back and on, the slider
   to any moment, Start here, Stop here and All of it. Every frame goes through the settings, the
@@ -128,7 +137,7 @@ The sixth stage: video.
   fits, a GIF at 50 frames a second at most and an APNG at 60 (faster, browsers slow them down:
   60 becomes 30 for a GIF), and Save PNG frames… (`clip-nes-rf-00001.png` on). Frames are made
   on several cores, the bottom line says how far it's got and the time left, and Stop leaves no
-  file.
+  file (Save PNG frames… keeps the frames made so far).
 - Batches take videos: an MP4 each with its sound, at the Size or the biggest an MP4 holds, or a
   GIF or APNG of its frames; each read back from the disk, an MP4 frame by frame.
 - The Signal's engine, all of it: Every setting… (Signal → Advanced) has every one of ntsc-rs's

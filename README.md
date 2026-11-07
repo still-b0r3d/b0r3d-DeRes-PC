@@ -8,6 +8,8 @@ stay on your PC: it never goes online, and it never keeps them.
 
 It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install.
 
+![b0r3d DeRes as it starts: the Rukus sample on the Game Boy](docs/deres-game-boy.png)
+
 **Being built.** This is version 0.8, the eighth of nine stages: the program itself, opening
 pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
 Signal (every one of its engine's settings, presets and dubbed tapes), the screen effects, the
@@ -24,13 +26,13 @@ Put `b0r3dDeRes.exe` in a folder of its own and double-click it. It opens with t
 sample on the Game Boy, as the website does. Open a picture of your own with **File → Open
 picture or video…** (Ctrl+O), drop one anywhere on the window, paste one (Ctrl+V), or drop it on
 `b0r3dDeRes.exe` itself. PNG, JPEG, GIF (an animated one plays: see below), BMP and TIFF always
-open, and WebP, HEIC, AVIF,
-JPEG XL and camera RAW photos where Windows has Microsoft's free extensions for them; videos
-too (see Videos, below). Photos
-come out the right way up, and in their own colours when they carry a colour profile. The
-whole photo is used, however big (up to 150 megapixels). **DeRes the screen** (Ctrl+Shift+D)
-steps aside and lets you drag a box on the screen, click for a whole screen, or press Enter for
-all of them: that becomes the picture.
+open, and WebP, HEIC, AVIF, JPEG XL and camera RAW photos where Windows has Microsoft's free
+extensions for them; videos too (see Videos, below). Photos come out the right way up, and in
+their own colours when they carry a colour profile. The whole photo is used, however big (up to
+150 megapixels). **DeRes the screen** (Ctrl+Shift+D) steps aside and lets you drag a box on the
+screen, click for a whole screen, or press Enter for all of them: that becomes the picture.
+
+![The Hardware section's machines, and the Cat nap sample on the NES](docs/deres-machines.png)
 
 The settings on the left fold out like the website's:
 
@@ -90,8 +92,14 @@ The settings on the left fold out like the website's:
   at its real size. With a video open, its frame rate, **Keep the sound**, **Save MP4…** and
   **Save PNG frames…**.
 
-**Reset settings** at the bottom puts everything back as a first start has it (the picture
-stays).
+<p>
+<img src="docs/deres-signal.png" width="49%" alt="The NES over RF, through the Signal">
+<img src="docs/deres-crt.png" width="49%" alt="The NES on a CRT with an aperture grille, curve and bloom">
+</p>
+
+**Reset settings** at the bottom puts DeRes's settings back as a first start has them: the
+picture stays, and so do light or dark, the window, and a video's frame rate and Keep the sound.
+On the other tabs, Reset settings puts back that tab's own.
 
 The picture on the right is drawn at your screen's own pixels: every machine pixel is a sharp
 block of whole screen pixels, on a 150 % screen too. **Fit** shows it all; the mouse wheel,
@@ -108,10 +116,10 @@ and nothing else: no metadata, no program name, at any size. The looks that make
 colours (HAM, the PlayStation, the N64) hold exactly the colours they use, or go full colour
 past 256 of them. With the screen effect it's full colour, named `-fx`; through the signal it's
 full colour too, named for the connection (`photo-nes-256x240-4x-rf.png`). Parts kept
-see-through stay see-through. **Edit → Copy picture** (Ctrl+C)
-copies it, and the small picture under the preview drags it into a folder or another program,
-as a PNG and as a plain picture; those two go at most 16 megapixels, the website's own limit,
-so a bigger Size goes at the biggest one within it, and the bottom line says so.
+see-through stay see-through. **Edit → Copy picture** (Ctrl+C) copies it, and the small picture
+under the preview drags it into a folder or another program, as a PNG and as a plain picture;
+those two go at most 16 megapixels, the website's own limit, so a bigger Size goes at the
+biggest one within it, and the bottom line says so.
 
 Machines with a file of their own save it too, byte for byte as the website makes it, for
 emulators and the old paint programs: the ZX Spectrum's `.scr`, the C64 multicolour's Koala
@@ -144,10 +152,12 @@ that are made twice instead, so any number fit. When the Size chosen is too big,
 the biggest that fits and a line by the buttons says so. Frames are made on every core, the
 bottom line counts them, and **Stop** leaves no file.
 
+![The GIF sample, Rukus breaking out, playing through JPEG deep fry](docs/deres-gif.png)
+
 ## Videos
 
-A video opens as a picture does (MP4, MOV, MKV, AVI, WMV, MPEG and whatever else Windows plays),
-the right way up, as the phone took it. An iPhone's HDR video comes out in normal colour: DeRes
+A video opens as a picture does (MP4, M4V, MOV, MKV, WebM, AVI, WMV, ASF, MPEG, TS, MTS, M2TS
+and 3GP, when Windows has a decoder for what's in it), the right way up, as the phone took it. An iPhone's HDR video comes out in normal colour: DeRes
 converts its HLG itself; other HDR goes through Windows' own conversion. A timeline comes under
 the picture: **Play** / **Pause** with the sound, a frame back and on, the slider to any moment,
 and **Start here**, **Stop here** and **All of it** for the stretch to save. Every frame goes
@@ -161,20 +171,22 @@ at the Size chosen up to 4096 × 2304, the most an MP4 holds, and at the video's
 a slower one (30, 25, 24, 15, 12 or 10 a second). The sound stays in step with the picture, phone
 videos' too. **Save GIF…** and **Save APNG…** make an animation of its frames (Animation loop:
 **Video**; a GIF goes at 50 frames a second at most, an APNG at 60, as browsers show them), and
-**Save PNG frames…** puts every frame in a folder as a PNG
-(`clip-nes-rf-00001.png` on). Frames are made on several cores, the bottom line says how far it's
-got and the time left, and **Stop** leaves no file. Windows' "N" editions come without its video
-parts: there b0r3d DeRes says what to install, and pictures work as ever.
+**Save PNG frames…** puts every frame in a folder as a PNG (`clip-nes-rf-00001.png` on). Frames
+are made on several cores, the bottom line says how far it's got and the time left, and **Stop**
+leaves no file (Save PNG frames… keeps the frames made so far). Windows' "N" editions come
+without its video parts: there b0r3d DeRes says what to install, and pictures work as ever.
+
+![A video on its timeline, on the NES, with the stretch to save marked](docs/deres-video.png)
 
 ## The ASCII / ANSI studio
 
 The second tab, **ASCII / ANSI Studio**, turns the picture (the same one, on the same frame)
 into BBS-style text art, as the website's studio does: **half blocks** (▀, two pixels a
-character, so twice the detail top to bottom), a **character ramp** (Standard, Detailed, Blocks, Katakana,
-Binary, or your own typed in, darkest first, and inverted if you like), **PETSCII** (always a
-C64's 40 × 25 screen) or **Teletext** mosaics (with the Ceefax page header, and the gaps of
-separated mosaics), in 40, 80 or 132 columns or 20 to 200 in steps of 2, with the 2:1 cells of a
-terminal or square ones. The colours come from a profile: ANSI's 16, the C64's, Teletext's 8,
+character, so twice the detail top to bottom), a **character ramp** (Standard, Detailed, Blocks,
+Katakana, Binary, or your own typed in, darkest first, and inverted if you like), **PETSCII**
+(always a C64's 40 × 25 screen) or **Teletext** mosaics (with the Ceefax page header, and the
+gaps of separated mosaics), in 40, 80 or 132 columns or 20 to 200 in steps of 2, with the 2:1
+cells of a terminal or square ones. The colours come from a profile: ANSI's 16, the C64's, Teletext's 8,
 a green or amber screen, grey, or every colour there is; Contrast, Brightness and Gamma adjust
 the picture first. The art shows as its picture, drawn from the VGA font's own 8 × 16 letters
 (the website's font file, inside the exe), with the website's readout under it, the zoom, full
@@ -192,6 +204,8 @@ size too). The text files are the website's byte for byte, and so are the pictur
 blocks and Teletext, pixel for pixel; a ramp's or PETSCII's picture is drawn from the font's own
 letters, crisp (see below).
 
+![The Rukus sample as half blocks in ANSI's 16 colours, with the modem](docs/ascii-studio.png)
+
 ## The EXIF tools
 
 Photos keep more than their pixels: the camera or phone, when, often where (to a few metres),
@@ -200,9 +214,14 @@ picture. The **EXIF Scrubber** and **EXIF Injector** tabs show that and change i
 website's do. On the right of either, the inspector shows the file open (the same one as on the
 other tabs) as the website reads it: a line about it ("Taken on a … at coordinates …"), the
 place it was taken (**Copy coordinates** puts the two numbers on the clipboard, kept off Windows'
-cloud clipboard), the embedded thumbnail, bytes after the picture, AI markers and Content
-Credentials, and the **Summary** or **All Tags**, with a filter. JPEG, PNG, WebP and GIF are
-cleaned; HEIC and AVIF are read.
+cloud clipboard and its history), the embedded thumbnail, bytes after the picture, AI markers and
+Content Credentials, and the **Summary** or **All Tags Tree**, with a filter. JPEG, PNG, WebP and GIF
+are cleaned; HEIC and AVIF are read.
+
+<p>
+<img src="docs/exif-scrubber.png" width="49%" alt="The EXIF Scrubber on the Rukus sample: its place and its thumbnail found">
+<img src="docs/exif-injector.png" width="49%" alt="The EXIF Injector's form, filled in from the photo">
+</p>
 
 **Scrub & save a clean copy…** (Ctrl+S on the tab) takes out all of it, or the location only,
 keeping the orientation tag unless you untick it, and saves a new file (the original is never
@@ -210,8 +229,9 @@ changed). The copy is read back from the disk and checked: **Verified Clean**, o
 Add photos and videos to a **batch** (the buttons, File → Add…, Ctrl+B for a folder, or drop
 several or a folder on the tab): a table says each one's format, size, GPS, trailer and how it
 went, and clicking a row inspects it. The batch is cleaned into a ZIP or into a folder
-(`photo-clean.jpg`, numbered; nothing already there is written over), every file checked;
-**Stop** keeps what's done and leaves nothing half-made.
+(`photo-clean.jpg`, numbered; nothing already there is written over), every file checked.
+**Stop** keeps the files a folder has had made and checked, and leaves nothing half-made; a
+stopped ZIP leaves no ZIP.
 
 Videos too, MP4 and MOV: phones (Apple, Android, Samsung, GoPro) write where a video was filmed
 and on what, in several places; the scrubber shows them and takes them out byte by byte (or the
@@ -222,6 +242,8 @@ dashcam's GPS between frames) go too. The check reads the clean video back, comp
 of its picture and sound with the original's, and looks through the rest for any place still
 written in it. A video it can't be sure of (in pieces, kept in another file, damaged) is
 refused, with why, rather than half cleaned.
+
+![A test clip carrying an iPhone's metadata, cleaned and Verified Clean, in the dark look](docs/exif-video-dark.png)
 
 The **EXIF Injector** writes your own camera, date, place and creator into a JPEG or PNG: its
 form starts with what the photo has; change a field, empty one to remove it, pick a **device
@@ -288,7 +310,7 @@ download folder inside AppData), it still works and says settings won't be kept.
 ## The same pictures as the website
 
 The engine is the website's own, translated from its TypeScript into C# file by file, and the
-tests check it against the website's engine itself: 797 pictures (every machine and analog look
+tests check it against the website's engine itself: 798 pictures (every machine and analog look
 with every dither that changes it, its pattern started elsewhere as the shimmer does, the
 framings, custom widths, Detail, the adjustments,
 see-through parts kept and laid on white and black, the Colours slider and loaded palettes) come
@@ -343,23 +365,22 @@ as Chromium, and an sRGB colour profile leaves them as they are, as in browsers.
 still differ from a browser by a level here and there: a photo over 2048 pixels, which the
 website shrinks first and b0r3d DeRes uses whole (a little more exact; the grabber takes the
 whole photo's colours too), and the part-see-through edges of a picture, which browsers keep
-premultiplied. Two more on purpose: a Game Boy Color picture too small for one 8×8 tile stops
+premultiplied. Three more on purpose: a Game Boy Color picture too small for one 8×8 tile stops
 the website with an error; here it comes out black. In the ASCII studio, the picture of a ramp
 or of PETSCII is drawn from the font's own 8 × 16 letters, crisp, where the browser smooths
 them as it draws text (on Windows, ClearType-style); the six quarter blocks PETSCII uses aren't
 in the font, so they're the font's own half blocks quartered (the browser borrows another
 font), and characters the font lacks (the katakana ramp, odd typed-in ones) come from Windows'
-fonts, as the browser's do, so those look alike but aren't pixel for pixel. And a GIF or APNG with a side past 65,535
-pixels, which the website writes as a broken GIF, is too big here: it comes out at a smaller
-Size.
+fonts, as the browser's do, so those look alike but aren't pixel for pixel. And a GIF or APNG
+with a side past 65,535 pixels, which the website writes as a broken GIF, is too big here: it
+comes out at a smaller Size.
 
 ## Building it
 
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) to build it (`global.json`
 takes any 10.0 one); the program itself runs on .NET Framework 4.8, which comes with Windows 10
-and 11. Double-click
-`build.cmd`, or run `build.cmd test` to build and run the tests. The exe lands in
-`bin\b0r3dDeRes.exe`. The tests print a PASS or FAIL line each, and a run stops itself after 90
+and 11. Double-click `build.cmd`, or run `build.cmd test` to build and run the tests. The exe
+lands in `bin\b0r3dDeRes.exe`. The tests print a PASS, FAIL or SKIP line each, and a run stops itself after 90
 seconds; `build.cmd test` runs them in eleven parts (`--part engine`, `animation`, `gifs`,
 `frames`, `signal`, `video`, `videosave`, `videobatch`, `ascii`, `exif`, then `window`) so each
 stays within that on a two-core machine too. The video tests use short clips in `tests\video`,
@@ -370,8 +391,11 @@ the studio or `exif` for the EXIF tools, in both looks) draws the windows to PNG
 
 MIT with the Commons Clause, licensor b0r3d.org: free to use, change and share, not to sell.
 See [LICENSE](LICENSE). The cube root, power, sine, cosine and exponential routines come from
-fdlibm, through the V8 JavaScript engine; the Signal is ntsc-rs by valadaptive (MIT), with
-maths routines from Rust's libm (MIT, from musl and FreeBSD); the ASCII studio's font is
-WebPlus IBM VGA 8x16 from VileR's Ultimate Oldschool PC Font Pack (CC BY-SA 4.0, the file
-itself in `assets\fonts`). Their notices are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)
-and in Help → About. The licence covers the code, not the b0r3d name or the cup.
+fdlibm, through the V8 JavaScript engine; the Signal is ntsc-rs by valadaptive (MIT), its noise
+from Clatter (zlib) and its filters partly from SciPy (BSD-3), with maths routines from Rust's
+libm (MIT, from musl and FreeBSD); the ASCII studio's font is WebPlus IBM VGA 8x16 from VileR's
+Ultimate Oldschool PC Font Pack (CC BY-SA 4.0, the file itself in `assets\fonts`); the EXIF
+tools' capital and small letters follow Unicode's case mappings (the Unicode licence). Their
+notices are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) and in Help → About; they
+stay under their own licences, without the Commons Clause. The licence covers the code, not the
+b0r3d name or the cup.
