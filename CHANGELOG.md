@@ -3,6 +3,41 @@
 What changed in each version of b0r3d DeRes for Windows, the newest first. The versions before
 1.0 are its stages, built one after the other; 0.8 is the first one released.
 
+## 0.9 (not released yet)
+
+The live camera, and the release candidate for 1.0.
+
+- **Use camera**, under Open picture or video… (and File → Use the camera): the preview becomes
+  a live view through the look, as on the website, with every control working on it. Each of the
+  camera's pictures is grabbed small (about 3 camera pixels for every machine pixel, at most 960
+  across, 1280 for wide custom sizes), made through the look, and shown; pictures that come
+  meanwhile are skipped, so a slow look never queues up. The line under the picture adds the frames
+  a second, and a look slower than 8 a second for 2 seconds says so. Screen effects and the
+  Signal are drawn smaller while live (at most 300,000 pixels, never below 2×).
+  - **Snap**: the camera's picture as it's shown becomes the picture, as if it had been opened.
+  - **Record 3 s**: 30 pictures, ten a second, open like an animated GIF (the play bar, every
+    look, GIF, APNG and the ASCII studio's animations). The camera's own pictures are kept, so
+    the look can change afterwards; held as the PC holds an animated GIF's frames, so a camera's
+    pictures are usually kept whole.
+  - **Flip** (with two cameras or more: the next one), **Mirror** (on at first: a PC's camera
+    faces you, as a phone's selfie camera does), **Stop**. The camera used last and Mirror are
+    kept; Reset settings forgets them.
+  - The camera turns off on Snap, Stop, a finished clip, another tab, opening anything, DeRes the
+    screen, and the window minimized or closed. Saving waits for a snap or a clip. Its pictures
+    stay in memory, and nothing leaves the PC.
+  - Through Windows' own Media Foundation (b0r3d QR's camera code): of the kinds of picture a
+    camera sends, the nearest to what the website asks a browser for (1920 × 1440), at 15 a
+    second or more; turned into colour by Windows' advanced video processor, as videos are. When
+    Windows won't let b0r3d DeRes use the camera, it says where to allow it; under any trouble's
+    words goes Windows' own side of it (b0r3d QR's way).
+- The website's three fixes, so two deliberate differences go: a Game Boy Color picture with no
+  whole 8×8 tile is black on both now, a GIF or APNG never has a side past 65,535 px on either,
+  and the fax header's slash leans the right way (here too). The tests' website files are made
+  again from it.
+- The release step refuses a mistyped tag such as `vv0.9` (it took off every leading v before).
+- The self-test also runs the live camera on a pretend camera and snaps it (`camera=ok`), and
+  counts the cameras Windows lists without starting any (`cameras_seen=`).
+
 ## 0.8 (released 6 November 2026)
 
 The eighth stage: the EXIF tools.

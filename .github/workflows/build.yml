@@ -63,7 +63,7 @@ jobs:
       - name: The tag must match the exe's version
         shell: pwsh
         run: |
-          $tag = $env:GITHUB_REF_NAME.TrimStart('v')
+          $tag = $env:GITHUB_REF_NAME -replace '^v', ''   # one v only: a mistyped vv0.9 is refused
           $exe = (Get-Item bin\b0r3dDeRes.exe).VersionInfo.ProductVersion
           $version, $build = $exe -split ' build '
           if ($tag -ne $version) { Write-Error "Tag $env:GITHUB_REF_NAME doesn't match b0r3dDeRes.exe's version $exe"; exit 1 }
