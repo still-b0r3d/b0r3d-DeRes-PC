@@ -601,7 +601,9 @@ namespace B0r3dDeRes.Engine
             int tilesX = width / 8, tilesY = height / 8, totalTiles = tilesX * tilesY;
             const int K = 8;
             var paletteBytes = new byte[K * 4 * 3];
-            // (a picture too small for one tile is a mistake on the website; here it comes out black)
+            // Only whole tiles get colours: what's past the last one, across or down, stays black. So
+            // a picture with no whole tile (a custom width of 8 on a wide photo) is all black, with 8
+            // black palettes, as on the website.
             if (totalTiles == 0) return new Result { Indices = indices, Rgb = output, Palette = paletteBytes };
 
             var candidates = new int[totalTiles][];

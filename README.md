@@ -369,15 +369,12 @@ as Chromium, and an sRGB colour profile leaves them as they are, as in browsers.
 still differ from a browser by a level here and there: a photo over 2048 pixels, which the
 website shrinks first and b0r3d DeRes uses whole (a little more exact; the grabber takes the
 whole photo's colours too), and the part-see-through edges of a picture, which browsers keep
-premultiplied. Three more on purpose: a Game Boy Color picture too small for one 8×8 tile stops
-the website with an error; here it comes out black. In the ASCII studio, the picture of a ramp
-or of PETSCII is drawn from the font's own 8 × 16 letters, crisp, where the browser smooths
-them as it draws text (on Windows, ClearType-style); the six quarter blocks PETSCII uses aren't
-in the font, so they're the font's own half blocks quartered (the browser borrows another
-font), and characters the font lacks (the katakana ramp, odd typed-in ones) come from Windows'
-fonts, as the browser's do, so those look alike but aren't pixel for pixel. And a GIF or APNG
-with a side past 65,535 pixels, which the website writes as a broken GIF, is too big here: it
-comes out at a smaller Size.
+premultiplied. One more on purpose: in the ASCII studio, the picture of a ramp or of PETSCII is
+drawn from the font's own 8 × 16 letters, crisp, where the browser smooths them as it draws text
+(on Windows, ClearType-style); the six quarter blocks PETSCII uses aren't in the font, so
+they're the font's own half blocks quartered (the browser borrows another font), and characters
+the font lacks (the katakana ramp, odd typed-in ones) come from Windows' fonts, as the
+browser's do, so those look alike but aren't pixel for pixel.
 
 ## Building it
 

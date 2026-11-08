@@ -127,8 +127,8 @@ namespace B0r3dDeRes.Engine
             return frames;
         }
 
-        // A GIF's sides are 16 bits. The website writes a broken GIF past this; the PC says it's too
-        // big (both GIF and APNG, so they keep one Size).
+        // A GIF's sides are 16 bits: past this an animation is too big, and drops a Size (both GIF
+        // and APNG, so they keep one Size). The website's MAX_ANIMATION_SIDE.
         public const int MaxSide = 65535;
 
         // why an animation of `held` frames at width × height won't fit ("frame", "frames"), or null

@@ -543,7 +543,8 @@ namespace B0r3dDeRes.Tests
                 if (got != t.Text) wrong.Add("\"" + got + "\" for \"" + t.Text + "\"");
             }
             Check(Animation.ApngPlays(null) == 1 && Animation.ApngPlays(0) == 0 && Animation.ApngPlays(3) == 4, "an APNG's plays from a GIF's loop count");
-            // the PC's own: no side past 65535, which a GIF can't say (the website writes a broken one)
+            // no side past 65535, which a GIF can't say (the website's strips are among the fits above),
+            // with the PC's limits too
             Check(Animation.Limit(16, 65535, 12, AnimationLimits.Pc) == null && Animation.Limit(16, 65536, 12, AnimationLimits.Pc) == "frame" && Animation.Limit(65536, 1, 0, AnimationLimits.Website) == "frame",
                 "a side past 65535 is too big for an animation");
             AnimationFit tall = Animation.FitFor(1, 4096, 1, 1, false, 16, Animation.ScreenFx, null, AnimationLimits.Pc);

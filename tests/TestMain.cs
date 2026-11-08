@@ -102,7 +102,6 @@ namespace B0r3dDeRes.Tests
                 Run("machines: the same " + Website.Profiles.Length + " machines as the website, word for word, colour for colour, limit for limit", MachinesLikeTheWebsite);
                 Run("dithers: the same nine as the website, in its order and words, the machines' own marked", DithersLikeTheWebsite);
                 Run("pictures: " + Website.Renders.Length + " made by the website's engine come out the same, pixel for pixel, tile meter and machine files too", PicturesLikeTheWebsite);
-                Run("pictures: the Game Boy Color with no whole tile comes out black (the website stops)", TinyGameBoyColor);
                 Run("grabber: the website's colours from every test picture", GrabsLikeTheWebsite);
                 Run("share links: the website's very links, made from the same settings", LinksLikeTheWebsite);
                 Run("share links: " + Website.Decodes.Length + " links read as the website reads them, odd and broken ones too", LinksReadLikeTheWebsite);

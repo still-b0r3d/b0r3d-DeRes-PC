@@ -239,16 +239,5 @@ namespace B0r3dDeRes.Tests
                 (double)Json.Parse("9007199254740993" + new string('0', 900) + "e-900") == 9007199254740992.0, "a halfway number past 800 digits rounds the wrong way");
             Check(Looks.FromFile("{\"profileId\":\"nes\",\"detail\":0." + new string('5', 900000) + "}") != null, "a look file with a huge number should still read");
         }
-
-        // The Game Boy Color with less than one whole 8×8 tile: the website stops with an error,
-        // the PC makes it black.
-        static void TinyGameBoyColor()
-        {
-            var d = new Deres();
-            d.SetSource(Input("tiny"));
-            Rendered r = d.Render(new DeresSettings { ProfileId = "gbc", Custom = true, CustomWidth = 5, Dither = DitherIds.Bayer4 });
-            Check((r.Width < 8 || r.Height < 8) && r.Rgb.All(b => b == 0) && r.TileFit != null && r.TileFit.UniqueTiles == 0 && r.Palette.Length == 96,
-                "it should come out black: " + r.Width + "×" + r.Height + ", " + r.TileFit?.Summary);
-        }
     }
 }

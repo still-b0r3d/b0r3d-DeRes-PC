@@ -1,5 +1,5 @@
 // Made by make-test-files.mjs (kept outside this repository) from the website's own engine,
-// img.b0r3d.org v0.9.4 (commit 1bdc174). Don't edit: make it again when the website changes.
+// img.b0r3d.org v0.9.4 (commit d33cfbd). Don't edit: make it again when the website changes.
 using B0r3dDeRes.Engine;
 
 namespace B0r3dDeRes.Tests
@@ -7,7 +7,7 @@ namespace B0r3dDeRes.Tests
     // stage 7: the ASCII / ANSI studio
     static class WebsiteAscii
     {
-        public const string Commit = "1bdc174", Date = "20261104";
+        public const string Commit = "d33cfbd", Date = "20261104";
 
         // the ramps, by id, as code units
         public static readonly (string Id, string Units)[] Ramps =
