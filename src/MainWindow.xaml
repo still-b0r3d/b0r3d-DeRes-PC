@@ -38,6 +38,7 @@
                 <MenuItem Header="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" />
                 <MenuItem x:Name="SamplesMenu" Header="Open a sa_mple" />
                 <MenuItem Header="DeRes the scree_n…" Command="{x:Static local:Commands.DeresScreen}" />
+                <MenuItem x:Name="CameraMenu" Header="Use the _camera" Click="OnUseCamera" />
                 <MenuItem x:Name="BatchMenu" Header="_Batch: a folder or several pictures…" Command="{x:Static local:Commands.Batch}" />
                 <MenuItem x:Name="OpenLookMenu" Header="Open _look…" Click="OnOpenLook" />
                 <MenuItem x:Name="OpenPaletteMenu" Header="Open p_alette…" Click="OnLoadPalette" />
@@ -135,14 +136,32 @@
                                     <Expander x:Name="ImageSection" Style="{StaticResource Section}" Header="_Image" IsExpanded="True">
                                         <StackPanel>
                                             <Button x:Name="OpenButton" Content="_Open picture or video…" Command="{x:Static local:Commands.OpenPicture}" HorizontalAlignment="Stretch" />
-                                            <UniformGrid Rows="1" Margin="0,8,0,0">
+                                            <!-- the live camera: Use camera, then (while it's on) Snap, Record 3 s, Flip, Mirror and Stop -->
+                                            <Button x:Name="CameraButton" Content="Use camera" Click="OnUseCamera" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                                    ToolTip="Your camera, live through the look: Snap or Record 3 s makes it the picture" />
+                                            <StackPanel x:Name="CameraPanel" Visibility="Collapsed">
+                                                <Button x:Name="SnapButton" Content="Snap" Click="OnSnap" HorizontalAlignment="Stretch"
+                                                        ToolTip="The camera's picture as it is now becomes the picture, and the camera turns off" />
+                                                <UniformGrid Rows="1" Margin="0,8,0,0">
+                                                    <Button x:Name="RecordButton" Content="Record 3 s" Click="OnRecord" Margin="0,0,3,0"
+                                                            ToolTip="Three seconds at ten frames a second, opened like an animated GIF" />
+                                                    <Button x:Name="FlipButton" Content="Flip" Click="OnFlip" Margin="3,0,3,0" Visibility="Collapsed"
+                                                            ToolTip="The next camera" AutomationProperties.Name="The next camera" />
+                                                    <ToggleButton x:Name="MirrorButton" Style="{StaticResource Toggle}" Content="Mirror" Click="OnMirror" Margin="3,0,3,0"
+                                                                  ToolTip="Left and right swapped, as a mirror shows you (the snap and the clip too)" />
+                                                    <Button x:Name="StopCameraButton" Content="Stop" Click="OnStopCamera" Margin="3,0,0,0"
+                                                            ToolTip="The camera off, and the picture back" AutomationProperties.Name="Stop the camera" />
+                                                </UniformGrid>
+                                            </StackPanel>
+                                            <TextBlock x:Name="CameraLine" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                                            <UniformGrid x:Name="SnipRow" Rows="1" Margin="0,8,0,0">
                                                 <Button x:Name="SnipButton" Content="DeRes the screen…" Command="{x:Static local:Commands.DeresScreen}" Margin="0,0,4,0"
                                                         ToolTip="A box of the screen, a whole screen or all of them becomes the picture (Ctrl+Shift+D)" />
                                                 <Button x:Name="BatchButton" Content="Batch…" Command="{x:Static local:Commands.Batch}" Margin="4,0,0,0"
                                                         ToolTip="A folder or several pictures through this look into a folder (Ctrl+B)" />
                                             </UniformGrid>
                                             <TextBlock x:Name="SampleLine" Style="{StaticResource Hint}" Margin="0,8,0,0" />
-                                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                            <TextBlock x:Name="DropHint" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
                                                        Text="Or drop a picture or a video on the window, or paste a picture. Drop a folder, or several pictures or videos, for a batch." />
                                             <TextBlock x:Name="PictureInfo" Margin="0,10,0,0" TextWrapping="Wrap" FontWeight="SemiBold" />
 
@@ -390,6 +409,8 @@
                                             <UniformGrid x:Name="Sizes" Columns="4" Margin="0,0,-6,0" />
                                             <TextBlock x:Name="SizeLine" Margin="0,8,0,0" TextWrapping="Wrap" FontFamily="Consolas" />
                                             <CheckBox x:Name="ExportFxBox" Content="With the screen effect" Margin="0,10,0,0" Checked="OnExportFx" Unchecked="OnExportFx" />
+                                            <TextBlock x:Name="LiveNote" Style="{StaticResource Hint}" Margin="0,10,0,0" Visibility="Collapsed"
+                                                       Text="Snap first: saves work on a still or a clip." />
                                             <WrapPanel Margin="0,12,0,0">
                                                 <Button x:Name="SaveButton" Content="_Save PNG…" Command="{x:Static local:Commands.SavePng}" Margin="0,0,8,6" />
                                                 <Button x:Name="CopyButton" Content="_Copy picture" Command="{x:Static local:Commands.CopyPicture}" Margin="0,0,0,6" />

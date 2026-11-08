@@ -88,6 +88,8 @@ namespace B0r3dDeRes.Tests
                 Check(found.TryGetValue("video", out string video) && video == (B0r3dDeRes.Video.Mf.Available ? "ok" : "none"), "an MP4 should go through Windows' video system and back inside the exe: " + all);
                 Check(found["bits"] == "64", "the exe ran as a " + found["bits"] + "-bit program; only 64-bit does the website's sums to the last bit");
                 Check(found["dpi"] == "per-monitor-v2", "the exe follows the screens' scaling as \"" + found["dpi"] + "\", not per-monitor-v2 (is the manifest in?)");
+                Check(found.TryGetValue("camera", out string camera) && camera == "ok", "the live camera on a pretend camera, and its snap, inside the exe: " + all);
+                Check(found.TryGetValue("cameras_seen", out string seen) && (seen == "none" || int.TryParse(seen, out _)), "the cameras Windows lists, counted: " + all);
                 Check(found["version"] == Program.FullVersion, "the exe says " + found["version"]);
             }
             string[] left = Directory.GetFileSystemEntries(alone).Select(Path.GetFileName).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToArray();
@@ -111,7 +113,9 @@ namespace B0r3dDeRes.Tests
             // videos: Windows' own video system, started without its network parts, reading and
             // writing only streams of the program's own (the sink writer's "URL" is always none)
             { "mfplat.dll", new[] { "MFStartup", "MFCreateAttributes", "MFCreateMediaType", "MFCreateSample", "MFCreateMemoryBuffer", "MFCreateMFByteStreamOnStream" } },
-            { "mfreadwrite.dll", new[] { "MFCreateSourceReaderFromByteStream", "MFCreateSinkWriterFromURL" } },
+            { "mfreadwrite.dll", new[] { "MFCreateSourceReaderFromByteStream", "MFCreateSinkWriterFromURL", "MFCreateSourceReaderFromMediaSource" } },
+            // the live camera: the cameras Windows lists (one is started only by Use camera), and its pictures
+            { "mf.dll", new[] { "MFEnumDeviceSources" } },
             // a video's sound out of the speakers while it plays
             { "winmm.dll", new[] { "waveOutOpen", "waveOutPrepareHeader", "waveOutUnprepareHeader", "waveOutWrite", "waveOutGetPosition", "waveOutReset", "waveOutClose" } },
             // which file a path is, so an original under another spelling of its path is never written over

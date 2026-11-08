@@ -28,10 +28,11 @@ namespace B0r3dDeRes.Tests
         {
             running = "taking the screenshots (" + set + ")";
             Directory.CreateDirectory(folder);
-            if (set == "ascii" || set == "exif")
+            if (set == "ascii" || set == "exif" || set == "camera")
             {
                 foreach (Look look in new[] { Look.Light, Look.Dark })
                     if (set == "ascii") AsciiShots(folder, look);
+                    else if (set == "camera") CameraShots(folder, look);
                     else ExifShots(folder, look);
                 Theme.Set(Look.Light);
                 Console.WriteLine("pictures in " + folder);

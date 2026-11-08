@@ -86,6 +86,35 @@ namespace B0r3dDeRes
         public static string List(IList<string> items) =>
             items.Count <= 1 ? string.Join("", items) : string.Join(", ", items.Take(items.Count - 1)) + " and " + items[items.Count - 1];
 
+        // ---- the live camera (the website's words) ----
+
+        public const string CameraStaysHere = "The camera picture stays on this PC.";
+        public const string Recording = "Recording: the clip opens like an animated GIF, and the camera turns off.";
+
+        public static string CameraStarting(string name) => name == null ? "Starting the camera…" : "Starting " + name + "…";
+
+        // "Integrated Camera · 1920×1080" while it sends pictures
+        public static string LivePicture(string name, int width, int height) => name == null ? "Starting the camera…" : name + " · " + width + "×" + height;
+
+        public static string SlowLive(int fps)
+        {
+            int about = Math.Max(1, fps);
+            return "This look is slow live (about " + about + " frame" + (about == 1 ? "" : "s") + " a second). Snap to see it in full.";
+        }
+
+        // the Record button while it records: the seconds left, rounded up ("Recording 3…")
+        public static string RecordingLeft(int framesLeft, int delayMs) => "Recording " + Math.Max(1, (int)Math.Ceiling(framesLeft * delayMs / 1000.0)) + "…";
+
+        // a camera that won't start or stopped: the words, and under them Windows' side of it, as
+        // b0r3d QR says it ("Windows didn't start USB Camera (error 0x80070005).")
+        public static string CameraTrouble(string words, string detail)
+        {
+            detail = (detail ?? "").Trim().TrimEnd('.');
+            if (detail.Length == 0) return words;
+            if (detail.Length > 300) detail = detail.Substring(0, 299).TrimEnd() + "…";
+            return words + "\n" + char.ToUpperInvariant(detail[0]) + detail.Substring(1) + (detail.EndsWith("…") ? "" : ".");
+        }
+
         // "rukus.png · 256×256"; an animated GIF's "· 58 frames · 3.9 s" (at its own size), or a
         // GIF opened as a still's "· first of 58 frames"
         public static string PictureInfo(LoadedPicture picture)

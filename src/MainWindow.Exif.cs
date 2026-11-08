@@ -1472,7 +1472,7 @@ namespace B0r3dDeRes
             foreach (UIElement m in new UIElement[] { SavePngMenu, CopyMenu, ZoomInMenu, ZoomOutMenu, FitMenu, OneMenu, FullScreenMenu, PlayMenu, ViewLine1, ViewLine2 })
                 m.Visibility = exif ? Visibility.Collapsed : Visibility.Visible;
             if (!exif) return;
-            foreach (MenuItem m in new[] { BatchMenu, OpenLookMenu, OpenPaletteMenu, SavePngMenu, SaveGifMenu, SaveApngMenu, SaveMp4Menu, SaveFramesMenu, WallpaperMenu, EmulatorMenu, SaveLookMenu, SavePaletteMenu,
+            foreach (MenuItem m in new[] { BatchMenu, CameraMenu, OpenLookMenu, OpenPaletteMenu, SavePngMenu, SaveGifMenu, SaveApngMenu, SaveMp4Menu, SaveFramesMenu, WallpaperMenu, EmulatorMenu, SaveLookMenu, SavePaletteMenu,
                 AsciiAnsMenu, AsciiAnsimationMenu, AsciiSeqMenu, AsciiPrgMenu, AsciiTxtMenu, CopyMenu, AsciiCopyMarkdownMenu, AsciiCopyAnsiMenu, AsciiCopyHtmlMenu, CopyLinkMenu, GrabMenu, SurpriseMenu,
                 ZoomInMenu, ZoomOutMenu, FitMenu, OneMenu, CompareMenu, ScanlinesMenu, FullScreenMenu, PlayMenu })
                 m.Visibility = Visibility.Collapsed;

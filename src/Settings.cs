@@ -42,6 +42,10 @@ namespace B0r3dDeRes
         // the EXIF Scrubber's options (the website starts with these each visit; the PC keeps them)
         public bool ScrubLocationOnly;
         public bool ScrubOrientation = true;
+        // the live camera: whether its picture is mirrored (a PC's webcam faces you, as a phone's
+        // selfie camera does, which the website mirrors), and the camera last used, by its name
+        public bool CameraMirror = true;
+        public string CameraName;
 
         public static readonly int[] LoopFrameCounts = { 16, 32, 48 }, LoopSpeeds = { 15, 30 };
         // the slower frame rates a video can go out at (each only below its own)
@@ -224,6 +228,12 @@ namespace B0r3dDeRes
                     case "video_sound":
                         if (value == "on" || value == "off") s.VideoSound = value == "on";
                         break;
+                    case "camera_mirror":
+                        if (value == "on" || value == "off") s.CameraMirror = value == "on";
+                        break;
+                    case "camera":
+                        if (value.Length > 0 && value.Length <= 200) s.CameraName = value;
+                        break;
                     case "ascii_mode":
                         asciiMode = value;
                         break;
@@ -382,6 +392,9 @@ namespace B0r3dDeRes
             Line("ascii_size", AsciiScale.ToString(CultureInfo.InvariantCulture));
             Line("scrub_mode", ScrubLocationOnly ? "location_only" : "all");
             Line("scrub_orientation", ScrubOrientation ? "on" : "off");
+            Line("camera_mirror", CameraMirror ? "on" : "off");
+            // (a camera's name on one line: Windows' names never hold a line break, but one is cut there)
+            if (!string.IsNullOrEmpty(CameraName)) Line("camera", CameraName.Split('\r', '\n')[0]);
             return text.ToString();
         }
 

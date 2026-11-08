@@ -15,8 +15,9 @@ namespace B0r3dDeRes
     // website's very frame), makes the ASCII studio's art, reads the sample's EXIF, cleans it and
     // writes into it (the website's very files), reads back a share link, writes an MP4 beside
     // <file> and reads it back (then deletes it), builds the windows in both looks with the
-    // picture in them, and writes what it found to <file> as key=value lines; the exit code is 0
-    // when it all worked.
+    // picture in them, runs the live camera on a pretend camera and snaps it (no real camera is
+    // ever started: Windows' own are only counted), and writes what it found to <file> as
+    // key=value lines; the exit code is 0 when it all worked.
     // The tests run it on the finished exe, on its own in a folder, to prove it works with
     // nothing beside it.
     static class SelfTest
@@ -239,8 +240,16 @@ namespace B0r3dDeRes
                     batch.Root.Arrange(new Rect(0, 0, 640, 760));
                     batch.Root.UpdateLayout();
                     if (window.Shown == null || !window.View.HasPicture) throw new InvalidOperationException("the main window made no picture in the " + look + " look");
+                    if (look == Look.Light)
+                    {
+                        string camera = CameraCheck(window, rukus);
+                        lines.Add("camera=" + camera);
+                        ok &= camera == "ok";
+                    }
                 }
                 lines.Add("windows=ok");
+                // Windows' own cameras, counted (listing starts none; only Use camera does)
+                lines.Add("cameras_seen=" + CamerasSeen());
             }
             catch (Exception e)
             {
@@ -303,6 +312,55 @@ namespace B0r3dDeRes
                 catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
                 {
                 }
+            }
+        }
+
+        // The live camera on a pretend one holding up the Rukus sample: live through the Game Boy (the
+        // engine's very picture of it, mirrored), then a snap that opens as the picture. "ok", or what
+        // went wrong. (No real camera is started.)
+        static string CameraCheck(MainWindow window, LoadedPicture rukus)
+        {
+            PictureSource s = rukus.Source;
+            var frame = new Camera.Frame();
+            frame.Size(s.Width, s.Height);
+            Buffer.BlockCopy(s.Bgra, 0, frame.Pixels, 0, frame.Pixels.Length);
+            var pretend = new Camera.PictureCameras("pretend camera", frame);
+            window.Cameras = () => pretend;
+            try
+            {
+                window.StartCamera();
+                var until = DateTime.UtcNow.AddSeconds(15);
+                while (window.LiveFrames < 3 && DateTime.UtcNow < until) Pump();
+                if (window.LiveFrames < 3) return "failed (no live frames: " + Flat(window.CameraLineText) + ")";
+                DeresSettings d = window.Current.Deres;
+                Profile p = Profiles.ById(d.ProfileId);
+                Camera.LivePlan.InputSize(s.Width, s.Height, p, d.Custom, d.CustomWidth, d.Fit, out int w, out int h);
+                var engine = new Deres();
+                engine.SetSource(Camera.LivePlan.Grab(frame, w, h, true, s.Width, s.Height));
+                if (!engine.Render(d).Rgb.SequenceEqual(window.LiveOnScreen.Rgb)) return "failed (the live frame isn't the engine's picture)";
+                window.SnapCamera();
+                while ((window.CameraOn || window.Opening || window.Rendering || window.OpenedPicture?.Name?.StartsWith("camera-") != true) && DateTime.UtcNow < until) Pump();
+                LoadedPicture snap = window.OpenedPicture;
+                if (snap?.Name?.StartsWith("camera-") != true || snap.Source.Width != s.Width) return "failed (the snap didn't open)";
+                while (!pretend.LetGo && DateTime.UtcNow < until) Pump();
+                return pretend.LetGo ? "ok" : "failed (the pretend camera wasn't let go of)";
+            }
+            finally
+            {
+                window.StopCamera(false);
+            }
+        }
+
+        // how many cameras Windows lists (none started), or "none" on a Windows without its media parts
+        static string CamerasSeen()
+        {
+            try
+            {
+                using (var webcams = new Camera.Webcams()) return webcams.Find().Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch (Camera.CameraException)
+            {
+                return "none";
             }
         }
 

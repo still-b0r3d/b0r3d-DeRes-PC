@@ -288,7 +288,7 @@ namespace B0r3dDeRes
         {
             bool ascii = AsciiActive;
             Visibility DeresOnly = ascii ? Visibility.Collapsed : Visibility.Visible, AsciiOnly = ascii ? Visibility.Visible : Visibility.Collapsed;
-            foreach (MenuItem m in new[] { BatchMenu, OpenLookMenu, OpenPaletteMenu, SaveFramesMenu, WallpaperMenu, EmulatorMenu, SaveLookMenu, SavePaletteMenu, CopyLinkMenu, GrabMenu, SurpriseMenu, CompareMenu })
+            foreach (MenuItem m in new[] { BatchMenu, CameraMenu, OpenLookMenu, OpenPaletteMenu, SaveFramesMenu, WallpaperMenu, EmulatorMenu, SaveLookMenu, SavePaletteMenu, CopyLinkMenu, GrabMenu, SurpriseMenu, CompareMenu })
                 m.Visibility = DeresOnly;
             if (!ascii)
             {
@@ -547,6 +547,8 @@ namespace B0r3dDeRes
         void OnTabChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.OriginalSource != Tabs || !ready) return;
+            // the camera is DeRes's: another tab turns it off
+            if (!DeresActive) StopCamera();
             if (ExifActive)
             {
                 ExifTabShown();

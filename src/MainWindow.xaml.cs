@@ -46,8 +46,8 @@ namespace B0r3dDeRes
         readonly Player player;
         VideoPlayer videoPlayer;
 
-        // a GIF or a video playing
-        internal bool AnythingPlays => player.Playing || videoPlayer != null && videoPlayer.Playing;
+        // a GIF or a video playing, or the camera on (the preview shows the frames they make)
+        internal bool AnythingPlays => player.Playing || videoPlayer != null && videoPlayer.Playing || camera != null;
 
         // for the tests: a pretend screen scaling (1.5 = 150 %)
         internal double? ScaleOverride
@@ -74,11 +74,13 @@ namespace B0r3dDeRes
             StateChanged += (s, e) =>
             {
                 if (WindowState != WindowState.Minimized && !fullScreen) maximized = WindowState == WindowState.Maximized;
-                // minimized, a GIF playing pauses rather than going on making frames nobody sees
+                // minimized, a GIF playing pauses rather than going on making frames nobody sees, and
+                // the camera turns off
                 if (WindowState == WindowState.Minimized)
                 {
                     player?.Pause();
                     asciiPlayer?.Pause();
+                    StopCamera();
                 }
             };
 
@@ -232,7 +234,7 @@ namespace B0r3dDeRes
                 Profile p = CurrentProfile;
                 Geometry g = PlannedGeometry();
 
-                PictureInfo.Text = Words.PictureInfo(picture);
+                PictureInfo.Text = camera != null ? Words.LivePicture(cameraNow?.Name, cameraWidth, cameraHeight) : Words.PictureInfo(picture);
                 NativeButton.Content = Words.Native(p);
                 NativeButton.IsChecked = !d.Custom;
                 CustomButton.IsChecked = d.Custom;
@@ -246,7 +248,8 @@ namespace B0r3dDeRes
                     WidthSlider.Value = ToTravel(w, min, max);
                 }
                 double coverX = 0, coverY = 0;
-                if (g != null) g.Coverage(picture.Source.Width, picture.Source.Height, picture.Source.OrigW, picture.Source.OrigH, out coverX, out coverY);
+                PictureSource framed = PlannedSource;
+                if (g != null) g.Coverage(framed.Width, framed.Height, framed.OrigW, framed.OrigH, out coverX, out coverY);
                 ResolutionInfo.Text = Words.Resolution(p, d.Custom, g, coverX, coverY, g != null);
                 FitPanel.Visibility = !d.Custom && !p.AutoHeight ? Visibility.Visible : Visibility.Collapsed;
                 FitFill.IsChecked = d.Fit == Fits.Fill;
@@ -335,6 +338,8 @@ namespace B0r3dDeRes
                 ExportNote.Visibility = p.ExportNote != null ? Visibility.Visible : Visibility.Collapsed;
                 // the studio's save buttons follow any save under way, DeRes's too
                 if (asciiPlayer != null) SyncAsciiExport();
+                // (last: while the camera is on, saving waits for a snap or a clip)
+                SyncCamera();
             }
             finally
             {
@@ -343,12 +348,12 @@ namespace B0r3dDeRes
             CommandManager.InvalidateRequerySuggested();
         }
 
-        // the framing the settings give the picture now (null with no picture)
+        // the framing the settings give the picture now (the camera's while it's on; null with no picture)
         Geometry PlannedGeometry()
         {
-            if (picture == null) return null;
+            PictureSource src = PlannedSource;
+            if (src == null) return null;
             DeresSettings d = settings.Deres;
-            PictureSource src = picture.Source;
             return Geometry.Plan(src.Width, src.Height, src.OrigW, src.OrigH, CurrentProfile, d.Custom, d.CustomWidth, d.Fit);
         }
 
@@ -504,13 +509,13 @@ namespace B0r3dDeRes
 
         void WidthLimits(out int min, out int max)
         {
-            if (picture == null)
+            PictureSource src = PlannedSource;
+            if (src == null)
             {
                 min = Geometry.CustomMin;
                 max = Geometry.CustomMax;
                 return;
             }
-            PictureSource src = picture.Source;
             Geometry.CustomWidthRange(src.Width, src.Height, src.OrigW, src.OrigH, out min, out max);
         }
 
@@ -604,6 +609,8 @@ namespace B0r3dDeRes
         // says it's opening); a picture that can't be opened says why and changes nothing.
         internal async void Open(Func<LoadedPicture> load, string name)
         {
+            // (the camera turns off: a picture opening takes the preview)
+            StopCamera();
             int ticket = ++opening;
             Opening = true;
             // a GIF or a video playing stops where it is while the next picture opens (and if that
@@ -671,7 +678,17 @@ namespace B0r3dDeRes
             if (AsciiActive) RenderAsciiSoon();
         }
 
-        internal bool Opening { get; private set; }
+        // a picture opening (Use camera waits for it)
+        internal bool Opening
+        {
+            get => isOpening;
+            private set
+            {
+                isOpening = value;
+                if (ready) SyncCamera();
+            }
+        }
+        bool isOpening;
 
         // what was copied or dropped: the first picture file in it, or the picture itself
         internal void OpenData(IDataObject data, string nothing)
@@ -787,7 +804,8 @@ namespace B0r3dDeRes
 
         void RenderSoon()
         {
-            if (picture == null) return;
+            // (the camera's frames carry the settings of the moment; the picture is made again when it stops)
+            if (picture == null || camera != null) return;
             // frames played with older settings are no good; a GIF playing makes its own
             CheckPlayKey();
             if (player.Playing) return;
@@ -925,21 +943,23 @@ namespace B0r3dDeRes
         void ShowReadout()
         {
             if (Opening) return;
-            Rendered r = onScreen ?? shown;
-            string text = r != null ? Words.Readout(r) : "";
-            if (Rendering && !busyTimer.IsEnabled && shown != null) text += " · working…";
+            Rendered r = onScreen ?? (camera != null ? null : shown);
+            string text = r != null ? Words.Readout(r) + LiveRate : "";
+            if (Rendering && !busyTimer.IsEnabled && shown != null && camera == null) text += " · working…";
             Readout.Text = text;
             Readout.ToolTip = text.Length > 0 ? text : null;   // (all of it, should a narrow window cut it short)
         }
 
         void ShowStage(string message = null)
         {
-            if (message == null && shown == null && picture == null) message = "Choose a picture to start.";
+            if (message == null && camera != null && onScreen == null) message = Words.CameraStarting(null);
+            if (message == null && shown == null && picture == null && camera == null) message = "Choose a picture to start.";
             StageNote.Text = message ?? "";
             StageNote.Visibility = message != null ? Visibility.Visible : Visibility.Collapsed;
             bool something = shown != null || onScreen != null;
-            HoldHint.Visibility = something ? Visibility.Visible : Visibility.Hidden;
-            DragOut.Visibility = something ? Visibility.Visible : Visibility.Hidden;
+            HoldHint.Visibility = something && camera == null ? Visibility.Visible : Visibility.Hidden;
+            // (a live frame isn't dragged out: Snap first)
+            DragOut.Visibility = something && camera == null ? Visibility.Visible : Visibility.Hidden;
         }
 
         void ShowZoom()
@@ -955,6 +975,8 @@ namespace B0r3dDeRes
             // the EXIF tools' tabs: Ctrl+S saves their copy, Ctrl+C copies the coordinates; no picture to zoom
             if (ExifActive)
                 e.CanExecute = e.Command == Commands.SavePng ? ExifCanSave : e.Command == Commands.CopyPicture && exifStage?.Shown?.Gps != null;
+            // the camera on: the live frames zoom and go full screen, but saving and copying wait for a snap
+            else if (camera != null && !AsciiActive) e.CanExecute = onScreen != null && e.Command != Commands.SavePng && e.Command != Commands.CopyPicture;
             else e.CanExecute = AsciiActive ? asciiShown != null : shown != null;
             e.Handled = true;
         }
@@ -1814,6 +1836,9 @@ namespace B0r3dDeRes
             settings.AnimationStyle = fresh.AnimationStyle;
             settings.VideoRate = fresh.VideoRate;
             settings.VideoSound = fresh.VideoSound;
+            // the camera's choices too (it stays on, as on the website)
+            settings.CameraMirror = fresh.CameraMirror;
+            settings.CameraName = fresh.CameraName;
             Changed();
             saveTimer.Stop();
             SaveSettings();
@@ -1900,11 +1925,14 @@ namespace B0r3dDeRes
 
         void OnClosing(object sender, CancelEventArgs e)
         {
+            // (while the window waits for work under way to stop, the camera turns off at once and
+            // the picture comes back)
             // a batch under way finishes the pictures it has started (never half a file), then
             // the window closes
             if (batch != null && batch.Busy)
             {
                 e.Cancel = true;
+                StopCamera();
                 batch.StopThenCloseOwner();
                 Flash("Stopping the batch: the pictures under way finish, then b0r3d DeRes closes.", "Warn");
                 return;
@@ -1913,6 +1941,7 @@ namespace B0r3dDeRes
             if (exifBusy)
             {
                 e.Cancel = true;
+                StopCamera();
                 closeAfterExif = true;
                 exifCancel?.Cancel();
                 Flash("Stopping the cleaning, then b0r3d DeRes closes.", "Warn");
@@ -1922,11 +1951,13 @@ namespace B0r3dDeRes
             if (animating != null)
             {
                 e.Cancel = true;
+                StopCamera();
                 closeAfterAnimation = true;
                 animating.Cancel();
                 Flash("Stopping the animation, then b0r3d DeRes closes.", "Warn");
                 return;
             }
+            StopCamera(false);
             player.Halt();
             asciiPlayer.Halt();
             modem.HangUp();

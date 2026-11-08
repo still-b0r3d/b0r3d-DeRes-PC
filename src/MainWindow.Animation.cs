@@ -92,7 +92,8 @@ namespace B0r3dDeRes
             // (the menu's lines are the studio's on its tab)
             if (!AsciiActive) SaveGifMenu.IsEnabled = SaveApngMenu.IsEnabled = SaveGifButton.IsEnabled;
             StopAnimationButton.Visibility = idle ? Visibility.Collapsed : Visibility.Visible;
-            PlayMenu.IsEnabled = player.Animated || video;
+            // (nothing plays under the live camera)
+            PlayMenu.IsEnabled = camera == null && (player.Animated || video);
         }
 
         void OnAnimStyle(object sender, RoutedEventArgs e)
@@ -120,6 +121,7 @@ namespace B0r3dDeRes
 
         void OnPlayMenu(object sender, RoutedEventArgs e)
         {
+            if (camera != null) return;
             if (picture?.Video != null) (AsciiActive ? asciiVideoPlayer : videoPlayer).Toggle();
             else (AsciiActive ? asciiPlayer : player).Toggle();
         }

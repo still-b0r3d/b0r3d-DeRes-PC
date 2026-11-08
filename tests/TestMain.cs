@@ -23,10 +23,10 @@ namespace B0r3dDeRes.Tests
     // Runs every test and prints a PASS, FAIL or SKIP line for each. It never shows a dialog:
     // whatever goes wrong ends as a line, and a watchdog stops the run after 90 seconds.
     //   b0r3dDeResTests.exe                        run the tests
-    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|window   run one part of them
-    //                                              (build.cmd test runs the ten in turn, each
+    //   b0r3dDeResTests.exe --part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|exif|camera|window   run one part of them
+    //                                              (build.cmd test runs the twelve in turn, each
     //                                              within its 90 seconds on a 2-core CI machine too)
-    //   b0r3dDeResTests.exe --shots <folder> light|dark|ascii|exif   draw the windows to PNG files (see Shots.cs), a set at a time
+    //   b0r3dDeResTests.exe --shots <folder> light|dark|ascii|exif|camera   draw the windows to PNG files (see Shots.cs), a set at a time
     static partial class TestMain
     {
         static int passed, failed, skipped;
@@ -70,16 +70,16 @@ namespace B0r3dDeRes.Tests
                 Fresh(Work);
                 DataFolder.Reset(Path.Combine(Work, "data"));
 
-                if (args.Length == 3 && args[0] == "--shots" && new[] { "light", "dark", "ascii", "exif" }.Contains(args[2]))
+                if (args.Length == 3 && args[0] == "--shots" && new[] { "light", "dark", "ascii", "exif", "camera" }.Contains(args[2]))
                 {
                     int shot = TakeShots(args[1], args[2]);
                     TryDelete(Work);
                     return shot;
                 }
-                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videosave", "videobatch", "ascii", "exif", "window" }.Contains(args[1])) only = args[1];
+                if (args.Length == 2 && args[0] == "--part" && new[] { "engine", "animation", "gifs", "frames", "signal", "video", "videosave", "videobatch", "ascii", "exif", "camera", "window" }.Contains(args[1])) only = args[1];
                 else if (args.Length > 0)
                 {
-                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|exif|window] [--shots <folder> light|dark|ascii|exif]");
+                    Console.WriteLine("b0r3dDeResTests.exe [--part engine|animation|gifs|frames|signal|video|videosave|videobatch|ascii|exif|camera|window] [--shots <folder> light|dark|ascii|exif|camera]");
                     return 2;
                 }
 
@@ -214,6 +214,21 @@ namespace B0r3dDeRes.Tests
                 Run("window: the EXIF Injector's form is the website's for each photo, and what it saves too (an edit, a device preset, the XMP block out or kept); a refused value is said and marked; what it can't write into says so", InjectorInTheWindow);
                 Run("window: the EXIF tabs' menus and Ctrl keys, with a batch and without, and the other tabs get theirs back", ExifMenusInTheWindow);
                 Run("settings: the scrubber's options are kept, odd ones fall back, and the window starts with them", ExifSettingsKept);
+
+                part = "camera";
+                Run("camera: the website's sums: the size grabbed, the live screen effect, a clip's size, names and the frame rate", CameraSums);
+                Run("camera: a picture grabbed small by averages, mirrored when asked, never see-through", CameraGrab);
+                Run("camera: Windows' cameras listed, none started; the names to choose by; each of Windows' answers in words; the kind of picture asked for", CamerasListed);
+                Run("camera: the camera's reader on video files (MJPEG as webcams send it, and H.264), at their size and the right way up", CameraReaderOnVideo);
+                Run("camera: its own thread: the newest picture, a snap, a 3-second clip on time, another camera, troubles said, always let go of", CameraLiveLoop);
+                Run("window: the camera live through the look (the engine's pixels), another machine live, saving waits for a snap, and Stop brings the picture back", CameraInTheWindow);
+                Run("window: Snap opens the camera's picture as it was shown, Record 3 s 30 frames ten a second like an animated GIF", CameraSnapAndClip);
+                Run("window: another tab, opening a picture, a camera Windows keeps, Flip, the camera used last, Reset and closing", CameraTurnsOff);
+                Run("window: the camera started again while a slow live frame is made comes on all the same", CameraQuickRestart);
+                Run("window: nothing plays under the live view, and Use camera waits for a picture opening", CameraNothingPlaysUnder);
+                Run("window: Flip while a camera starts goes on from that one", CameraFlipWhileStarting);
+                Run("window: a camera that won't start says Windows' own reason under the words", CameraTroubleDetail);
+                Run("window: closing while a loop is made turns the camera off at once", CameraOffWhileClosing);
 
                 part = "window";
                 Run("look: the three colour sets match, and every colour used is in them", ThemesMatch);

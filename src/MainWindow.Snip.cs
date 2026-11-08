@@ -27,6 +27,7 @@ namespace B0r3dDeRes
         void OnDeresScreen(object sender, ExecutedRoutedEventArgs e)
         {
             if (snips != null) return;
+            StopCamera();
             if (fullScreen) SetFullScreen(false);
             snips = new List<SnipWindow>();
             CommandManager.InvalidateRequerySuggested();
