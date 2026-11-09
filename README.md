@@ -6,19 +6,17 @@ resolution, their colours, their dithers. It's the Windows program of
 the same pictures, pixel for pixel (photos over 2048 pixels aside: see below). Your pictures
 stay on your PC: it never goes online, and it never keeps them.
 
-It's one small exe that runs on 64-bit Windows 10 and 11 with nothing to install.
+Version 1.0, for 64-bit Windows 10 and 11: one exe of about 2 MB, nothing to install. Made by
+[b0r3d.org](https://b0r3d.org).
 
 ![b0r3d DeRes as it starts: the Rukus sample on the Game Boy](docs/deres-game-boy.png)
 
-**An early release.** This is version 0.8, the eighth of nine stages: the program itself, opening
-pictures, every machine and analog look of the website, Resolution, Adjust, the dithers, the
-Signal (every one of its engine's settings, presets and dubbed tapes), the screen effects, the
-preview, saving, copying and dragging out PNGs, wallpapers, animated GIFs playing, GIF and APNG
-loops, videos (playing, and saved as MP4s with their sound, GIFs, APNGs and PNG frames),
-batches, DeRes the screen, the machines' own files for emulators, palette files, look files and
-share links, the ASCII / ANSI studio (its art of pictures, GIFs and videos, and every file it
-makes), and the EXIF tools (what photos and phone videos say about you, taken out or written
-in). 1.0 comes after a full test run on a real PC.
+**Version 1.0** is the first full release, with everything planned for it: opening pictures and
+phone videos (upright, sound in step), all 42 machines and looks, Resolution, Adjust, the dithers,
+the Signal (every setting, presets and dubbed tapes), screen effects, saving, copying and
+dragging out PNGs, wallpapers, animated GIFs and loops, MP4 videos with their sound, batches,
+DeRes the screen, the live camera (Snap, Record 3 s, Flip, Mirror), the ASCII / ANSI studio, and
+the EXIF tools (scrubber and injector).
 
 ## Make a picture
 

@@ -3,9 +3,9 @@
 What changed in each version of b0r3d DeRes for Windows, the newest first. The versions before
 1.0 are its stages, built one after the other; 0.8 is the first one released.
 
-## 0.9 (not released yet)
+## 1.0 (released 8 November 2026)
 
-The live camera, and the release candidate for 1.0.
+The first full release, with the live camera, matching img.b0r3d.org v1.0.
 
 - **Use camera**, under Open picture or video… (and File → Use the camera): the preview becomes
   a live view through the look, as on the website, with every control working on it. Each of the
