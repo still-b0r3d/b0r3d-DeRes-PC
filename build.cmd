@@ -33,7 +33,7 @@ if defined B0R3DDERES_BUILD set "BUILD=%B0R3DDERES_BUILD:~0,7%"
 
 rem -nodeReuse and UseSharedCompilation off: no SDK helper processes are left running afterwards
 dotnet build tests\b0r3dDeResTests.csproj -c Release -nologo -v quiet -nodeReuse:false -p:UseSharedCompilation=false -p:BuildStamp=%BUILD%
-if errorlevel 1 exit /b 1
+call :check "The build" || exit /b 1
 
 echo Built bin\b0r3dDeRes.exe, build %BUILD%
 if /i not "%~1"=="test" exit /b 0
@@ -43,26 +43,37 @@ rem GIFs' own frames and GIFs in the window, the other half, the Signal's every 
 rem videos read, written and played, a video saved through the look, batches of videos,
 rem the ASCII / ANSI studio, the EXIF tools, the live camera, then the windows.
 bin\tests\b0r3dDeResTests.exe --part engine
-if errorlevel 1 exit /b 1
+call :check "The engine tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part animation
-if errorlevel 1 exit /b 1
+call :check "The animation tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part gifs
-if errorlevel 1 exit /b 1
+call :check "The gifs tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part frames
-if errorlevel 1 exit /b 1
+call :check "The frames tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part signal
-if errorlevel 1 exit /b 1
+call :check "The signal tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part video
-if errorlevel 1 exit /b 1
+call :check "The video tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part videosave
-if errorlevel 1 exit /b 1
+call :check "The videosave tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part videobatch
-if errorlevel 1 exit /b 1
+call :check "The videobatch tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part ascii
-if errorlevel 1 exit /b 1
+call :check "The ascii tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part exif
-if errorlevel 1 exit /b 1
+call :check "The exif tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part camera
-if errorlevel 1 exit /b 1
+call :check "The camera tests" || exit /b 1
 bin\tests\b0r3dDeResTests.exe --part window
-exit /b %ERRORLEVEL%
+call :check "The window tests" || exit /b 1
+exit /b 0
+
+rem Any exit code but 0 is a failure. "if errorlevel 1" alone is only true from 1 up, so it
+rem misses a negative code, such as a program that crashes as it closes (0xC000000D is -1073741811).
+:check
+if errorlevel 1 goto failed
+if not errorlevel 0 goto failed
+exit /b 0
+:failed
+echo %~1 ended with exit code %ERRORLEVEL%.
+exit /b 1
