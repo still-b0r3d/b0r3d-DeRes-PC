@@ -228,11 +228,11 @@ namespace B0r3dDeRes.Tests
                 for (int c = 0; c < 256; c++)
                     if (Ascii.CanvasLevel(c, a) != want[a * 256 + c]) wrong.Add("level " + c + " at alpha " + a + ": " + Ascii.CanvasLevel(c, a) + ", not " + want[a * 256 + c]);
             Check(wrong.Count == 0, wrong.Count + " of 65,536 differ: " + string.Join("; ", wrong.Take(4)));
-            // the Rukus sample, opened from its own file as the window opens it, makes the website's art of the very same picture
+            // the Ruckus sample, opened from its own file as the window opens it, makes the website's art of the very same picture
             PictureSource own = Pictures.Sample("rukus").Source;
             AsciiCase start = WebsiteAscii.Cases.First(x => x.Input == "rukus" && x.Settings.Key == new AsciiSettings().Key);
             foreach (AsciiCase c in WebsiteAscii.Cases.Where(x => x.Input == "rukus"))
-                Check(ArtSha(Ascii.Generate(own, c.Settings)) == c.Art, "the Rukus sample's art, read as the website's canvas reads it, isn't the website's: " + c);
+                Check(ArtSha(Ascii.Generate(own, c.Settings)) == c.Art, "the Ruckus sample's art, read as the website's canvas reads it, isn't the website's: " + c);
         }
 
         static void AsciiAnimationsLikeTheWebsite()

@@ -269,13 +269,13 @@ namespace B0r3dDeRes.Tests
                 Check(Pictures.Sample(sample).Source.Bgra.SequenceEqual(rawPixels), name + "'s sRGB profile changed its pixels");
             }
 
-            // and the Rukus sample opens as Chromium opened it for the website (its see-through
+            // and the Ruckus sample opens as Chromium opened it for the website (its see-through
             // edges aside: browsers keep those premultiplied, which rounds them a little)
             PictureSource rukus = Pictures.Sample("rukus").Source, chromium = Input("rukus");
             int opaqueDiffer = 0;
             for (int i = 0; i < rukus.Bgra.Length; i += 4)
                 if (rukus.Bgra[i + 3] == 255 && (rukus.Bgra[i] != chromium.Bgra[i] || rukus.Bgra[i + 1] != chromium.Bgra[i + 1] || rukus.Bgra[i + 2] != chromium.Bgra[i + 2])) opaqueDiffer++;
-            Check(opaqueDiffer == 0, opaqueDiffer + " solid pixels of Rukus differ from the website's working copy");
+            Check(opaqueDiffer == 0, opaqueDiffer + " solid pixels of Ruckus differ from the website's working copy");
         }
 
         // How Windows' JPEG reader compares with Chromium's on the two sample photos: close, not

@@ -28,11 +28,11 @@ namespace B0r3dDeRes.Tests
         {
             MainWindow window = NewMain();
             WaitForPicture(window);
-            Check(window.BackgroundPanel.Visibility == Visibility.Visible, "Rukus has see-through parts: Transparent areas should show");
+            Check(window.BackgroundPanel.Visibility == Visibility.Visible, "Ruckus has see-through parts: Transparent areas should show");
             window.BackKeep.IsChecked = true;
             WaitForPicture(window);
             Rendered r = window.Shown;
-            Check(window.ShownWith.Background == Backgrounds.Transparent && r.Alpha != null && r.Alpha.Any(a => a == 0), "kept, Rukus's corners should be see-through");
+            Check(window.ShownWith.Background == Backgrounds.Transparent && r.Alpha != null && r.Alpha.Any(a => a == 0), "kept, Ruckus's corners should be see-through");
             Check(window.KeepNote.Visibility == Visibility.Visible && window.KeepNote.Text.Contains(".chr"), "the note under Keep should show");
             Check(window.View.Checker, "the preview should show a checkerboard behind");
             // a see-through pixel shows the checkerboard; one that shows, its colour

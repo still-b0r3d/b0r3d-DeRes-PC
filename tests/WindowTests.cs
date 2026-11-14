@@ -115,7 +115,7 @@ namespace B0r3dDeRes.Tests
             window.FitFit.IsChecked = true;
             Pick(window, "cga-1");
             Geometry g = window.Shown.Geometry;
-            Check(g.Dst.W < g.Width || g.Dst.H < g.Height, "Fit, with bars should leave bars on Rukus in CGA's shape");
+            Check(g.Dst.W < g.Width || g.Dst.H < g.Height, "Fit, with bars should leave bars on Ruckus in CGA's shape");
         }
 
         // what the window makes is what the engine makes with the same settings

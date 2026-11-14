@@ -183,10 +183,10 @@ namespace B0r3dDeRes.Tests
                 Run("ASCII: the ramps, mosaics, palettes and C64 screen codes are the website's, and kept settings are checked as it checks them", AsciiTablesLikeTheWebsite);
                 Run("ASCII: half-block pictures pixel for pixel, Teletext's as Chromium's canvas draws them, characters as the font's own letters, PNGs and names", AsciiPicturesLikeTheWebsite);
                 Run("ASCII: the VGA font's " + WebsiteAscii.FontPoints.Split(',').Length + " letters as Chromium draws them, from the website's own font file; the quarter blocks it lacks", VgaFontLikeChromium);
-                Run("ASCII: see-through pixels' colours as the website's canvas gives them back (65,536 of them), and the Rukus sample's art from its own file", CanvasLevelsLikeChromium);
+                Run("ASCII: see-through pixels' colours as the website's canvas gives them back (65,536 of them), and the Ruckus sample's art from its own file", CanvasLevelsLikeChromium);
                 Run("ASCII: the GIF sample's every frame as art, its ANSImation byte for byte, GIFs byte for byte and APNGs by their parts", AsciiAnimationsLikeTheWebsite);
                 Run("ASCII: SAUCE records, their fields and the title cut to 35 bytes", SauceRecords);
-                Run("window: the ASCII studio makes the website's art of the Rukus sample in every mode, every control makes the engine's art, the menus follow the tab, and Reset settings", AsciiStudioInTheWindow);
+                Run("window: the ASCII studio makes the website's art of the Ruckus sample in every mode, every control makes the engine's art, the menus follow the tab, and Reset settings", AsciiStudioInTheWindow);
                 Run("window: the studio's .ans, PNGs at 1×, 2× and 4×, .seq, .prg and Teletext .txt are the engine's files", AsciiSavesInTheWindow);
                 Run("window: the GIF sample plays as art and pauses on the website's art of the frame, the other tab opens there, and its every frame goes out as the website's GIF, APNG and ANSImation; Stop leaves no file", AsciiGifInTheWindow);
                 Run("window: a video's art goes out as an MP4 with its sound in step, a GIF and an ANSImation, at its own speed or slower", AsciiVideoInTheWindow);
@@ -233,7 +233,7 @@ namespace B0r3dDeRes.Tests
                 part = "window";
                 Run("look: the three colour sets match, and every colour used is in them", ThemesMatch);
                 Run("window: builds in light and dark with no binding errors", WindowWithoutBindingErrors);
-                Run("window: starts with the Rukus sample on the Game Boy, its lines in the website's words", WindowStartsWithTheSample);
+                Run("window: starts with the Ruckus sample on the Game Boy, its lines in the website's words", WindowStartsWithTheSample);
                 Run("preview: every machine pixel is exactly k × k screen pixels, at 100 % and 150 %", PreviewIsSharp);
                 Run("preview: zoom in whole steps, move around, Fit, 1×, and a slider never moves it", ZoomAndMove);
                 Run("preview: Compare's divider, and holding for the original", CompareAndHold);

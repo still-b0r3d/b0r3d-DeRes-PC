@@ -6,7 +6,7 @@ using System.Windows.Controls;
 namespace B0r3dDeRes.Tests
 {
     // b0r3dDeResTests.exe --shots <folder> exif: the EXIF Scrubber and Injector, in light and dark
-    // (the Rukus sample as the tabs open, at 100 % and 150 %; a phone photo with its place, its
+    // (the Ruckus sample as the tabs open, at 100 % and 150 %; a phone photo with its place, its
     // thumbnail and all its tags; its clean copy's Verified Clean; AI and Content Credentials; a
     // GIF; a HEIC Windows can't show; an iPhone video and its clean copy; a batch, cleaned; the
     // injector's form, a device preset, a refused value and a saved photo).

@@ -94,7 +94,7 @@ The eighth stage: the EXIF tools.
   in the studio (the two share them).
 - Alt+B opens the EXIF Scrubber and Alt+J the Injector; the Hardware section's Grab palette
   button has no access key now (the Edit menu's Grab palette has one).
-- The self-test reads the Rukus sample's EXIF, cleans it and writes into it: the website's very
+- The self-test reads the Ruckus sample's EXIF, cleans it and writes into it: the website's very
   files (`exif=ok`).
 - The tests run in eleven parts (`exif` is new); `--shots <folder> exif` draws the two tabs.
 - The README shows the program in pictures. The licence notices (THIRD-PARTY-NOTICES.txt, and
@@ -139,7 +139,7 @@ The seventh stage: the ASCII / ANSI studio.
 - The studio's settings are kept with the others (a typed-in ramp too, any character, and the
   PNG's size). A ramp pasted with line breaks comes in on one line, as the website's box takes it.
 - The Hardware section's Surprise me button's access key is now M (U is the studio's tab).
-- The self-test makes the website's art of the Rukus sample, its Teletext picture and the font's
+- The self-test makes the website's art of the Ruckus sample, its Teletext picture and the font's
   every letter (`ascii=ok`).
 - The tests run in ten parts (`ascii` is new); `--shots <folder>` takes a set: `light`, `dark`
   or `ascii`.
@@ -223,7 +223,7 @@ The fifth stage: GIFs and loops.
 - Batches can make a GIF or an APNG each: an animated GIF as its own frames, any other picture
   as the loop picked under Export, each made straight into its file (however big) and read back
   through to its end.
-- The GIF sample, Rukus breaking out, is inside the exe ("Try a GIF").
+- The GIF sample, Ruckus breaking out, is inside the exe ("Try a GIF").
 - The Signal's line: "The noise moves when a GIF plays, and in the animations under Export."
 - The settings file and look files keep the loop picked (the GIF's own frames are picked again
   for every GIF opened).
@@ -255,7 +255,7 @@ The fourth stage: the Signal.
 - The Signal's and the Screen's Off buttons are named for Voice Access with the words on them.
 - Share links and look files carry the signal, and the loop's length and speed, as the
   website's do; the settings file keeps them.
-- The self-test makes the website's very frame of the Rukus sample over RF.
+- The self-test makes the website's very frame of the Ruckus sample over RF.
 - 79 tests: 104 signal frames, 13 PNGs and wallpapers through it, 40 of the website's engine
   settings files and CGA composite's colours against the website's own engine, as well as
   761 pictures, 253 PNGs, 215 screen effects and 16 wallpapers.
@@ -333,7 +333,7 @@ The first stage: the program, and the machines with fixed palettes.
   Windows (View → Look), sharp at any screen scaling, and Help → About with the version,
   the build, the settings folder and the licences.
 - Opening pictures: File → Open picture…, a drop anywhere on the window or on the exe,
-  Ctrl+V, and the samples inside the exe (Rukus, the crystal forest and the cat nap). PNG,
+  Ctrl+V, and the samples inside the exe (Ruckus, the crystal forest and the cat nap). PNG,
   JPEG, GIF (its first picture), BMP and TIFF, plus WebP, HEIC, AVIF, JPEG XL and camera RAW
   where Windows has Microsoft's extensions. The whole photo, the right way up, in its own
   colours when it has a colour profile (sRGB ones leave the pixels as they are, as browsers

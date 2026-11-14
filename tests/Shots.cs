@@ -9,10 +9,10 @@ using B0r3dDeRes.Engine;
 
 namespace B0r3dDeRes.Tests
 {
-    // b0r3dDeResTests.exe --shots <folder>: draws the main window (the Rukus sample on the Game Boy
+    // b0r3dDeResTests.exe --shots <folder>: draws the main window (the Ruckus sample on the Game Boy
     // as it starts, at 100 % and 150 %; a photo on the NES with Hardware and Dither open; Adjust and
     // Export open; Compare with its divider and a custom width; the ZX Spectrum with its tile meter;
-    // Rukus kept see-through on the Super Nintendo; the Amstrad's Colours slider; the PlayStation's
+    // Ruckus kept see-through on the Super Nintendo; the Amstrad's Colours slider; the PlayStation's
     // dithers; the C64's .koa and the share link; the screens, a CRT close up at 150 %, the analog
     // looks, the export's wallpapers, a batch and the snip; the signal; the GIF sample playing and
     // paused, the Animation loop, a VHS loop's rows and a batch of GIFs; a video paused on its

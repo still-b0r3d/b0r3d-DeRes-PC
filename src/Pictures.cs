@@ -90,10 +90,10 @@ namespace B0r3dDeRes
         // the samples, by the website's ids, with their file names (the GIF last, on a line of its own)
         public static readonly (string Id, string Label, string File, string Menu)[] Samples =
         {
-            ("rukus", "Rukus", "rukus.png", "_Rukus"),
+            ("rukus", "Ruckus", "rukus.png", "_Ruckus"),
             ("forest", "Crystal forest", "crystal-forest.jpg", "Crystal _forest"),
             ("cat-nap", "Cat nap", "cat-nap.jpg", "Cat _nap"),
-            ("rukus-gif", "Rukus breaks out", "rukus-breaks-out.gif", "Rukus _breaks out (GIF)"),
+            ("rukus-gif", "Ruckus breaks out", "rukus-breaks-out.gif", "Ruckus _breaks out (GIF)"),
         };
 
         public static LoadedPicture Sample(string id)

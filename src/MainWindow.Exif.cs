@@ -82,7 +82,7 @@ namespace B0r3dDeRes
             foreach (TextBlock line in new[] { ScrubSampleLine, InjectSampleLine })
             {
                 line.Inlines.Add(new Run("Try the sample: "));
-                var link = new Hyperlink(new Run("Rukus")) { Tag = "rukus" };
+                var link = new Hyperlink(new Run("Ruckus")) { Tag = "rukus" };
                 link.Click += (s, e) => OpenSample((string)((Hyperlink)s).Tag);
                 line.Inlines.Add(link);
             }
@@ -1307,9 +1307,9 @@ namespace B0r3dDeRes
         {
             var f = new InjectorFields
             {
-                ["make"] = "b0r3d optics", ["model"] = "Rukus-Cam 95 Deluxe", ["lens"] = "b0r3d Prime 28mm f/1.4 Deluxe", ["artist"] = "still_b0r3d",
+                ["make"] = "b0r3d optics", ["model"] = "Ruckus-Cam 95 Deluxe", ["lens"] = "b0r3d Prime 28mm f/1.4 Deluxe", ["artist"] = "still_b0r3d",
                 ["copyright"] = "(c) 2026 b0r3d.org - All rights reserved", ["software"] = "b0r3d DeRes v" + Program.Version, ["orientation"] = "1", ["aperture"] = "1.4",
-                ["shutter"] = "1/250", ["iso"] = "100", ["focal"] = "28", ["dateTime"] = Injector.NormalizeDate(), ["description"] = "Rukus the Cat, Chief Executive Officer of b0r3d.org",
+                ["shutter"] = "1/250", ["iso"] = "100", ["focal"] = "28", ["dateTime"] = Injector.NormalizeDate(), ["description"] = "Ruckus the Cat, Chief Executive Officer of b0r3d.org",
                 ["lat"] = "41.878113", ["lon"] = "-87.629799", ["alt"] = "182",
             };
             FillForm(f);

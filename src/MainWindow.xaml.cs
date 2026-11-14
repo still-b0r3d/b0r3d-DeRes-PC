@@ -60,7 +60,7 @@ namespace B0r3dDeRes
         internal Settings Current => settings;
         internal LoadedPicture OpenedPicture => picture;
 
-        // startWith: a picture to open; else the Rukus sample, as the website starts (`sample` false, for
+        // startWith: a picture to open; else the Ruckus sample, as the website starts (`sample` false, for
         // the tests: nothing)
         internal MainWindow(Settings settings, string startWith, bool sample = true)
         {

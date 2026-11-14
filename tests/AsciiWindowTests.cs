@@ -59,9 +59,9 @@ namespace B0r3dDeRes.Tests
         static void AsciiStudioInTheWindow()
         {
             MainWindow window = AsciiWindow();
-            // the Rukus sample as it starts: the website's very art of it
+            // the Ruckus sample as it starts: the website's very art of it
             AsciiCase start = WebsiteAscii.Cases.First(c => c.Input == "rukus" && c.Settings.Key == new AsciiSettings().Key);
-            Check(ArtSha(window.AsciiShown) == start.Art, "the Rukus sample's art as the studio starts isn't the website's");
+            Check(ArtSha(window.AsciiShown) == start.Art, "the Ruckus sample's art as the studio starts isn't the website's");
             Check(window.AsciiReadout.Text == "80×40 cells · " + start.Colours + " ANSI colours · half-block", "the readout: " + window.AsciiReadout.Text);
             Check(window.AsciiStageNote.Visibility != Visibility.Visible, "the stage says " + window.AsciiStageNote.Text);
             Check(window.AsciiPictureInfo.Text.StartsWith("rukus.png · 256×256"), "the picture line: " + window.AsciiPictureInfo.Text);
@@ -79,7 +79,7 @@ namespace B0r3dDeRes.Tests
                 WaitForAscii(window);
                 AsciiSettings s = window.Current.Ascii;
                 AsciiCase c = WebsiteAscii.Cases.FirstOrDefault(x => x.Input == "rukus" && x.Settings.Key == s.Key);
-                Check(c != null && ArtSha(window.AsciiShown) == c.Art, mode + ": not the website's art of Rukus (" + s.Key + ")");
+                Check(c != null && ArtSha(window.AsciiShown) == c.Art, mode + ": not the website's art of Ruckus (" + s.Key + ")");
                 Check(window.AsciiRampSection.Visibility == (mode == AsciiModes.Ramp ? Visibility.Visible : Visibility.Collapsed) &&
                     window.AsciiTeletextSection.Visibility == (mode == AsciiModes.Teletext ? Visibility.Visible : Visibility.Collapsed) &&
                     window.AsciiColumnsPanel.Visibility == (mode == AsciiModes.Petscii ? Visibility.Collapsed : Visibility.Visible) && window.AsciiC64Note.Visibility == (mode == AsciiModes.Petscii ? Visibility.Visible : Visibility.Collapsed),

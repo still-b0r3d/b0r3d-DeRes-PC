@@ -9,7 +9,7 @@ stay on your PC: it never goes online, and it never keeps them.
 Version 1.0, for 64-bit Windows 10 and 11: one exe of about 2 MB, nothing to install. Made by
 [b0r3d.org](https://b0r3d.org).
 
-![b0r3d DeRes as it starts: the Rukus sample on the Game Boy](docs/deres-game-boy.png)
+![b0r3d DeRes as it starts: the Ruckus sample on the Game Boy](docs/deres-game-boy.png)
 
 **Version 1.0** is the first full release, with everything planned for it: opening pictures and
 phone videos (upright, sound in step), all 42 machines and looks, Resolution, Adjust, the dithers,
@@ -23,7 +23,7 @@ the EXIF tools (scrubber and injector).
 Download `b0r3dDeRes.exe` from the
 [Releases page](https://github.com/still-b0r3d/b0r3d-DeRes-PC/releases), put it in a folder of
 its own and double-click it. Windows may say it protected your PC: click **More info**, then
-**Run anyway** (b0r3d DeRes isn't code-signed). It opens with the Rukus
+**Run anyway** (b0r3d DeRes isn't code-signed). It opens with the Ruckus
 sample on the Game Boy, as the website does. Open a picture of your own with **File → Open
 picture or video…** (Ctrl+O), drop one anywhere on the window, paste one (Ctrl+V), or drop it on
 `b0r3dDeRes.exe` itself. PNG, JPEG, GIF (an animated one plays: see below), BMP and TIFF always
@@ -136,7 +136,7 @@ screen effect from 3× up.
 
 An animated GIF opens through DeRes's own GIF decoder, as on the website, at its own size (up to
 128 megapixels of frames in all; past that it's shrunk to fit). **Try a GIF** opens the GIF
-sample, Rukus breaking out. A play bar comes under the picture: **Play** / **Pause**, the frame
+sample, Ruckus breaking out. A play bar comes under the picture: **Play** / **Pause**, the frame
 slider and its counter. Every frame goes through all the settings, the Signal (its noise moves
 at the GIF's own speed) and the screen effect; once each frame has been made it's kept, so it
 loops at the GIF's speed. Paused, the frame on screen is the picture: Compare, Save PNG, copies,
@@ -154,7 +154,7 @@ that are made twice instead, so any number fit. When the Size chosen is too big,
 the biggest that fits and a line by the buttons says so. Frames are made on every core, the
 bottom line counts them, and **Stop** leaves no file.
 
-![The GIF sample, Rukus breaking out, playing through JPEG deep fry](docs/deres-gif.png)
+![The GIF sample, Ruckus breaking out, playing through JPEG deep fry](docs/deres-gif.png)
 
 ## Videos
 
@@ -206,7 +206,7 @@ size too). The text files are the website's byte for byte, and so are the pictur
 blocks and Teletext, pixel for pixel; a ramp's or PETSCII's picture is drawn from the font's own
 letters, crisp (see below).
 
-![The Rukus sample as half blocks in ANSI's 16 colours, with the modem](docs/ascii-studio.png)
+![The Ruckus sample as half blocks in ANSI's 16 colours, with the modem](docs/ascii-studio.png)
 
 ## The EXIF tools
 
@@ -221,7 +221,7 @@ Content Credentials, and the **Summary** or **All Tags Tree**, with a filter. JP
 are cleaned; HEIC and AVIF are read.
 
 <p>
-<img src="docs/exif-scrubber.png" width="49%" alt="The EXIF Scrubber on the Rukus sample: its place and its thumbnail found">
+<img src="docs/exif-scrubber.png" width="49%" alt="The EXIF Scrubber on the Ruckus sample: its place and its thumbnail found">
 <img src="docs/exif-injector.png" width="49%" alt="The EXIF Injector's form, filled in from the photo">
 </p>
 
@@ -348,7 +348,7 @@ for byte; half-block pictures pixel for pixel; Teletext's pictures as Chromium's
 them (the soft edges where its blocks fall between pixels included), pixel for pixel; the GIF
 sample's every frame as art, and its ANSImation, GIFs and APNGs, as the website's own files. A
 picture with see-through parts is read as the website's canvas holds it (all 65,536 of its
-colour levels checked against Chromium), so the Rukus sample makes the website's very art. The
+colour levels checked against Chromium), so the Ruckus sample makes the website's very art. The
 self-test makes some of that art on the PC it runs on. The test files are made from the website
 at the version named at the top of `tests/WebsiteCases.cs`.
 The EXIF tools' engine is the website's as well: 748 files (88 photos, GIFs and HEICs of every
@@ -359,7 +359,7 @@ injection (23 sets of edits), with the form's checks and messages, its dates and
 and the batch's names and ZIPs. JavaScript's own ways with text (how it trims, decodes, and
 turns letters to capitals, Unicode's tables and all) are copied too. Videos are the PC's own:
 cleaned clips from phones are checked byte for byte and played back through Windows, frame for
-frame and sound for sound. The self-test cleans the Rukus sample and writes into it on the PC it
+frame and sound for sound. The self-test cleans the Ruckus sample and writes into it on the PC it
 runs on.
 
 The tests start from the decoded picture. Windows reads the sample photos to the same pixels

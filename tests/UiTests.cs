@@ -139,7 +139,7 @@ namespace B0r3dDeRes.Tests
             }
         }
 
-        // the window starts as the website does: the Rukus sample on the Game Boy, its lines filled in
+        // the window starts as the website does: the Ruckus sample on the Game Boy, its lines filled in
         static void WindowStartsWithTheSample()
         {
             MainWindow window = NewMain();
@@ -154,7 +154,7 @@ namespace B0r3dDeRes.Tests
             Check(window.ResolutionInfo.Text == "Game Boy: 160×144 pixels. Each pixel averages 1.6 × 1.6 of your photo’s pixels.", "the resolution line: " + window.ResolutionInfo.Text);
             Check(window.SizeLine.Text == "640×576 px · 4-colour palette", "the size line: " + window.SizeLine.Text);
             Check(window.StageNote.Visibility != Visibility.Visible, "the stage still shows a note: " + window.StageNote.Text);
-            Check(window.BackgroundPanel.Visibility == Visibility.Visible, "Rukus has see-through parts, so Transparent areas should show");
+            Check(window.BackgroundPanel.Visibility == Visibility.Visible, "Ruckus has see-through parts, so Transparent areas should show");
             Check(window.Cards.Children.OfType<RadioButton>().Count(c => c.IsChecked == true) == 1, "one machine should be picked");
             Check(window.Dithers.Children.OfType<RadioButton>().Single(d => d.IsChecked == true).Tag as string == "bayer4", "the Game Boy starts on Bayer 4×4");
             Pump(() => window.SaveButton.IsEnabled, 2000);

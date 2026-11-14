@@ -22,7 +22,7 @@ namespace B0r3dDeRes
     // nothing beside it.
     static class SelfTest
     {
-        // the website's own frame of the Rukus sample on the Game Boy over RF (its SHA-256; the
+        // the website's own frame of the Ruckus sample on the Game Boy over RF (its SHA-256; the
         // tests check it against their copy of the website's, Website.SelfTestSignal)
         internal const string RukusOverRf = "e4144a90e4de3245bdc926c59c83d478e993d8aa8d53702ace86b81d116de9d6";
 
@@ -30,7 +30,7 @@ namespace B0r3dDeRes
         // the tests check it against Website.SelfTestGif)
         internal const string RukusGif = "24928182a5d65f11597832d9f3e8a428f984a3079d353681bcaf0d89abd0481c";
 
-        // the website's own art of the Rukus sample as the ASCII studio starts, and its picture of
+        // the website's own art of the Ruckus sample as the ASCII studio starts, and its picture of
         // the sample as Teletext 33 columns wide in 16 colours at 2× (their SHA-256; the tests
         // check them against WebsiteAscii.cs)
         internal const string RukusArt = "60b7aa1abe97328070130d140e9443e72badf42c5255859bec06055cfbc1ee89";
@@ -38,7 +38,7 @@ namespace B0r3dDeRes
         // every letter of the website's font as Chromium draws it, 16 rows each in code point order
         internal const string VgaLetters = "12d9ab6682bb36099543f2c94c26e4c8fc5099222190981a4f1bcfa00141b7d8";
 
-        // the website's clean copy of the Rukus sample (all of its metadata out), and the sample
+        // the website's clean copy of the Ruckus sample (all of its metadata out), and the sample
         // with "me" injected as its Artist (their SHA-256; the tests check them against the
         // website's results in tests\website\exif)
         internal const string RukusScrubbed = "d90f9881c17954eeb3bf0f535616cf6698302fec73c1d965ba927d9c615f0c61";
@@ -145,7 +145,7 @@ namespace B0r3dDeRes
                 lines.Add("gif=" + (animated ? "ok" : "failed"));
                 ok &= animated;
 
-                // the ASCII studio: the Rukus sample's art as the website makes it (the sample read
+                // the ASCII studio: the Ruckus sample's art as the website makes it (the sample read
                 // as the website's canvas reads it), its Teletext picture at 2× as Chromium's canvas
                 // draws it, and every letter of the font file inside the exe as Chromium draws it
                 bool ascii;
@@ -172,7 +172,7 @@ namespace B0r3dDeRes
                 lines.Add("ascii=" + (ascii ? "ok" : "failed"));
                 ok &= ascii;
 
-                // the EXIF tools: the Rukus sample's file inside the exe read as the website reads
+                // the EXIF tools: the Ruckus sample's file inside the exe read as the website reads
                 // it, its clean copy the website's byte for byte and Verified Clean, and an Artist
                 // written into it the website's very file
                 bool exif;
@@ -315,7 +315,7 @@ namespace B0r3dDeRes
             }
         }
 
-        // The live camera on a pretend one holding up the Rukus sample: live through the Game Boy (the
+        // The live camera on a pretend one holding up the Ruckus sample: live through the Game Boy (the
         // engine's very picture of it, mirrored), then a snap that opens as the picture. "ok", or what
         // went wrong. (No real camera is started.)
         static string CameraCheck(MainWindow window, LoadedPicture rukus)

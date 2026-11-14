@@ -8,7 +8,7 @@ using B0r3dDeRes.Engine;
 namespace B0r3dDeRes.Tests
 {
     // b0r3dDeResTests.exe --shots <folder> ascii: the ASCII / ANSI studio, in light and dark (the
-    // Rukus sample as it starts, at 100 % and 150 %; the crystal forest as a truecolour ramp with
+    // Ruckus sample as it starts, at 100 % and 150 %; the crystal forest as a truecolour ramp with
     // the ramps open; the cat as PETSCII; the forest as Teletext with gaps; the Export section; the
     // katakana ramp in Windows' font; green CRT under the scanlines; the modem typing; the GIF
     // sample playing, its Export; a video on its timeline).
